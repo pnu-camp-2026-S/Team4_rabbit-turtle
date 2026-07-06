@@ -40,7 +40,7 @@ class LogzineTopBar extends StatelessWidget {
           const Spacer(),
           if (showBell)
             IconButton(
-              onPressed: () {},
+              onPressed: () => _showNotifications(context),
               icon: const Icon(Icons.notifications_none,
                   size: 23, color: AppColors.ink),
             ),
@@ -54,6 +54,75 @@ class LogzineTopBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 알림 바텀시트 — (아이콘, 제목, 시간) 데모 알림 목록.
+/// TODO: 실제 알림 데이터 연동 시 이 목록을 서버 데이터로 대체.
+void _showNotifications(BuildContext context) {
+  const List<(IconData, String, String)> notifications = [
+    (Icons.auto_awesome, '취향 분석이 업데이트됐어요', '방금 전'),
+    (Icons.menu_book_outlined, 'ROOM NOTE Issue 29가 도착했어요', '2시간 전'),
+    (Icons.favorite_border, 'Openhouse가 새 글을 발행했어요', '어제'),
+  ];
+
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Notifications',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 14),
+            for (final (icon, title, time) in notifications)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF3EFE6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, size: 17, color: AppColors.ink),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                            fontSize: 13.5, color: AppColors.ink),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      time,
+                      style: const TextStyle(
+                          fontSize: 11.5, color: AppColors.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// 섹션 제목 + (선택) View all 링크.
