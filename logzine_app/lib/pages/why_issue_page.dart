@@ -4,7 +4,6 @@ import '../models/magazine.dart';
 import '../models/reader_args.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
-import '../widgets/logzine_bottom_nav.dart';
 import '../widgets/onboarding_widgets.dart';
 import 'discover_page.dart';
 
@@ -25,7 +24,6 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.screen,
-      bottomNavigationBar: const LogzineBottomNav(currentIndex: 1),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -265,6 +263,52 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     ),
                     const SizedBox(height: 24),
 
+                    // 이번 호 목차
+                    const Text(
+                      'In this issue',
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: const Column(
+                        children: [
+                          _ContentsRow(
+                            no: '01',
+                            title: 'The grammar of quiet rooms',
+                            page: 4,
+                          ),
+                          Divider(color: AppColors.border, height: 1),
+                          _ContentsRow(
+                            no: '02',
+                            title: 'Materials that hold light',
+                            page: 12,
+                          ),
+                          Divider(color: AppColors.border, height: 1),
+                          _ContentsRow(
+                            no: '03',
+                            title: 'A conversation with a woodworker',
+                            page: 21,
+                          ),
+                          Divider(color: AppColors.border, height: 1),
+                          _ContentsRow(
+                            no: '04',
+                            title: 'Objects for slow mornings',
+                            page: 30,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
                     const Text(
                       'This issue is about',
                       style: TextStyle(
@@ -374,6 +418,52 @@ class _ReasonCard extends StatelessWidget {
               height: 1.35,
               color: AppColors.textSecondary,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 이번 호 목차 한 줄 (번호 · 제목 · 페이지).
+class _ContentsRow extends StatelessWidget {
+  const _ContentsRow({
+    required this.no,
+    required this.title,
+    required this.page,
+  });
+
+  final String no;
+  final String title;
+  final int page;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        children: [
+          Text(
+            no,
+            style: logoStyle(
+              size: 15,
+              weight: FontWeight.w600,
+              letterSpacingEm: 0.04,
+              color: AppColors.wine,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 13.5, color: AppColors.ink),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            'p.$page',
+            style: const TextStyle(
+                fontSize: 11.5, color: AppColors.textSecondary),
           ),
         ],
       ),
