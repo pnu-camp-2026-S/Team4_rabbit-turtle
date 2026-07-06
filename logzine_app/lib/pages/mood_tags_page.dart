@@ -177,9 +177,48 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
   }
 }
 
-/// 'Analyzing photos...' + 세그먼트 진행 바 카드.
-class _AnalyzingCard extends StatelessWidget {
+/// 'Analyzing photos...' → 'Analysis complete ✓' 세그먼트 진행 바 카드.
+class _AnalyzingCard extends StatefulWidget {
   const _AnalyzingCard();
+
+  @override
+  State<_AnalyzingCard> createState() => _AnalyzingCardState();
+}
+
+class _AnalyzingCardState extends State<_AnalyzingCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  );
+
+  bool _done = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          setState(() => _done = true);
+        }
+      })
+      ..forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// 전체 진행(0~1)을 4구간으로 나눠 세그먼트가 순차적으로 차오르게.
+  double _segFill(double t, int index) {
+    const int count = 4;
+    final double start = index / count;
+    final double end = (index + 1) / count;
+    return ((t - start) / (end - start)).clamp(0.0, 1.0);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -193,39 +232,40 @@ class _AnalyzingCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.auto_awesome, size: 16, color: AppColors.ink),
-              SizedBox(width: 10),
+              Icon(
+                _done ? Icons.check_circle : Icons.auto_awesome,
+                size: 16,
+                color: _done ? AppColors.forest : AppColors.ink,
+              ),
+              const SizedBox(width: 10),
               Text(
-                'Analyzing photos...',
-                style: TextStyle(fontSize: 13.5, color: AppColors.ink),
+                _done
+                    ? 'Analysis complete — 태그를 확인해보세요'
+                    : 'Analyzing photos...',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: _done ? AppColors.forest : AppColors.ink,
+                  fontWeight: _done ? FontWeight.w600 : FontWeight.w400,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              // 첫 세그먼트만 그린으로 차오르는 애니메이션
-              Expanded(
-                flex: 5,
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: 1),
-                  duration: const Duration(milliseconds: 1400),
-                  curve: Curves.easeOut,
-                  builder: (context, value, _) => _Segment(
-                    fill: value,
-                    fillColor: AppColors.forest,
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) => Row(
+              children: [
+                for (int i = 0; i < 4; i++) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  Expanded(
+                    flex: const [5, 2, 2, 1][i],
+                    child: _Segment(fill: _segFill(_controller.value, i)),
                   ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Expanded(flex: 2, child: _Segment(fill: 0)),
-              const SizedBox(width: 6),
-              const Expanded(flex: 2, child: _Segment(fill: 0)),
-              const SizedBox(width: 6),
-              const Expanded(flex: 1, child: _Segment(fill: 0)),
-            ],
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -235,10 +275,9 @@ class _AnalyzingCard extends StatelessWidget {
 
 /// 진행 바 한 칸.
 class _Segment extends StatelessWidget {
-  const _Segment({required this.fill, this.fillColor = AppColors.forest});
+  const _Segment({required this.fill});
 
   final double fill;
-  final Color fillColor;
 
   @override
   Widget build(BuildContext context) {
@@ -254,7 +293,7 @@ class _Segment extends StatelessWidget {
             FractionallySizedBox(
               widthFactor: fill,
               heightFactor: 1,
-              child: ColoredBox(color: fillColor),
+              child: const ColoredBox(color: AppColors.forest),
             ),
           ],
         ),
