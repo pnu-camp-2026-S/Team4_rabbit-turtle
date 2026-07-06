@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
+import '../models/reader_args.dart';
 import '../widgets/onboarding_widgets.dart';
 import 'library_page.dart';
-import 'reader_page.dart';
 
 /// 마이 페이지 — Archive.
 class ArchivePage extends StatelessWidget {

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
+import '../models/reader_args.dart';
 import '../widgets/onboarding_widgets.dart';
-import 'reader_page.dart';
 
 /// 내 서재 — My Library.
 class LibraryPage extends StatelessWidget {
