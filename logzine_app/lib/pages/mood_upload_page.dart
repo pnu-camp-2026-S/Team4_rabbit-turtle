@@ -13,6 +13,7 @@ class MoodUploadPage extends StatefulWidget {
 
 class _MoodUploadPageState extends State<MoodUploadPage> {
   final List<String> _photos = List.of(kMoodPhotos);
+  bool _analyzing = false;
 
   void _addPhoto() {
     // 데모: 지운 사진을 다시 채워 넣는다 (실제 갤러리 연동 전까지).
@@ -25,6 +26,17 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
       return;
     }
     setState(() => _photos.add(missing));
+  }
+
+  /// 분석 시작 — 버튼이 분석 중 상태로 바뀐 뒤 태그 화면으로 이동.
+  /// TODO(#24 후속): 실제 AI 분석 API 호출이 이 대기 시간을 대체한다.
+  Future<void> _analyze() async {
+    if (_analyzing) return;
+    setState(() => _analyzing = true);
+    await Future<void>.delayed(const Duration(milliseconds: 1400));
+    if (!mounted) return;
+    setState(() => _analyzing = false);
+    Navigator.pushNamed(context, '/onboarding/tags');
   }
 
   @override
@@ -83,21 +95,21 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.border),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.textSecondary,
-                              ),
+                            const Icon(
+                              Icons.auto_awesome,
+                              size: 16,
+                              color: AppColors.forest,
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Text(
-                              'Ready to read your mood',
-                              style: TextStyle(
+                              _photos.isEmpty
+                                  ? 'Add photos to read your mood'
+                                  : '${_photos.length} photos ready '
+                                      '— we\'ll read your mood',
+                              style: const TextStyle(
                                 fontSize: 14,
                                 color: AppColors.body,
                               ),
@@ -110,11 +122,41 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
                 ),
               ),
 
-              // 하단 버튼
-              OnboardingPrimaryButton(
-                label: 'Analyze photos',
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/onboarding/tags'),
+              // 하단 버튼 — 분석 중에는 스피너 표시
+              FilledButton(
+                onPressed: _photos.isEmpty ? null : _analyze,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.forest,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor:
+                      AppColors.forest.withValues(alpha: 0.4),
+                  disabledForegroundColor: Colors.white70,
+                  minimumSize: const Size.fromHeight(54),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                child: _analyzing
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Text('Reading your mood...'),
+                        ],
+                      )
+                    : const Text('Analyze photos'),
               ),
               const SizedBox(height: 16),
             ],
