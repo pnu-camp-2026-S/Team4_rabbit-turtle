@@ -136,7 +136,8 @@ class ArchivePage extends StatelessWidget {
                   const SizedBox(width: 10),
                   FilledButton(
                     onPressed: () => Navigator.pushNamed(
-                        context, '/onboarding/profile'),
+                        context, '/onboarding/profile',
+                        arguments: 'edit'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.forest,
                       foregroundColor: Colors.white,

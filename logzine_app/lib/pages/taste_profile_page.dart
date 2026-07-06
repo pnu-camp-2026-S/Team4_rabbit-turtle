@@ -24,6 +24,19 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
   final TextEditingController _commentController = TextEditingController();
   int _commentLength = 0;
 
+  /// 메인 화면(홈·Archive의 Refine)에서 진입한 편집 모드 여부.
+  bool _editMode = false;
+  bool _argsApplied = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_argsApplied) {
+      _editMode = ModalRoute.of(context)?.settings.arguments == 'edit';
+      _argsApplied = true;
+    }
+  }
+
   @override
   void dispose() {
     _commentController.dispose();
@@ -41,7 +54,7 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 8),
-              const OnboardingTopBar(),
+              OnboardingTopBar(editMode: _editMode),
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
@@ -111,32 +124,36 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
                               content: Text('취향 프로필이 업데이트됐어요'),
                             ),
                           );
+                          // 편집 모드에서는 저장 후 이전 화면으로 복귀
+                          if (_editMode) Navigator.pop(context);
                         },
                       ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: () =>
-                            Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          '/main',
-                          (route) => false,
-                          arguments: 1, // 온보딩 완료 → 디스커버 탭
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.ink,
-                          backgroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(54),
-                          side: const BorderSide(color: AppColors.border),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                      if (!_editMode) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: () =>
+                              Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/main',
+                            (route) => false,
+                            arguments: 1, // 온보딩 완료 → 디스커버 탭
                           ),
-                          textStyle: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.ink,
+                            backgroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(54),
+                            side: const BorderSide(color: AppColors.border),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
+                          child: const Text('Start recommendations'),
                         ),
-                        child: const Text('Start recommendations'),
-                      ),
+                      ],
                       const SizedBox(height: 20),
                     ],
                   ),
