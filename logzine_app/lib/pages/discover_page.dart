@@ -1,61 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../models/magazine.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
-
-/// 매거진 정보 (선반 캐러셀 + 상세 화면 공용).
-class Magazine {
-  const Magazine({
-    required this.title,
-    required this.tagline,
-    required this.issue,
-    required this.coverUrl,
-  });
-
-  final String title;
-  final String tagline;
-  final String issue;
-  final String coverUrl;
-}
-
-const List<Magazine> kMagazines = [
-  Magazine(
-    title: 'CEREAL',
-    tagline: 'Focus on the essentials',
-    issue: 'Vol. 34',
-    coverUrl: 'https://images.unsplash.com/photo-1519710164239-da123dc03ef4'
-        '?auto=format&fit=crop&w=600&q=80',
-  ),
-  Magazine(
-    title: 'KINFOLK',
-    tagline: 'Soft light, slow living',
-    issue: 'Vol. 45',
-    coverUrl: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267'
-        '?auto=format&fit=crop&w=600&q=80',
-  ),
-  Magazine(
-    title: 'ROOM NOTE',
-    tagline: 'A quiet life with things that last',
-    issue: 'Issue 28',
-    coverUrl: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e'
-        '?auto=format&fit=crop&w=600&q=80',
-  ),
-  Magazine(
-    title: 'ARK JOURNAL',
-    tagline: 'Architecture in everyday life',
-    issue: 'Issue 16',
-    coverUrl: 'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6'
-        '?auto=format&fit=crop&w=600&q=80',
-  ),
-  Magazine(
-    title: 'apartamento',
-    tagline: 'Life in small spaces',
-    issue: 'Issue 33',
-    coverUrl: 'https://images.unsplash.com/photo-1484154218962-a197022b5858'
-        '?auto=format&fit=crop&w=600&q=80',
-  ),
-];
 
 /// 디스커버 홈 — 오늘의 스탠드.
 class DiscoverPage extends StatefulWidget {

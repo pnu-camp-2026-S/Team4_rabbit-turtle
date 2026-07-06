@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/magazine.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';

@@ -1,24 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../models/reader_args.dart';
 import '../theme.dart';
 import '../widgets/onboarding_widgets.dart';
-
-/// 리더 진입 시 전달하는 매거진/아티클 정보.
-/// 진입 지점(추천·서재·저장 목록)마다 헤더가 그에 맞게 표시된다.
-class ReaderArgs {
-  const ReaderArgs({
-    this.category = 'Design Anthropology',
-    this.title = 'Quiet Materials',
-    this.publisher = 'Studio Log',
-    this.minutes = 18,
-  });
-
-  final String category;
-  final String title;
-  final String publisher;
-  final int minutes;
-}
 
 /// 하이라이트/메모 마크.
 class _Mark {

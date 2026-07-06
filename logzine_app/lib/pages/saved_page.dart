@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
+import '../models/reader_args.dart';
 import '../widgets/onboarding_widgets.dart';
-import 'reader_page.dart';
 
 /// 저장 탭 — 북마크한 글과 하이라이트 모음.
 class SavedPage extends StatelessWidget {
