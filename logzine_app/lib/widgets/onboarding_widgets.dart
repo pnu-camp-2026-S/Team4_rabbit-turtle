@@ -16,14 +16,28 @@ const List<String> kMoodPhotos = [
 
 /// 상단 바 — 좌측 LOGZINE 워드마크, 우측 Skip.
 class OnboardingTopBar extends StatelessWidget {
-  const OnboardingTopBar({super.key, this.onSkip});
+  const OnboardingTopBar({super.key, this.onSkip, this.editMode = false});
 
   final VoidCallback? onSkip;
+
+  /// 메인 화면에서 재진입한 편집 모드 — Skip 대신 뒤로가기를 표시.
+  final bool editMode;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
+        if (editMode) ...[
+          InkWell(
+            onTap: () => Navigator.pop(context),
+            borderRadius: BorderRadius.circular(8),
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.arrow_back, size: 22, color: AppColors.ink),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         Text(
           'LOGZINE',
           style: logoStyle(
@@ -34,24 +48,25 @@ class OnboardingTopBar extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        TextButton(
-          onPressed: onSkip ??
-              () => Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/main',
-                    (route) => false,
-                    arguments: 1,
-                  ),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.textSecondary,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            textStyle: const TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w500,
+        if (!editMode)
+          TextButton(
+            onPressed: onSkip ??
+                () => Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/main',
+                      (route) => false,
+                      arguments: 1,
+                    ),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              textStyle: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
+            child: const Text('Skip'),
           ),
-          child: const Text('Skip'),
-        ),
       ],
     );
   }

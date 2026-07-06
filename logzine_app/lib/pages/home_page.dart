@@ -144,7 +144,8 @@ class HomePage extends StatelessWidget {
                         const Spacer(),
                         InkWell(
                           onTap: () => Navigator.pushNamed(
-                              context, '/onboarding/profile'),
+                              context, '/onboarding/profile',
+                              arguments: 'edit'),
                           child: const Row(
                             children: [
                               Text(
