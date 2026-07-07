@@ -20,7 +20,7 @@ class MyPagePage extends StatelessWidget {
             ElevatedButton(
               onPressed: () => Navigator.pushNamedAndRemoveUntil(
                 context,
-                '/',
+                '/welcome',
                 (route) => false,
               ),
               child: const Text('처음으로 돌아가기'),
