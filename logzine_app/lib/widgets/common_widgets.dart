@@ -10,12 +10,14 @@ class LogzineTopBar extends StatelessWidget {
     this.showBell = true,
     this.showSettings = false,
     this.onBellTap,
+    this.onSettingsTap,
   });
 
   final bool showBack;
   final bool showBell;
   final bool showSettings;
   final VoidCallback? onBellTap;
+  final VoidCallback? onSettingsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +53,7 @@ class LogzineTopBar extends StatelessWidget {
             ),
           if (showSettings)
             IconButton(
-              onPressed: () {},
+              onPressed: onSettingsTap ?? () {},
               icon: const Icon(
                 Icons.settings_outlined,
                 size: 23,

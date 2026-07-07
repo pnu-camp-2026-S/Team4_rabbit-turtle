@@ -11,6 +11,7 @@ import 'pages/mood_upload_page.dart';
 import 'pages/mood_tags_page.dart';
 import 'pages/taste_profile_page.dart';
 import 'pages/main_shell.dart';
+import 'pages/stand_page.dart';
 import 'pages/why_issue_page.dart';
 import 'pages/reader_page.dart';
 import 'pages/interest_page.dart';
@@ -47,6 +48,7 @@ class MyApp extends StatelessWidget {
         '/onboarding/tags': (context) => const MoodTagsPage(),
         '/onboarding/profile': (context) => const TasteProfilePage(),
         '/main': (context) => const MainShell(),
+        '/stand': (context) => const StandPage(),
         '/discover/why': (context) => const WhyIssuePage(),
         '/reader': (context) => const ReaderPage(),
         '/interest': (context) => const InterestPage(),

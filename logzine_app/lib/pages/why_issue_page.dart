@@ -4,8 +4,8 @@ import '../models/magazine.dart';
 import '../models/reader_args.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/magazine_shelf.dart';
 import '../widgets/onboarding_widgets.dart';
-import 'discover_page.dart';
 
 /// 추천 이유 상세 — Why this issue.
 class WhyIssuePage extends StatefulWidget {

@@ -5,27 +5,50 @@ import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
-/// 마이 페이지 — Archive.
+typedef _SavedArticleItem = ({String title, String publisher, String date, String imageUrl});
+typedef _MarkItem = ({String quote, String source, String note, Color color});
+
 class ArchivePage extends StatelessWidget {
   const ArchivePage({super.key});
 
   static const String _avatarUrl =
-      'https://images.unsplash.com/photo-1485955900006-10f4d324d411'
-      '?auto=format&fit=crop&w=400&q=80';
+      'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=400&q=80';
 
-  /// (제목, 발행사, 날짜, 썸네일)
-  static const List<(String, String, String, String)> _saved = [
+  static const List<_SavedArticleItem> _savedArticles = [
     (
-      'The beauty of empty space',
-      'Openhouse',
-      'May 20, 2024',
-      'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
+      title: 'The beauty of empty space',
+      publisher: 'Openhouse',
+      date: 'May 20, 2024',
+      imageUrl:
+          'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
     ),
     (
-      'A table, a chair, and the light',
-      'ARK Journal',
-      'May 18, 2024',
-      'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=400&q=80',
+      title: 'A table, a chair, and the light',
+      publisher: 'ARK Journal',
+      date: 'May 18, 2024',
+      imageUrl:
+          'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=400&q=80',
+    ),
+  ];
+
+  static const List<_MarkItem> _marks = [
+    (
+      quote: 'When light, texture, and proportion align, the quiet becomes a language.',
+      source: 'Quiet Materials · p.4',
+      note: '좋아하는 공간감 표현',
+      color: Color(0xFFE9C46A),
+    ),
+    (
+      quote: 'Objects matter most when they become part of a daily ritual.',
+      source: 'ROOM NOTE · p.12',
+      note: '마이페이지 문장 보관함에 넣고 싶은 문장',
+      color: Color(0xFFA3C9A8),
+    ),
+    (
+      quote: 'A soft room is often made by restraint, not by abundance.',
+      source: 'Openhouse · p.7',
+      note: '취향 키워드와 연결됨',
+      color: Color(0xFFC98B9B),
     ),
   ];
 
@@ -39,7 +62,16 @@ class ArchivePage extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 4),
-            const LogzineTopBar(showBell: false, showSettings: true),
+            LogzineTopBar(
+              showBell: true,
+              showSettings: true,
+              onSettingsTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const _SettingsPage()),
+                );
+              },
+            ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -59,59 +91,63 @@ class ArchivePage extends StatelessWidget {
                     const SizedBox(height: 18),
                     _ProfileHeader(avatarUrl: _avatarUrl, userName: userName),
                     const SizedBox(height: 24),
-
-                    // 저장한 아티클
-                    SectionHeader(title: 'Saved articles', onViewAll: () {}),
+                    SectionHeader(
+                      title: 'Saved articles',
+                      onViewAll: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => _SavedArticlesPage(
+                              items: _savedArticles,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 10),
-                    _Card(
+                    _SurfaceCard(
                       child: Column(
                         children: [
-                          for (int i = 0; i < _saved.length; i++) ...[
-                            if (i > 0)
-                              const Divider(color: AppColors.border, height: 1),
-                            _SavedTile(item: _saved[i]),
+                          for (int i = 0; i < _savedArticles.length; i++) ...[
+                            if (i > 0) const Divider(color: AppColors.border, height: 1),
+                            _SavedTile(item: _savedArticles[i]),
                           ],
                         ],
                       ),
                     ),
                     const SizedBox(height: 22),
-
-                    // 이번 주 읽기 기록
                     const SectionHeader(title: 'This week'),
                     const SizedBox(height: 10),
-                    const _Card(
+                    _SurfaceCard(
                       child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         child: IntrinsicHeight(
                           child: Row(
                             children: [
-                              Expanded(
+                              const Expanded(
                                 child: _StatItem(
                                   label: 'Time read',
                                   value: '1h 24m',
                                   icon: Icons.schedule,
                                 ),
                               ),
-                              VerticalDivider(
-                                color: AppColors.border,
-                                width: 1,
-                              ),
+                              const VerticalDivider(color: AppColors.border, width: 1),
                               Expanded(
-                                child: _StatItem(
-                                  label: 'Marks',
-                                  value: '12',
-                                  icon: Icons.edit_outlined,
-                                ),
-                              ),
-                              VerticalDivider(
-                                color: AppColors.border,
-                                width: 1,
-                              ),
-                              Expanded(
-                                child: _StatItem(
-                                  label: 'Streak',
-                                  value: '3 days',
-                                  icon: Icons.auto_awesome,
+                                child: InkWell(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => _MarksPage(items: _marks),
+                                      ),
+                                    );
+                                  },
+                                  child: const _StatItem(
+                                    label: 'Marks',
+                                    value: '12',
+                                    icon: Icons.edit_outlined,
+                                    highlight: true,
+                                  ),
                                 ),
                               ),
                             ],
@@ -120,32 +156,6 @@ class ArchivePage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-
-                    // 설정 목록
-                    _Card(
-                      child: Column(
-                        children: [
-                          _SettingTile(
-                            icon: Icons.notifications_none,
-                            label: 'Notifications',
-                            onTap: () => _todo(context),
-                          ),
-                          const Divider(color: AppColors.border, height: 1),
-                          _SettingTile(
-                            icon: Icons.person_outline,
-                            label: 'Account',
-                            onTap: () => _todo(context),
-                          ),
-                          const Divider(color: AppColors.border, height: 1),
-                          _SettingTile(
-                            icon: Icons.contrast,
-                            label: 'Appearance',
-                            onTap: () => _todo(context),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -155,15 +165,8 @@ class ArchivePage extends StatelessWidget {
       ),
     );
   }
-
-  static void _todo(BuildContext context) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('준비 중인 기능이에요')));
-  }
 }
 
-/// Archive 상단 사용자 프로필.
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({required this.avatarUrl, required this.userName});
 
@@ -172,7 +175,7 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Card(
+    return _SurfaceCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -240,9 +243,8 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-/// 흰색 라운드 카드 컨테이너.
-class _Card extends StatelessWidget {
-  const _Card({required this.child});
+class _SurfaceCard extends StatelessWidget {
+  const _SurfaceCard({required this.child});
 
   final Widget child;
 
@@ -259,75 +261,76 @@ class _Card extends StatelessWidget {
   }
 }
 
-/// 저장한 아티클 한 줄.
 class _SavedTile extends StatelessWidget {
   const _SavedTile({required this.item});
 
-  final (String, String, String, String) item;
+  final _SavedArticleItem item;
 
   @override
   Widget build(BuildContext context) {
-    final (title, publisher, date, thumb) = item;
-    return Padding(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 58,
-            height: 58,
-            child: NetworkPhoto(url: thumb, radius: 8),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.ink,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  publisher,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  date,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ],
+    return InkWell(
+      onTap: () => Navigator.pushNamed(context, '/reader'),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 58,
+              height: 78,
+              child: NetworkPhoto(url: item.imageUrl, radius: 10),
             ),
-          ),
-          const SizedBox(width: 8),
-          const Icon(Icons.bookmark_border, size: 20, color: AppColors.ink),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.publisher,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.date,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.bookmark, size: 18, color: AppColors.ink),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// 이번 주 통계 한 칸 (라벨 / 값 / 아이콘).
 class _StatItem extends StatelessWidget {
   const _StatItem({
     required this.label,
     required this.value,
     required this.icon,
+    this.highlight = false,
   });
 
   final String label;
   final String value;
   final IconData icon;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
@@ -335,28 +338,358 @@ class _StatItem extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11.5,
-            color: AppColors.textSecondary,
+            color: highlight ? AppColors.forest : AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 6),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: AppColors.ink,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: highlight ? AppColors.forest : AppColors.ink,
           ),
         ),
         const SizedBox(height: 6),
-        Icon(icon, size: 16, color: AppColors.textSecondary),
+        Icon(
+          icon,
+          size: 17,
+          color: highlight ? AppColors.forest : AppColors.textSecondary,
+        ),
       ],
     );
   }
 }
 
-/// 취향 태그 (크림 배경).
+class _SettingsPage extends StatefulWidget {
+  const _SettingsPage();
+
+  @override
+  State<_SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<_SettingsPage> {
+  bool _notifications = true;
+  bool _downloadWifiOnly = true;
+  bool _readingReminder = false;
+  bool _privateHighlights = true;
+  bool _autoSaveMarks = true;
+  double _textScale = 1.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.screen,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const LogzineTopBar(showBack: true, showBell: false),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                children: [
+                  Text(
+                    'Settings',
+                    style: logoStyle(
+                      size: 32,
+                      weight: FontWeight.w500,
+                      letterSpacingEm: 0.0,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _SettingsSection(
+                    title: 'Reading',
+                    child: Column(
+                      children: [
+                        _SwitchTile(
+                          title: 'Push notifications',
+                          subtitle: 'Get notified for new issues and saved reading reminders.',
+                          value: _notifications,
+                          onChanged: (value) => setState(() => _notifications = value),
+                        ),
+                        const Divider(color: AppColors.border, height: 1),
+                        _SwitchTile(
+                          title: 'Reading reminders',
+                          subtitle: 'Receive gentle nudges to continue where you left off.',
+                          value: _readingReminder,
+                          onChanged: (value) => setState(() => _readingReminder = value),
+                        ),
+                        const Divider(color: AppColors.border, height: 1),
+                        _SliderTile(
+                          value: _textScale,
+                          onChanged: (value) => setState(() => _textScale = value),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _SettingsSection(
+                    title: 'Library & Archive',
+                    child: Column(
+                      children: [
+                        _SwitchTile(
+                          title: 'Auto-save marks to archive',
+                          subtitle: 'Store highlighted lines and notes in your archive automatically.',
+                          value: _autoSaveMarks,
+                          onChanged: (value) => setState(() => _autoSaveMarks = value),
+                        ),
+                        const Divider(color: AppColors.border, height: 1),
+                        _SwitchTile(
+                          title: 'Private highlights',
+                          subtitle: 'Keep saved highlights visible only to you.',
+                          value: _privateHighlights,
+                          onChanged: (value) => setState(() => _privateHighlights = value),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _SettingsSection(
+                    title: 'Downloads',
+                    child: _SwitchTile(
+                      title: 'Download on Wi-Fi only',
+                      subtitle: 'Preserve mobile data when saving issues offline.',
+                      value: _downloadWifiOnly,
+                      onChanged: (value) => setState(() => _downloadWifiOnly = value),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+            color: AppColors.ink,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _SurfaceCard(child: child),
+      ],
+    );
+  }
+}
+
+class _SwitchTile extends StatelessWidget {
+  const _SwitchTile({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.ink,
+        ),
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          subtitle,
+          style: const TextStyle(
+            fontSize: 12.5,
+            height: 1.45,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ),
+      trailing: Switch(
+        value: value,
+        activeThumbColor: AppColors.forest,
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _SliderTile extends StatelessWidget {
+  const _SliderTile({required this.value, required this.onChanged});
+
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Text size',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.ink,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Adjust how comfortably you read long editorial pieces.',
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.45,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Slider(
+            value: value,
+            min: 0.9,
+            max: 1.3,
+            divisions: 4,
+            activeColor: AppColors.forest,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SavedArticlesPage extends StatelessWidget {
+  const _SavedArticlesPage({required this.items});
+
+  final List<_SavedArticleItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.screen,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const LogzineTopBar(showBack: true, showBell: false),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                itemCount: items.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  return _SurfaceCard(child: _SavedTile(item: items[index]));
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MarksPage extends StatelessWidget {
+  const _MarksPage({required this.items});
+
+  final List<_MarkItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.screen,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const LogzineTopBar(showBack: true, showBell: false),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                itemCount: items.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return _SurfaceCard(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 5,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              color: item.color,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.quote,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    height: 1.5,
+                                    color: AppColors.ink,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  item.source,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.note,
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: AppColors.body,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TasteTag extends StatelessWidget {
   const _TasteTag(this.label);
 
@@ -365,52 +698,17 @@ class _TasteTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3EFE6),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 11.5, color: AppColors.ink),
-      ),
-    );
-  }
-}
-
-/// 설정 한 줄.
-class _SettingTile extends StatelessWidget {
-  const _SettingTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: AppColors.ink),
-            const SizedBox(width: 14),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 14, color: AppColors.ink),
-            ),
-            const Spacer(),
-            const Icon(
-              Icons.chevron_right,
-              size: 18,
-              color: AppColors.textSecondary,
-            ),
-          ],
+        style: const TextStyle(
+          fontSize: 12.5,
+          color: AppColors.ink,
         ),
       ),
     );
