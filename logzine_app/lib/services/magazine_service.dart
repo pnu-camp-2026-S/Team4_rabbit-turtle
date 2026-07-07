@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/article.dart';
 import '../models/magazine.dart';
 
 /// 매거진 데이터 접근 서비스.
@@ -48,6 +49,20 @@ class MagazineService {
       });
     }
     await batch.commit();
+  }
+
+  /// 매거진 하나의 첫 아티클(order 기준)을 Article로 반환. 없으면 null.
+  Future<Article?> fetchFirstArticle(String magazineId) async {
+    final art = await _db
+        .collection('magazines')
+        .doc(magazineId)
+        .collection('articles')
+        .orderBy('order')
+        .limit(1)
+        .get();
+    if (art.docs.isEmpty) return null;
+    final doc = art.docs.first;
+    return Article.fromFirestore(doc.id, doc.data(), magazineId: magazineId);
   }
 
   /// [임시] 리더 데모 아티클의 ID — 첫 매거진의 첫 아티클.
