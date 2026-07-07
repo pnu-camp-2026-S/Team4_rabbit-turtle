@@ -13,6 +13,14 @@ flutter pub get
 flutter run -d chrome     # 가장 빠른 확인 (F12 → Ctrl+Shift+M → iPhone 프리셋)
 ```
 
+## AI 사진 분석 켜기 (본인 API 키 필요)
+
+1. 최초 1회: https://aistudio.google.com 에서 무료 키 발급 →
+   `env.example.json`을 복사해 `env.json` 생성 후 키 입력 (gitignore됨)
+2. 실행: `flutter run --dart-define-from-file=env.json`
+3. 키 없이 실행하면 분석이 데모 태그로 폴백됨 (정상 동작, 에러 아님)
+4. 분석이 데모 태그로만 나오면: env.json 파일명/경로 확인 + 429(무료 한도) 여부는 `flutter run` 로그의 `MoodAnalyzer:` 줄 확인
+
 ## 안드로이드 에뮬레이터 (Windows) — ⚠️ 반드시 이 방식으로
 
 ```powershell
