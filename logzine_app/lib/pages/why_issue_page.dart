@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../models/article.dart';
 import '../models/magazine.dart';
 import '../models/reader_args.dart';
+import '../services/magazine_service.dart';
 import '../services/recommendation_service.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
@@ -29,6 +31,9 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
   List<String> get _matched =>
       RecommendationService.matchedTags(_taste, _magazine);
 
+  /// 이 매거진의 실제 아티클 목록 (In this issue 목차).
+  List<Article> _articles = const [];
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -37,6 +42,39 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is Magazine) _magazineArg = args;
     _loadTaste();
+    _loadArticles();
+  }
+
+  Future<void> _loadArticles() async {
+    if (_magazine.id.isEmpty) return;
+    try {
+      final list = await MagazineService().fetchArticles(_magazine.id);
+      if (mounted && list.isNotEmpty) setState(() => _articles = list);
+    } catch (_) {
+      // 오프라인 등 — 기본 목차 유지
+    }
+  }
+
+  /// i번째 아티클의 시작 페이지 — 앞선 편들의 pageCount 누적.
+  int _startPageOf(int index) {
+    var page = 1;
+    for (var i = 0; i < index; i++) {
+      page += _articles[i].pageCount;
+    }
+    return page;
+  }
+
+  void _openArticle(Article article) {
+    Navigator.pushNamed(
+      context,
+      '/reader',
+      arguments: ReaderArgs(
+        title: _magazine.title,
+        publisher: _magazine.issue,
+        magazineId: _magazine.id,
+        articleId: article.id,
+      ),
+    );
   }
 
   Future<void> _loadTaste() async {
@@ -314,33 +352,43 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.border),
                       ),
-                      child: const Column(
-                        children: [
-                          _ContentsRow(
-                            no: '01',
-                            title: 'The grammar of quiet rooms',
-                            page: 4,
-                          ),
-                          Divider(color: AppColors.border, height: 1),
-                          _ContentsRow(
-                            no: '02',
-                            title: 'Materials that hold light',
-                            page: 12,
-                          ),
-                          Divider(color: AppColors.border, height: 1),
-                          _ContentsRow(
-                            no: '03',
-                            title: 'A conversation with a woodworker',
-                            page: 21,
-                          ),
-                          Divider(color: AppColors.border, height: 1),
-                          _ContentsRow(
-                            no: '04',
-                            title: 'Objects for slow mornings',
-                            page: 30,
-                          ),
-                        ],
-                      ),
+                      // 실제 아티클 목차 — 탭하면 해당 편이 리더에 열린다.
+                      // (아직 로드 전이면 기본 목차 표시)
+                      child: _articles.isEmpty
+                          ? const Column(
+                              children: [
+                                _ContentsRow(
+                                  no: '01',
+                                  title: 'The grammar of quiet rooms',
+                                  page: 4,
+                                ),
+                                Divider(color: AppColors.border, height: 1),
+                                _ContentsRow(
+                                  no: '02',
+                                  title: 'Materials that hold light',
+                                  page: 12,
+                                ),
+                              ],
+                            )
+                          : Column(
+                              children: [
+                                for (int i = 0; i < _articles.length; i++) ...[
+                                  if (i > 0)
+                                    const Divider(
+                                      color: AppColors.border,
+                                      height: 1,
+                                    ),
+                                  InkWell(
+                                    onTap: () => _openArticle(_articles[i]),
+                                    child: _ContentsRow(
+                                      no: (i + 1).toString().padLeft(2, '0'),
+                                      title: _articles[i].title,
+                                      page: _startPageOf(i),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                     ),
                     const SizedBox(height: 24),
 

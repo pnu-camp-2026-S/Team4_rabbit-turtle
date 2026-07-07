@@ -170,8 +170,13 @@ class _ReaderPageState extends State<ReaderPage> {
         fallbackArticleId = ids.articleId;
       }
 
-      final Article? article =
-          await magazineService.fetchFirstArticle(magazineId);
+      // 목차에서 특정 편을 지정했으면 그 아티클, 아니면 첫 아티클
+      final Article? article = _args.articleId != null
+          ? await magazineService.fetchArticleById(
+              magazineId: magazineId,
+              articleId: _args.articleId!,
+            )
+          : await magazineService.fetchFirstArticle(magazineId);
       final String? articleId = article?.id ?? fallbackArticleId;
       if (articleId == null || !mounted) return;
 
@@ -581,21 +586,20 @@ class _ReaderPageState extends State<ReaderPage> {
                 const Divider(color: AppColors.border, height: 1),
                 const SizedBox(height: 20),
 
-                // 본문 1문단
-                _buildParagraph(0),
-                const SizedBox(height: 20),
-
-                // 본문 이미지
-                SizedBox(
-                  height: 210,
-                  width: double.infinity,
-                  child: NetworkPhoto(url: kMoodPhotos[2], radius: 8),
-                ),
-                const SizedBox(height: 20),
-
-                _buildParagraph(1),
-                const SizedBox(height: 18),
-                _buildParagraph(2),
+                // 본문 — 문단 수에 맞춰 전부 렌더 (첫 문단 뒤에 에디토리얼 이미지)
+                for (int p = 0; p < _paragraphs.length; p++) ...[
+                  _buildParagraph(p),
+                  if (p == 0) ...[
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      height: 210,
+                      width: double.infinity,
+                      child: NetworkPhoto(url: kMoodPhotos[2], radius: 8),
+                    ),
+                    const SizedBox(height: 20),
+                  ] else if (p != _paragraphs.length - 1)
+                    const SizedBox(height: 18),
+                ],
 
                 if (_highlightMode) ...[
                   const SizedBox(height: 14),

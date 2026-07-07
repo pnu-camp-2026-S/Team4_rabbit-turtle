@@ -15,6 +15,226 @@ class ArticleSeed {
   final List<List<String>> paragraphs;
 }
 
+/// 매거진별 2호 아티클 — syncArticles가 1호에 이어 추가한다.
+const Map<String, ArticleSeed> kSecondArticleSeeds = {
+  'CEREAL': ArticleSeed(
+    title: 'White Space',
+    pageCount: 8,
+    paragraphs: [
+      [
+        'A photograph is mostly decisions about what to leave out.',
+        'The empty half of the frame is doing the heavy lifting.',
+      ],
+      [
+        'We printed this issue with wider margins than usual.',
+        'Notice how the pictures breathe differently.',
+      ],
+      [
+        'White space is not absence.',
+        'It is the room a thought needs to finish itself.',
+      ],
+    ],
+  ),
+  'KINFOLK': ArticleSeed(
+    title: 'The Guest Table',
+    pageCount: 8,
+    paragraphs: [
+      [
+        'Hospitality is not a performance of abundance.',
+        'One pot, mismatched chairs, and enough time.',
+      ],
+      [
+        'The best dinner parties we attended this year',
+        'served one dish and three hours of conversation.',
+      ],
+      [
+        'Set the table like you mean it, then relax completely.',
+        'Guests remember warmth, not symmetry.',
+      ],
+    ],
+  ),
+  'ROOM NOTE': ArticleSeed(
+    title: 'One Lamp, Late Evening',
+    pageCount: 8,
+    paragraphs: [
+      [
+        'Overhead light flattens a room into a diagram.',
+        'One low lamp turns it back into a place.',
+      ],
+      [
+        'Light the corner, not the ceiling.',
+        'Shadows are furniture too.',
+      ],
+      [
+        'The evening room should be dimmer than your phone.',
+        'That is the whole trick of rest.',
+      ],
+    ],
+  ),
+  'ARK JOURNAL': ArticleSeed(
+    title: 'Concrete, Softly',
+    pageCount: 8,
+    paragraphs: [
+      [
+        'Concrete has a reputation problem and a light problem.',
+        'Solve the second and the first disappears.',
+      ],
+      [
+        'In the Jutland house we visited, morning sun',
+        'turns the grey walls the color of warm paper.',
+      ],
+      [
+        'Brutal is a choice, not a material.',
+        'Handled gently, concrete is just stone that listened.',
+      ],
+    ],
+  ),
+  'apartamento': ArticleSeed(
+    title: 'Plants of the Stairwell',
+    pageCount: 8,
+    paragraphs: [
+      [
+        'Nobody owns the stairwell monstera, and everybody waters it.',
+        'It is the healthiest plant in the building.',
+      ],
+      [
+        'Shared spaces collect quiet agreements like this —',
+        'unwritten, unspoken, faithfully kept.',
+      ],
+      [
+        'A building becomes a neighborhood',
+        'one communal plant at a time.',
+      ],
+    ],
+  ),
+  'Drift': ArticleSeed(
+    title: "The Roaster's Notebook",
+    pageCount: 8,
+    paragraphs: [
+      [
+        'Every roaster keeps a notebook they show no one.',
+        'Temperatures, timings, and small confessions.',
+      ],
+      [
+        'Page 40: the batch that tasted like plum by accident.',
+        'Three years chasing that accident since.',
+      ],
+      [
+        'Craft is mostly documentation of luck,',
+        'repeated until it stops being luck.',
+      ],
+    ],
+  ),
+  'The Gourmand': ArticleSeed(
+    title: 'Butter, A Love Letter',
+    pageCount: 8,
+    paragraphs: [
+      [
+        'Every cuisine has a fat it trusts with its secrets.',
+        'Ours writes them in butter.',
+      ],
+      [
+        'Cold from the fridge it is a brick of patience.',
+        'At room temperature, a spreadable apology.',
+      ],
+      [
+        'Margarine was an era, not an ingredient.',
+        'We have apologized and moved on.',
+      ],
+    ],
+  ),
+  'Fantastic Man': ArticleSeed(
+    title: 'The Grey Coat Diaries',
+    pageCount: 8,
+    paragraphs: [
+      [
+        'The coat is eleven years old and has outlived four phones.',
+        'The elbows are going; the intention is intact.',
+      ],
+      [
+        'Repair is the most personal form of styling.',
+        'Every mend is a decision to continue.',
+      ],
+      [
+        'Buy less, choose slower, tailor everything.',
+        'A wardrobe should age like a friendship.',
+      ],
+    ],
+  ),
+  'Wax Poetics': ArticleSeed(
+    title: 'B-Sides Forever',
+    pageCount: 8,
+    paragraphs: [
+      [
+        'The A-side is what the label believed in.',
+        'The B-side is what the band believed in.',
+      ],
+      [
+        'Flip the record. The hit fades,',
+        'and something stranger and truer begins.',
+      ],
+      [
+        'Taste is built on B-sides —',
+        'the things you love without being told to.',
+      ],
+    ],
+  ),
+  'Openhouse': ArticleSeed(
+    title: 'A Studio Visit',
+    pageCount: 8,
+    paragraphs: [
+      [
+        "The ceramicist's studio smells like rain that never left.",
+        'Shelves of failures she refuses to throw away.',
+      ],
+      [
+        'Ask about the cracked bowl and she smiles:',
+        'that one taught the glaze everything.',
+      ],
+      [
+        'Workplaces reveal more than homes.',
+        'This is where the choosing happens.',
+      ],
+    ],
+  ),
+  'Frieze': ArticleSeed(
+    title: 'Notes from the Biennale',
+    pageCount: 8,
+    paragraphs: [
+      [
+        'Everyone photographs the mirrored room.',
+        'The quiet drawings next door go home unphotographed and unforgotten.',
+      ],
+      [
+        'Art fairs measure attention; art measures return visits.',
+        'We went back to the drawings twice.',
+      ],
+      [
+        'The best work this year asked for nothing',
+        'and received everything we had left.',
+      ],
+    ],
+  ),
+  'SUITCASE': ArticleSeed(
+    title: 'Airport Mornings',
+    pageCount: 8,
+    paragraphs: [
+      [
+        'The airport at 6am is a city of temporary residents,',
+        'every one of them between two versions of themselves.',
+      ],
+      [
+        'Drink the bad coffee. Watch the boards flip.',
+        'Nowhere else is waiting this honest.',
+      ],
+      [
+        'Departure lounges are the last shared rooms',
+        'where strangers still dream in the same direction.',
+      ],
+    ],
+  ),
+};
+
 const Map<String, ArticleSeed> kArticleSeeds = {
   'CEREAL': ArticleSeed(
     title: 'The Essential Few',
