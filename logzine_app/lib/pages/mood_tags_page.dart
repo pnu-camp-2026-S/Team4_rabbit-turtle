@@ -20,8 +20,10 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
   final Set<String> _selected = <String>{};
   TasteAnalysisResult? _analysis;
   bool _argsApplied = false;
+  bool _refining = false;
 
   void _toggle(String tag) {
+    if (_refining) return;
     setState(() {
       _selected.contains(tag) ? _selected.remove(tag) : _selected.add(tag);
     });
@@ -47,17 +49,24 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
   }
 
   Future<void> _continue() async {
+    if (_refining) return;
     final analysis = _analysis ?? TasteAnalysisResult.empty();
-    final profile = PhotoTasteAnalyzer.buildProfile(
-      analysis: analysis,
-      confirmedLabels: _selected,
-      feedback: _feedbackController.text,
-    );
+    FocusScope.of(context).unfocus();
+    setState(() => _refining = true);
     try {
-      await UserService().saveTasteTags(_selected.toList());
-    } catch (_) {} // 비로그인·오프라인이어도 온보딩은 계속
-    if (!mounted) return;
-    Navigator.pushNamed(context, '/onboarding/profile', arguments: profile);
+      final profile = await PhotoTasteAnalyzer.refineProfile(
+        analysis: analysis,
+        confirmedLabels: _selected,
+        feedback: _feedbackController.text,
+      );
+      try {
+        await UserService().saveTasteTags(profile.displayTags);
+      } catch (_) {} // 비로그인·오프라인이어도 온보딩은 계속
+      if (!mounted) return;
+      Navigator.pushNamed(context, '/onboarding/profile', arguments: profile);
+    } finally {
+      if (mounted) setState(() => _refining = false);
+    }
   }
 
   @override
@@ -179,6 +188,12 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
                       const SizedBox(height: 16),
                       TextField(
                         controller: _feedbackController,
+                        enabled: !_refining,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        textCapitalization: TextCapitalization.none,
+                        autocorrect: true,
+                        enableSuggestions: true,
                         maxLines: 3,
                         decoration: const InputDecoration(
                           hintText: '예: 여행은 아니고 조용한 분위기가 좋아서 찍었어',
@@ -190,7 +205,10 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
                 ),
               ),
 
-              OnboardingPrimaryButton(label: 'Continue', onPressed: _continue),
+              OnboardingPrimaryButton(
+                label: _refining ? 'Refining taste...' : 'Continue',
+                onPressed: _continue,
+              ),
               const SizedBox(height: 16),
             ],
           ),
