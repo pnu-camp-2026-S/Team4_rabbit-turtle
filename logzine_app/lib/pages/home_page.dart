@@ -62,6 +62,15 @@ class _HomePageState extends State<HomePage> {
       // 비로그인 등 — 개인화 없이 진행
     }
 
+    // "Not for me"로 제외한 매거진은 선반에서 뺀다
+    final excluded = await UserService().fetchExcludedMagazineIds();
+    if (excluded.isNotEmpty) {
+      magazines = [
+        for (final m in magazines)
+          if (!excluded.contains(m.id)) m,
+      ];
+    }
+
     final ranked = RecommendationService.rank(taste, magazines);
     return _HomeData(
       shelf: RecommendationService.arrangeForShelf(ranked),
@@ -125,9 +134,11 @@ class _HomePageState extends State<HomePage> {
     return userName == null ? salutation : '$salutation, $userName';
   }
 
-  void _openMagazine(BuildContext context, Magazine magazine) {
+  Future<void> _openMagazine(BuildContext context, Magazine magazine) async {
     // 탭한 매거진을 Why 페이지로 전달 — 매거진별 상세/리더 연결
-    Navigator.pushNamed(context, '/discover/why', arguments: magazine);
+    await Navigator.pushNamed(context, '/discover/why', arguments: magazine);
+    // Not for me 제외 등 반영 — 돌아오면 선반 새로고침
+    if (mounted) setState(() => _homeFuture = _loadHome());
   }
 
   @override

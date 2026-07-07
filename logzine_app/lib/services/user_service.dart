@@ -42,4 +42,23 @@ class UserService {
       return null; // 비로그인 등 — 호출부에서 폴백 처리
     }
   }
+
+  /// "Not for me" — 이 매거진을 추천에서 제외 목록에 추가.
+  Future<void> excludeMagazine(String magazineId) {
+    return _userRef.update({
+      'excludedMagazines': FieldValue.arrayUnion([magazineId]),
+    });
+  }
+
+  /// 추천 제외 매거진 ID 목록. 로그인 안 됨/없음이면 빈 목록.
+  Future<List<String>> fetchExcludedMagazineIds() async {
+    try {
+      final snap = await _userRef.get();
+      final raw = snap.data()?['excludedMagazines'];
+      if (raw is List) return raw.cast<String>();
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
 }
