@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 
 import '../models/reader_args.dart';
 import '../theme.dart';
+import '../widgets/logzine_logo.dart';
 import '../widgets/onboarding_widgets.dart';
 
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
+import '../services/saved_service.dart';
 
 /// 하이라이트/메모 마크.
 class _Mark {
@@ -93,6 +95,7 @@ class _ReaderPageState extends State<ReaderPage> {
   bool _argsApplied = false;
 
   final MarkService _markService = MarkService();
+  final SavedService _savedService = SavedService();
   String? _magazineId;
   String? _articleId;
 
@@ -137,8 +140,10 @@ class _ReaderPageState extends State<ReaderPage> {
     final List<MarkRecord> marks =
         await _markService.fetchMarks(ids.articleId);
     final int? lastPage = await _markService.fetchLastPage(ids.articleId);
+    final bool saved = await _savedService.isSaved(ids.articleId);
     if (!mounted) return;
     setState(() {
+      _saved = saved;
       for (final r in marks) {
         _marks[(r.paragraphIdx, r.segmentIdx)] = _Mark(
           color: r.type == 'underline' ? kInkSwatch : _colorFromHex(r.color),
@@ -184,6 +189,23 @@ class _ReaderPageState extends State<ReaderPage> {
       magazineId: magazineId,
       lastPage: _page.round(),
       percent: (_page / _totalPages * 100).ceil().clamp(0, 100),
+    );
+  }
+
+  void _toggleSaved() {
+    setState(() => _saved = !_saved);
+    final String? articleId = _articleId;
+    final String? magazineId = _magazineId;
+    if (articleId != null && magazineId != null) {
+      _saved
+          ? _savedService.save(articleId, magazineId)
+          : _savedService.unsave(articleId);
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_saved ? '이 이슈를 저장했어요' : '저장을 취소했어요'),
+        duration: const Duration(seconds: 1),
+      ),
     );
   }
 
@@ -373,17 +395,9 @@ class _ReaderPageState extends State<ReaderPage> {
             icon: const Icon(Icons.arrow_back_ios_new,
                 size: 19, color: AppColors.ink),
           ),
-          Expanded(
+          const Expanded(
             child: Center(
-              child: Text(
-                'LOGZINE',
-                style: logoStyle(
-                  size: 16,
-                  weight: FontWeight.w600,
-                  letterSpacingEm: 0.28,
-                  color: AppColors.ink,
-                ),
-              ),
+              child: LogzineLogo(height: 22),
             ),
           ),
           IconButton(
@@ -393,15 +407,7 @@ class _ReaderPageState extends State<ReaderPage> {
             icon: const Icon(Icons.search, size: 22, color: AppColors.ink),
           ),
           IconButton(
-            onPressed: () {
-              setState(() => _saved = !_saved);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(_saved ? '이 이슈를 저장했어요' : '저장을 취소했어요'),
-                  duration: const Duration(seconds: 1),
-                ),
-              );
-            },
+            onPressed: _toggleSaved,
             icon: Icon(
               _saved ? Icons.bookmark : Icons.bookmark_border,
               size: 22,
@@ -584,7 +590,7 @@ class _ReaderPageState extends State<ReaderPage> {
                 icon: _saved ? Icons.bookmark : Icons.bookmark_border,
                 label: 'Save',
                 active: _saved,
-                onTap: () => setState(() => _saved = !_saved),
+                onTap: _toggleSaved,
               ),
               _ActionItem(
                 icon: Icons.edit_outlined,

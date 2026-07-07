@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'logzine_logo.dart';
 
 /// 온보딩 공용 무드 사진 세트 (소파 / 원목 의자 / 머그 / 책).
 const List<String> kMoodPhotos = [
@@ -38,15 +39,7 @@ class OnboardingTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
         ],
-        Text(
-          'LOGZINE',
-          style: logoStyle(
-            size: 17,
-            weight: FontWeight.w600,
-            letterSpacingEm: 0.28,
-            color: AppColors.ink,
-          ),
-        ),
+        const LogzineLogo(height: 24),
         const Spacer(),
         if (!editMode)
           TextButton(

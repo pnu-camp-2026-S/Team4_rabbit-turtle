@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'logzine_logo.dart';
 
 /// 메인 화면 공용 상단 바 — (뒤로가기) + LOGZINE + 액션 아이콘.
 class LogzineTopBar extends StatelessWidget {
@@ -30,15 +31,7 @@ class LogzineTopBar extends StatelessWidget {
             ),
             const SizedBox(width: 2),
           ],
-          Text(
-            'LOGZINE',
-            style: logoStyle(
-              size: 20,
-              weight: FontWeight.w600,
-              letterSpacingEm: 0.24,
-              color: AppColors.ink,
-            ),
-          ),
+          const LogzineLogo(height: 28),
           const Spacer(),
           if (showBell)
             IconButton(
