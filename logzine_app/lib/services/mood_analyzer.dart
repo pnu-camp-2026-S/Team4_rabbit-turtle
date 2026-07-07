@@ -29,17 +29,20 @@ Look at the attached mood photos (interiors, objects, scenes the user loves)
 and return ONLY a JSON object with this exact shape:
 
 {
-  "tags": [...],       // pick every fitting tag from this fixed vocabulary:
+  "tags": [...],       // choose ONLY the 3-6 tags that BEST match, from
+                       // this fixed vocabulary (be selective, not greedy):
                        // Mood: ${kMoodVocab['Mood']!.join(', ')}
                        // Space: ${kMoodVocab['Space']!.join(', ')}
                        // Style: ${kMoodVocab['Style']!.join(', ')}
-  "suggested": [...],  // up to 3 short free-form taste keywords in English,
-                       // Title case, e.g. "Warm wood", "Soft light"
+  "suggested": [...],  // 4-6 short free-form keywords that capture what you
+                       // actually SEE in these specific photos, in English,
+                       // Title case, specific (e.g. "Rattan chair",
+                       // "Morning light", "Stacked books" — not generic)
   "summary": "..."     // one calm, editorial English sentence describing
                        // the user's taste, max 12 words
 }
 
-Use only tags that genuinely match the photos. Return valid JSON only.
+Only include a tag if you are confident it matches. Return valid JSON only.
 ''';
 
   @override
@@ -93,7 +96,7 @@ Use only tags that genuinely match the photos. Return valid JSON only.
       final List<String> suggested =
           ((data['suggested'] as List?) ?? const [])
               .cast<String>()
-              .take(3)
+              .take(6)
               .toList();
       final String summary = (data['summary'] as String?)?.trim() ?? '';
 

@@ -48,6 +48,8 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
       _analysis = args;
       if (args.tags.isNotEmpty) _selected = Set.of(args.tags);
       if (args.suggested.isNotEmpty) _suggested = args.suggested;
+      // AI가 뽑은 자유 키워드는 처음부터 선택된 상태 = "자동으로 정리된 내 취향"
+      _selected.addAll(_suggested);
     }
   }
 
@@ -106,7 +108,61 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
                       ),
                       const SizedBox(height: 24),
 
-                      // 태그 그룹
+                      // ★ AI가 사진에서 읽어낸 키워드 — 자동 정리된 내 취향 (주인공)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3EFE6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome,
+                                  size: 15,
+                                  color: AppColors.forest,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'From your photos',
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.ink,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              '사진에서 읽어낸 키워드예요 — 탭해서 뺄 수 있어요',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                for (final tag in _suggested)
+                                  TasteChip(
+                                    label: tag,
+                                    selected: _selected.contains(tag),
+                                    onTap: () => _toggle(tag),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // 고정 어휘 태그 그룹 — 미세 조정용
                       for (final entry in _groups.entries) ...[
                         Text(
                           entry.key,
@@ -131,52 +187,6 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
                         ),
                         const SizedBox(height: 20),
                       ],
-
-                      // 사진에서 추천된 태그
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3EFE6),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons.auto_awesome,
-                                  size: 15,
-                                  color: AppColors.ink,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Suggested from photos',
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.ink,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                for (final tag in _suggested)
-                                  TasteChip(
-                                    label: tag,
-                                    selected: _selected.contains(tag),
-                                    onTap: () => _toggle(tag),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
