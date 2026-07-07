@@ -1,21 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
-import '../models/mood_analysis.dart';
-import '../services/mood_analyzer.dart';
+import '../models/taste_analysis.dart';
 import '../theme.dart';
-import '../widgets/onboarding_widgets.dart';
-
-/// 업로드된 사진 한 장 — 갤러리에서 고른 bytes 또는 데모용 URL.
-class _Photo {
-  const _Photo.bytes(this.bytes) : url = null;
-  const _Photo.url(this.url) : bytes = null;
-
-  final Uint8List? bytes;
-  final String? url;
-}
+import '../widgets/onboarding_widgets.dart'
+    show OnboardingHeader, OnboardingTopBar;
 
 /// 온보딩 1단계 — 무드 사진 업로드.
 class MoodUploadPage extends StatefulWidget {
@@ -28,81 +17,63 @@ class MoodUploadPage extends StatefulWidget {
 class _MoodUploadPageState extends State<MoodUploadPage> {
   static const int _maxPhotos = 8;
 
-  /// 시작은 데모 프리셋 4장 — 갤러리에서 추가하거나 지울 수 있다.
-  final List<_Photo> _photos = [
-    for (final url in kMoodPhotos) _Photo.url(url),
-  ];
-
   final ImagePicker _picker = ImagePicker();
+  final List<TastePhoto> _photos = <TastePhoto>[];
   bool _analyzing = false;
 
-  /// 갤러리에서 사진 선택 (여러 장).
   Future<void> _addPhoto() async {
-    final List<XFile> picked = await _picker.pickMultiImage(
-      maxWidth: 1280,
-      imageQuality: 80,
-    );
-    if (picked.isEmpty || !mounted) return;
-
-    final List<_Photo> added = [];
-    for (final file in picked) {
-      added.add(_Photo.bytes(await file.readAsBytes()));
+    if (_photos.length >= _maxPhotos) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('사진은 8장까지 추가할 수 있어요')));
+      return;
     }
-    setState(() {
-      _photos.addAll(added);
-      if (_photos.length > _maxPhotos) {
-        _photos.removeRange(_maxPhotos, _photos.length);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('사진은 최대 8장까지 분석해요')),
-        );
-      }
-    });
+
+    final picked = await _picker.pickMultiImage(
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 70,
+    );
+    if (!mounted || picked.isEmpty) return;
+
+    final remaining = _maxPhotos - _photos.length;
+    final nextPhotos = <TastePhoto>[];
+    for (final file in picked.take(remaining)) {
+      final bytes = await file.readAsBytes();
+      nextPhotos.add(
+        TastePhoto(
+          name: file.name,
+          bytes: bytes,
+          mimeType: file.mimeType ?? _mimeTypeFromName(file.name),
+        ),
+      );
+    }
+
+    if (!mounted) return;
+    setState(() => _photos.addAll(nextPhotos));
   }
 
-  /// 사진들을 AI에 보내 무드 태그를 분석한 뒤 결과와 함께 태그 화면으로.
-  /// API 키가 없거나 실패하면 결과 없이 이동 → 태그 화면이 데모 태그로 폴백.
+  /// 분석 시작 — 실제 Gemini 이미지 분석 결과를 만든 뒤 태그 확인 화면으로 이동.
   Future<void> _analyze() async {
     if (_analyzing) return;
     setState(() => _analyzing = true);
-
-    // 프리셋(URL) 사진은 다운로드해서 bytes로 변환
-    final List<Uint8List> bytesList = [];
-    for (final photo in _photos) {
-      if (photo.bytes != null) {
-        bytesList.add(photo.bytes!);
-      } else if (photo.url != null) {
-        try {
-          final res = await http
-              .get(Uri.parse(photo.url!))
-              .timeout(const Duration(seconds: 8));
-          if (res.statusCode == 200) bytesList.add(res.bodyBytes);
-        } catch (_) {/* 이 장은 건너뜀 */}
-      }
+    try {
+      final analysis = await PhotoTasteAnalyzer.analyze(_photos);
+      if (!mounted) return;
+      Navigator.pushNamed(context, '/onboarding/tags', arguments: analysis);
+    } on TasteAnalysisException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('이미지 분석 중 오류가 발생했어요: $error')));
+    } finally {
+      if (mounted) setState(() => _analyzing = false);
     }
-
-    // 분석 + 최소 연출 시간(1.4초)을 함께 대기
-    final results = await Future.wait<dynamic>([
-      GeminiMoodAnalyzer().analyze(bytesList),
-      Future<void>.delayed(const Duration(milliseconds: 1400)),
-    ]);
-
-    if (!mounted) return;
-    setState(() => _analyzing = false);
-    Navigator.pushNamed(
-      context,
-      '/onboarding/tags',
-      arguments: MoodTagsArgs(
-        analysis: results[0] as MoodAnalysis?,
-        photoBytes: [
-          for (final p in _photos)
-            if (p.bytes != null) p.bytes!,
-        ],
-        photoUrls: [
-          for (final p in _photos)
-            if (p.url != null) p.url!,
-        ],
-      ),
-    );
   }
 
   @override
@@ -125,7 +96,7 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
                       const SizedBox(height: 16),
                       const OnboardingHeader(
                         title: 'Upload your mood',
-                        subtitle: 'Help us understand what you love.',
+                        subtitle: '사진 파일을 골라 실제 AI 분석을 시작해요.',
                       ),
                       const SizedBox(height: 24),
 
@@ -133,27 +104,21 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
                       _AddPhotosArea(onTap: _addPhoto),
                       const SizedBox(height: 20),
 
-                      // 업로드된 사진 썸네일 (4장 넘으면 줄바꿈)
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final double size =
-                              (constraints.maxWidth - 30) / 4;
-                          return Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              for (final photo in _photos)
-                                SizedBox(
-                                  width: size,
-                                  child: _PhotoThumb(
-                                    photo: photo,
-                                    onRemove: () => setState(
-                                        () => _photos.remove(photo)),
-                                  ),
-                                ),
-                            ],
-                          );
-                        },
+                      // 업로드된 사진 썸네일
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          for (final photo in _photos)
+                            SizedBox(
+                              width: 72,
+                              child: _PhotoThumb(
+                                photo: photo,
+                                onRemove: () =>
+                                    setState(() => _photos.remove(photo)),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 28),
 
@@ -179,9 +144,9 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
                             const SizedBox(width: 12),
                             Text(
                               _photos.isEmpty
-                                  ? 'Add photos to read your mood'
+                                  ? 'Add photos from your device'
                                   : '${_photos.length} photos ready '
-                                      '— we\'ll read your mood',
+                                        '— Gemini will read your mood',
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: AppColors.body,
@@ -201,8 +166,9 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.forest,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor:
-                      AppColors.forest.withValues(alpha: 0.4),
+                  disabledBackgroundColor: AppColors.forest.withValues(
+                    alpha: 0.4,
+                  ),
                   disabledForegroundColor: Colors.white70,
                   minimumSize: const Size.fromHeight(54),
                   shape: RoundedRectangleBorder(
@@ -238,6 +204,14 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
       ),
     );
   }
+}
+
+String _mimeTypeFromName(String name) {
+  final lower = name.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  return 'image/jpeg';
 }
 
 /// 점선 테두리의 'Add photos' 업로드 영역.
@@ -283,11 +257,11 @@ class _AddPhotosArea extends StatelessWidget {
   }
 }
 
-/// 정사각 썸네일 + 우상단 X 삭제 배지. (갤러리 bytes / 데모 URL 모두 지원)
+/// 정사각 썸네일 + 우상단 X 삭제 배지.
 class _PhotoThumb extends StatelessWidget {
   const _PhotoThumb({required this.photo, required this.onRemove});
 
-  final _Photo photo;
+  final TastePhoto photo;
   final VoidCallback onRemove;
 
   @override
@@ -297,13 +271,15 @@ class _PhotoThumb extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (photo.bytes != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.memory(photo.bytes!, fit: BoxFit.cover),
-            )
-          else
-            NetworkPhoto(url: photo.url!),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.memory(
+              photo.bytes,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+            ),
+          ),
           Positioned(
             top: 6,
             right: 6,
@@ -316,17 +292,10 @@ class _PhotoThumb extends StatelessWidget {
                   color: Colors.white,
                   shape: BoxShape.circle,
                   boxShadow: [
-                    BoxShadow(
-                      color: Color(0x22000000),
-                      blurRadius: 4,
-                    ),
+                    BoxShadow(color: Color(0x22000000), blurRadius: 4),
                   ],
                 ),
-                child: const Icon(
-                  Icons.close,
-                  size: 12,
-                  color: AppColors.ink,
-                ),
+                child: const Icon(Icons.close, size: 12, color: AppColors.ink),
               ),
             ),
           ),
@@ -353,10 +322,9 @@ class _DashedBorderPainter extends CustomPainter {
       ..strokeWidth = 1.4;
 
     final Path path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Offset.zero & size,
-        Radius.circular(radius),
-      ));
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      );
 
     for (final metric in path.computeMetrics()) {
       double distance = 0;
