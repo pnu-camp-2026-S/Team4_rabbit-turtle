@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
-import 'library_page.dart';
-import 'reader_page.dart';
 
 /// 마이 페이지 — Archive.
 class ArchivePage extends StatelessWidget {
@@ -23,28 +21,6 @@ class ArchivePage extends StatelessWidget {
       'ARK Journal',
       'May 18, 2024',
       'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=400&q=80',
-    ),
-  ];
-
-  /// (제목, 부제, 읽은 %, 썸네일)
-  static const List<(String, String, int, String)> _recent = [
-    (
-      'Quiet Materials',
-      'Studio Log · Issue 34',
-      68,
-      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=400&q=80',
-    ),
-    (
-      'Room Notes',
-      'Room Note · Issue 17',
-      42,
-      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80',
-    ),
-    (
-      'Openhouse',
-      'Openhouse · Issue 26',
-      15,
-      'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?auto=format&fit=crop&w=400&q=80',
     ),
   ];
 
@@ -92,19 +68,43 @@ class ArchivePage extends StatelessWidget {
               ),
               const SizedBox(height: 22),
 
-              // 최근 본 항목
-              SectionHeader(title: 'Recently viewed', onViewAll: () {}),
+              // 이번 주 읽기 기록
+              const SectionHeader(title: 'This week'),
               const SizedBox(height: 10),
-              _Card(
-                child: Column(
-                  children: [
-                    for (int i = 0; i < _recent.length; i++) ...[
-                      if (i > 0)
-                        const Divider(
-                            color: AppColors.border, height: 1),
-                      _RecentTile(item: _recent[i]),
-                    ],
-                  ],
+              const _Card(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _StatItem(
+                            label: 'Time read',
+                            value: '1h 24m',
+                            icon: Icons.schedule,
+                          ),
+                        ),
+                        VerticalDivider(
+                            color: AppColors.border, width: 1),
+                        Expanded(
+                          child: _StatItem(
+                            label: 'Marks',
+                            value: '12',
+                            icon: Icons.edit_outlined,
+                          ),
+                        ),
+                        VerticalDivider(
+                            color: AppColors.border, width: 1),
+                        Expanded(
+                          child: _StatItem(
+                            label: 'Streak',
+                            value: '3 days',
+                            icon: Icons.auto_awesome,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -136,7 +136,8 @@ class ArchivePage extends StatelessWidget {
                   const SizedBox(width: 10),
                   FilledButton(
                     onPressed: () => Navigator.pushNamed(
-                        context, '/onboarding/profile'),
+                        context, '/onboarding/profile',
+                        arguments: 'edit'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.forest,
                       foregroundColor: Colors.white,
@@ -273,73 +274,39 @@ class _SavedTile extends StatelessWidget {
   }
 }
 
-/// 최근 본 매거진 한 줄 (진행 바 포함).
-class _RecentTile extends StatelessWidget {
-  const _RecentTile({required this.item});
+/// 이번 주 통계 한 칸 (라벨 / 값 / 아이콘).
+class _StatItem extends StatelessWidget {
+  const _StatItem({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
-  final (String, String, int, String) item;
+  final String label;
+  final String value;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    final (title, subtitle, percent, thumb) = item;
-    return InkWell(
-      onTap: () => Navigator.pushNamed(
-        context,
-        '/reader',
-        arguments: ReaderArgs(
-          title: title,
-          publisher: subtitle.split(' · ').first,
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+              fontSize: 11.5, color: AppColors.textSecondary),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 58,
-              height: 58,
-              child: NetworkPhoto(url: thumb, radius: 8),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                        fontSize: 12.5,
-                        color: AppColors.textSecondary),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                          child: ReadProgressBar(percent: percent)),
-                      const SizedBox(width: 10),
-                      Text(
-                        '$percent%',
-                        style: const TextStyle(
-                            fontSize: 11.5,
-                            color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: AppColors.ink,
+          ),
         ),
-      ),
+        const SizedBox(height: 6),
+        Icon(icon, size: 16, color: AppColors.textSecondary),
+      ],
     );
   }
 }

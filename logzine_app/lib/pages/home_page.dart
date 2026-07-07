@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/magazine.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
@@ -143,7 +144,8 @@ class HomePage extends StatelessWidget {
                         const Spacer(),
                         InkWell(
                           onTap: () => Navigator.pushNamed(
-                              context, '/onboarding/profile'),
+                              context, '/onboarding/profile',
+                              arguments: 'edit'),
                           child: const Row(
                             children: [
                               Text(

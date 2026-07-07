@@ -1,6 +1,10 @@
 # Team4_rabbit-turtle
 We are going to get 1st prize🏆
 
+🌐 **랜딩페이지**: https://pnu-camp-2026-s.github.io/Team4_rabbit-turtle/
+🤝 **협업 규칙(브랜치·커밋·PR)**: [CONTRIBUTING.md](CONTRIBUTING.md) ← 작업 시작 전 필독!
+🚀 **앱 실행 방법**: [logzine_app/README.md](logzine_app/README.md)
+
 ---
 
 # LOGZINE
