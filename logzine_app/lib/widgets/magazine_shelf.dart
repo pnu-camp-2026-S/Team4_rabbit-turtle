@@ -4,6 +4,11 @@ import '../models/magazine.dart';
 import '../theme.dart';
 import 'onboarding_widgets.dart';
 
+/// 표지 Hero 전환용 태그 — 선반/가판대/Why 페이지가 같은 태그를 써야
+/// 표지가 화면 사이를 날아가며 이어진다.
+String magazineHeroTag(Magazine magazine) =>
+    'cover-${magazine.id.isEmpty ? magazine.title : magazine.id}';
+
 class MagazineShelf extends StatefulWidget {
   const MagazineShelf({
     super.key,
@@ -37,7 +42,19 @@ class _MagazineShelfState extends State<MagazineShelf> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    // 첫 진입 시 선반이 아래에서 떠오르며 나타난다
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 550),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * 28),
+          child: child,
+        ),
+      ),
+      child: SizedBox(
       height: 320,
       child: Stack(
         children: [
@@ -140,6 +157,7 @@ class _MagazineShelfState extends State<MagazineShelf> {
           ),
         ],
       ),
+      ),
     );
   }
 }
@@ -201,7 +219,10 @@ class _PhysicalMagazine extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                MagazineCover(magazine: magazine),
+                Hero(
+                  tag: magazineHeroTag(magazine),
+                  child: MagazineCover(magazine: magazine),
+                ),
                 // 책등 음영 — 왼쪽 제본부의 어두운 결
                 Positioned(
                   left: 0,

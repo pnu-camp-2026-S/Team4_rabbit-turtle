@@ -69,6 +69,13 @@ ThemeData buildAppTheme() {
   );
 
   return base.copyWith(
+    // 잡지 넘기듯 부드러운 슬라이드+페이드 전환 (기본 Zoom 전환 대체)
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: FadeForwardsPageTransitionsBuilder(),
+      },
+    ),
     textTheme: GoogleFonts.notoSansKrTextTheme(base.textTheme).apply(
       bodyColor: AppColors.textPrimary,
       displayColor: AppColors.textPrimary,
