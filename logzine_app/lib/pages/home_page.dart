@@ -195,9 +195,9 @@ class _HomePageState extends State<HomePage> {
                     Text(
                       _greeting,
                       style: logoStyle(
-                        size: 31,
-                        weight: FontWeight.w700,
-                        letterSpacingEm: 0.0,
+                        size: 27,
+                        weight: FontWeight.w500,
+                        letterSpacingEm: 0.01,
                         color: AppColors.ink,
                       ),
                     ),
@@ -258,13 +258,9 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Row(
                       children: [
-                        const Text(
-                          'Your taste',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.ink,
-                          ),
+                        Text(
+                          'YOUR TASTE',
+                          style: eyebrowStyle(color: AppColors.ink),
                         ),
                         const Spacer(),
                         InkWell(
@@ -365,7 +361,7 @@ class _RecentMarkCard extends StatelessWidget {
           child: Row(
             children: [
               const Icon(
-                Icons.bar_chart,
+                Icons.format_quote_rounded,
                 size: 22,
                 color: AppColors.ink,
               ),

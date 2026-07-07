@@ -32,22 +32,23 @@ class LogzineBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 잡지 앱에 맞는 얇은 아이콘 세트 — 가판대(펼친 잡지)/검색/서재(북마크)/마이
     const items = [
-      (Icons.storefront_outlined, 'Home'),
-      (Icons.search, 'Discover'),
-      (Icons.auto_stories_outlined, 'Library'),
-      (Icons.person_outline, 'My'),
+      (Icons.import_contacts_outlined, 'STAND'),
+      (Icons.search, 'DISCOVER'),
+      (Icons.bookmark_border, 'LIBRARY'),
+      (Icons.person_outline, 'MY'),
     ];
 
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        border: Border(top: BorderSide(color: AppColors.border, width: 0.6)),
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 60,
+          height: 64,
           child: Row(
             children: [
               for (int i = 0; i < items.length; i++)
@@ -58,14 +59,31 @@ class LogzineBottomNav extends StatelessWidget {
                     selected: i == currentIndex,
                     child: InkWell(
                       onTap: () => _onTap(context, i),
-                      child: Center(
-                        child: Icon(
-                          items[i].$1,
-                          size: 27,
-                          color: i == currentIndex
-                              ? AppColors.forest
-                              : AppColors.textSecondary,
-                        ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            items[i].$1,
+                            size: 21,
+                            color: i == currentIndex
+                                ? AppColors.forest
+                                : AppColors.textMuted,
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            items[i].$2,
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              letterSpacing: 1.2,
+                              fontWeight: i == currentIndex
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: i == currentIndex
+                                  ? AppColors.forest
+                                  : AppColors.textMuted,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

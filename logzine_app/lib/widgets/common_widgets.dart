@@ -143,33 +143,21 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        // 잡지 러닝헤드처럼 — 작은 대문자 아이브로우 라벨
         Text(
-          title,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: AppColors.ink,
-          ),
+          title.toUpperCase(),
+          style: eyebrowStyle(color: AppColors.ink),
         ),
         const Spacer(),
         if (onViewAll != null)
           InkWell(
             onTap: onViewAll,
-            child: const Row(
-              children: [
-                Text(
-                  'View all',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  size: 16,
-                  color: AppColors.textSecondary,
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                'VIEW ALL',
+                style: eyebrowStyle(size: 10),
+              ),
             ),
           ),
       ],

@@ -42,6 +42,20 @@ TextStyle logoStyle({
   );
 }
 
+/// 에디토리얼 아이브로우 라벨 — 섹션 제목용 (작게, 자간 넓게, 대문자와 사용).
+/// 잡지 지면의 러닝헤드처럼 조용히 구획만 알려준다.
+TextStyle eyebrowStyle({
+  double size = 11.5,
+  Color color = AppColors.textSecondary,
+}) {
+  return TextStyle(
+    fontSize: size,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.8,
+    color: color,
+  );
+}
+
 /// 한글 제목용 세리프 (Noto Serif KR).
 TextStyle serifHeading({
   double size = 19,

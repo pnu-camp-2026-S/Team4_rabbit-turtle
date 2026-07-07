@@ -106,9 +106,9 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     Text(
                       'Why this issue',
                       style: logoStyle(
-                        size: 30,
+                        size: 27,
                         weight: FontWeight.w500,
-                        letterSpacingEm: 0.0,
+                        letterSpacingEm: 0.01,
                         color: AppColors.ink,
                       ),
                     ),
@@ -250,13 +250,9 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     ),
                     const SizedBox(height: 24),
 
-                    const Text(
-                      'Recommended because',
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.ink,
-                      ),
+                    Text(
+                      'RECOMMENDED BECAUSE',
+                      style: eyebrowStyle(color: AppColors.ink),
                     ),
                     const SizedBox(height: 12),
                     IntrinsicHeight(
@@ -341,13 +337,9 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     const SizedBox(height: 24),
 
                     // 이번 호 목차
-                    const Text(
-                      'In this issue',
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.ink,
-                      ),
+                    Text(
+                      'IN THIS ISSUE',
+                      style: eyebrowStyle(color: AppColors.ink),
                     ),
                     const SizedBox(height: 12),
                     Container(
@@ -396,13 +388,9 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     ),
                     const SizedBox(height: 24),
 
-                    const Text(
-                      'This issue is about',
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.ink,
-                      ),
+                    Text(
+                      'THIS ISSUE IS ABOUT',
+                      style: eyebrowStyle(color: AppColors.ink),
                     ),
                     const SizedBox(height: 12),
                     Wrap(
