@@ -5,6 +5,8 @@ import '../theme.dart';
 import '../widgets/onboarding_widgets.dart'
     show OnboardingHeader, OnboardingPrimaryButton, OnboardingTopBar, TasteChip;
 
+import '../services/user_service.dart';
+
 /// 온보딩 2단계 — 분석 중 태그 선택.
 class MoodTagsPage extends StatefulWidget {
   const MoodTagsPage({super.key});
@@ -44,13 +46,17 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
     super.dispose();
   }
 
-  void _continue() {
+  Future<void> _continue() async {
     final analysis = _analysis ?? TasteAnalysisResult.empty();
     final profile = PhotoTasteAnalyzer.buildProfile(
       analysis: analysis,
       confirmedLabels: _selected,
       feedback: _feedbackController.text,
     );
+    try {
+      await UserService().saveTasteTags(_selected.toList());
+    } catch (_) {} // 비로그인·오프라인이어도 온보딩은 계속
+    if (!mounted) return;
     Navigator.pushNamed(context, '/onboarding/profile', arguments: profile);
   }
 
