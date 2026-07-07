@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 시스템 스플래시 아이콘 — 원형 마스크 안전영역(중앙 ~66%)에 맞게 인셋 -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/splash_logo"
+    android:insetTop="45%"
+    android:insetBottom="45%"
+    android:insetLeft="19%"
+    android:insetRight="19%" />

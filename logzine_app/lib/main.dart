@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'services/magazine_service.dart';
 import 'theme.dart';
+import 'pages/splash_page.dart';
 import 'pages/login_welcome_page.dart';
 import 'pages/login_email_page.dart';
 import 'pages/signup_page.dart';
@@ -40,7 +41,8 @@ class MyApp extends StatelessWidget {
       title: 'Logzine',
       theme: buildAppTheme(),
       routes: {
-        '/': (context) => const LoginWelcomePage(),
+        '/': (context) => const SplashPage(),
+        '/welcome': (context) => const LoginWelcomePage(),
         '/login/email': (context) => const LoginEmailPage(),
         '/signup': (context) => const SignupPage(),
         '/onboarding/upload': (context) => const MoodUploadPage(),

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 앱 크림 배경 (AppColors.screen과 동일) -->
+    <color name="splash_background">#F7F5F0</color>
+</resources>
