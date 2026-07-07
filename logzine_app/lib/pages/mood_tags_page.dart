@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/mood_analysis.dart';
 import '../theme.dart';
 import '../widgets/onboarding_widgets.dart';
 
@@ -12,25 +13,68 @@ class MoodTagsPage extends StatefulWidget {
 }
 
 class _MoodTagsPageState extends State<MoodTagsPage> {
-  static const Map<String, List<String>> _groups = {
-    'Mood': ['Calm', 'Warm', 'Minimal', 'Sensory'],
-    'Space': ['Interior', 'Studio', 'Living', 'Wood'],
-    'Style': ['Editorial', 'Natural light', 'Objects', 'Books'],
-  };
+  /// 태그 어휘 — AI 분석기와 공유하는 단일 출처.
+  static const Map<String, List<String>> _groups = kMoodVocab;
 
-  static const List<String> _suggested = [
+  /// AI 분석 실패/미사용 시의 데모 기본값.
+  static const List<String> _demoSuggested = [
     'Warm wood',
     'Soft light',
     'Quiet room',
   ];
-
-  final Set<String> _selected = {
+  static const Set<String> _demoSelected = {
     'Calm',
     'Interior',
     'Wood',
     'Editorial',
     'Natural light',
   };
+
+  MoodAnalysis? _analysis;
+  MoodTagsArgs? _args;
+  bool _argsApplied = false;
+
+  Set<String> _selected = Set.of(_demoSelected);
+  List<String> _suggested = _demoSuggested;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_argsApplied) return;
+    _argsApplied = true;
+
+    // 업로드 화면에서 넘어온 사진 + AI 분석 결과 반영
+    final Object? args = ModalRoute.of(context)?.settings.arguments;
+    if (args is MoodTagsArgs) {
+      _args = args;
+      final MoodAnalysis? analysis = args.analysis;
+      if (analysis != null) {
+        _analysis = analysis;
+        if (analysis.tags.isNotEmpty) _selected = Set.of(analysis.tags);
+        if (analysis.suggested.isNotEmpty) _suggested = analysis.suggested;
+        // AI가 뽑은 자유 키워드는 처음부터 선택된 상태 = "자동으로 정리된 내 취향"
+        _selected.addAll(_suggested);
+      }
+    }
+  }
+
+  /// 상단에 보여줄 사진들 — 첨부한 사진(bytes) 우선, 없으면 프리셋.
+  List<Widget> _photoWidgets() {
+    final List<Widget> photos = [
+      if (_args != null) ...[
+        for (final bytes in _args!.photoBytes)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.memory(bytes, fit: BoxFit.cover),
+          ),
+        for (final url in _args!.photoUrls) NetworkPhoto(url: url),
+      ],
+    ];
+    if (photos.isEmpty) {
+      photos.addAll([for (final url in kMoodPhotos) NetworkPhoto(url: url)]);
+    }
+    return photos.take(4).toList();
+  }
 
   void _toggle(String tag) {
     setState(() {
@@ -66,28 +110,80 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
                       const _AnalyzingCard(),
                       const SizedBox(height: 18),
 
-                      // 분석 중인 사진들 (마지막 장은 로딩 중 느낌)
-                      Row(
-                        children: [
-                          for (int i = 0; i < kMoodPhotos.length; i++) ...[
-                            if (i > 0) const SizedBox(width: 10),
-                            Expanded(
-                              child: AspectRatio(
-                                aspectRatio: 0.82,
-                                child: Opacity(
-                                  opacity: i == kMoodPhotos.length - 1
-                                      ? 0.45
-                                      : 1,
-                                  child: NetworkPhoto(url: kMoodPhotos[i]),
+                      // 분석에 사용된 사진들 (사용자가 첨부한 사진 우선)
+                      Builder(builder: (context) {
+                        final photos = _photoWidgets();
+                        return Row(
+                          children: [
+                            for (int i = 0; i < photos.length; i++) ...[
+                              if (i > 0) const SizedBox(width: 10),
+                              Expanded(
+                                child: AspectRatio(
+                                  aspectRatio: 0.82,
+                                  child: photos[i],
                                 ),
                               ),
+                            ],
+                          ],
+                        );
+                      }),
+                      const SizedBox(height: 24),
+
+                      // ★ AI가 사진에서 읽어낸 키워드 — 자동 정리된 내 취향 (주인공)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3EFE6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome,
+                                  size: 15,
+                                  color: AppColors.forest,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'From your photos',
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.ink,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              '사진에서 읽어낸 키워드예요 — 탭해서 뺄 수 있어요',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                for (final tag in _suggested)
+                                  TasteChip(
+                                    label: tag,
+                                    selected: _selected.contains(tag),
+                                    onTap: () => _toggle(tag),
+                                  ),
+                              ],
                             ),
                           ],
-                        ],
+                        ),
                       ),
                       const SizedBox(height: 24),
 
-                      // 태그 그룹
+                      // 고정 어휘 태그 그룹 — 미세 조정용
                       for (final entry in _groups.entries) ...[
                         Text(
                           entry.key,
@@ -112,52 +208,6 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
                         ),
                         const SizedBox(height: 20),
                       ],
-
-                      // 사진에서 추천된 태그
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3EFE6),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons.auto_awesome,
-                                  size: 15,
-                                  color: AppColors.ink,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Suggested from photos',
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.ink,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                for (final tag in _suggested)
-                                  TasteChip(
-                                    label: tag,
-                                    selected: _selected.contains(tag),
-                                    onTap: () => _toggle(tag),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
@@ -165,8 +215,14 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
 
               OnboardingPrimaryButton(
                 label: 'Continue',
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/onboarding/profile'),
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  '/onboarding/profile',
+                  // AI가 생성한 취향 한 줄 요약을 프로필 화면에 전달
+                  arguments: (_analysis?.summary.isNotEmpty ?? false)
+                      ? _analysis!.summary
+                      : null,
+                ),
               ),
               const SizedBox(height: 16),
             ],
