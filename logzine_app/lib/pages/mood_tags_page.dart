@@ -4,6 +4,8 @@ import '../models/mood_analysis.dart';
 import '../theme.dart';
 import '../widgets/onboarding_widgets.dart';
 
+import '../services/user_service.dart';
+
 /// 온보딩 2단계 — 분석 중 태그 선택.
 class MoodTagsPage extends StatefulWidget {
   const MoodTagsPage({super.key});
@@ -215,14 +217,20 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
 
               OnboardingPrimaryButton(
                 label: 'Continue',
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  '/onboarding/profile',
-                  // AI가 생성한 취향 한 줄 요약을 프로필 화면에 전달
-                  arguments: (_analysis?.summary.isNotEmpty ?? false)
-                      ? _analysis!.summary
-                      : null,
-                ),
+                onPressed: () async {
+                  try {
+                    await UserService().saveTasteTags(_selected.toList());
+                  } catch (_) {} // 비로그인·오프라인이어도 온보딩은 계속
+                  if (!context.mounted) return;
+                  Navigator.pushNamed(
+                    context,
+                    '/onboarding/profile',
+                    // AI가 생성한 취향 한 줄 요약을 프로필 화면에 전달
+                    arguments: (_analysis?.summary.isNotEmpty ?? false)
+                        ? _analysis!.summary
+                        : null,
+                  );
+                },
               ),
               const SizedBox(height: 16),
             ],
