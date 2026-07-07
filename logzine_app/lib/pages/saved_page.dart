@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/reader_args.dart';
+import '../services/saved_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
@@ -8,28 +10,6 @@ import '../widgets/onboarding_widgets.dart';
 /// 저장 탭 — 북마크한 글 + 매거진을 가로질러 모은 하이라이트.
 class SavedPage extends StatelessWidget {
   const SavedPage({super.key});
-
-  /// (제목, 발행사, 날짜, 썸네일)
-  static const List<(String, String, String, String)> _saved = [
-    (
-      'The beauty of empty space',
-      'Openhouse',
-      'May 20, 2024',
-      'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
-    ),
-    (
-      'A table, a chair, and the light',
-      'ARK Journal',
-      'May 18, 2024',
-      'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=400&q=80',
-    ),
-    (
-      'Quiet Materials',
-      'Studio Log',
-      'May 12, 2024',
-      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=400&q=80',
-    ),
-  ];
 
   /// (인용문, 하이라이트 색, 매거진, 발행사, 페이지)
   static const List<(String, Color, String, String, int)> _marks = [
@@ -93,22 +73,48 @@ class SavedPage extends StatelessWidget {
                     // 저장한 글
                     SectionHeader(title: 'Saved articles', onViewAll: () {}),
                     const SizedBox(height: 10),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        children: [
-                          for (int i = 0; i < _saved.length; i++) ...[
-                            if (i > 0)
-                              const Divider(
-                                  color: AppColors.border, height: 1),
-                            _SavedTile(item: _saved[i]),
-                          ],
-                        ],
-                      ),
+                    StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: SavedService().watchSaved(),
+                      builder: (context, snapshot) {
+                        final docs = snapshot.data?.docs ?? [];
+                        if (docs.isEmpty) {
+                          return Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 28, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: const Text(
+                              '아직 저장한 글이 없어요.\n리더에서 북마크를 눌러 저장해보세요.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textMuted,
+                                  height: 1.6),
+                            ),
+                          );
+                        }
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            children: [
+                              for (int i = 0; i < docs.length; i++) ...[
+                                if (i > 0)
+                                  const Divider(
+                                      color: AppColors.border, height: 1),
+                                _SavedTile(doc: docs[i]),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
 
@@ -140,18 +146,28 @@ class SavedPage extends StatelessWidget {
 
 /// 저장한 글 한 줄.
 class _SavedTile extends StatelessWidget {
-  const _SavedTile({required this.item});
+  const _SavedTile({required this.doc});
 
-  final (String, String, String, String) item;
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
 
   @override
   Widget build(BuildContext context) {
-    final (title, publisher, date, thumb) = item;
+    final data = doc.data();
+    final String title = data['articleTitle'] as String? ?? '(제목 없음)';
+    final String magazine = data['magazineTitle'] as String? ?? '';
+    final String thumb = data['coverUrl'] as String? ?? '';
+    final Timestamp? savedAt = data['savedAt'] as Timestamp?;
+    final String date = savedAt == null
+        ? ''
+        : '${savedAt.toDate().year}.'
+            '${savedAt.toDate().month.toString().padLeft(2, '0')}.'
+            '${savedAt.toDate().day.toString().padLeft(2, '0')}';
+
     return InkWell(
       onTap: () => Navigator.pushNamed(
         context,
         '/reader',
-        arguments: ReaderArgs(title: title, publisher: publisher),
+        arguments: ReaderArgs(title: title, publisher: magazine),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -177,7 +193,7 @@ class _SavedTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '$publisher · $date',
+                    magazine.isEmpty ? date : '$magazine · $date',
                     style: const TextStyle(
                         fontSize: 12.5, color: AppColors.textSecondary),
                   ),
