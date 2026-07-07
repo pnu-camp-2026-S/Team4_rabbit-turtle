@@ -78,7 +78,11 @@ class _StandPageState extends State<StandPage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     child: InkWell(
-                      onTap: () => Navigator.pushNamed(context, '/discover/why'),
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/discover/why',
+                        arguments: magazine,
+                      ),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
                         padding: const EdgeInsets.all(14),

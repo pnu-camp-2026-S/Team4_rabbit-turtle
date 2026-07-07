@@ -26,8 +26,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // 카탈로그 시드/태그 동기화 — 앱 시작을 막지 않게 비동기 (실패해도 무해)
-  MagazineService().syncCatalog();
+  // 카탈로그/아티클 시드 동기화 — 앱 시작을 막지 않게 비동기 (실패해도 무해)
+  MagazineService().syncCatalog().then((_) => MagazineService().syncArticles());
   runApp(const MyApp());
 }
 

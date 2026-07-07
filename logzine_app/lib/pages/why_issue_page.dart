@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/magazine.dart';
 import '../models/reader_args.dart';
+import '../services/recommendation_service.dart';
+import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/magazine_shelf.dart';
@@ -16,9 +18,35 @@ class WhyIssuePage extends StatefulWidget {
 }
 
 class _WhyIssuePageState extends State<WhyIssuePage> {
-  final Set<String> _aboutTags = {'Interior'};
+  Magazine? _magazineArg;
+  bool _argsApplied = false;
+  List<String> _taste = const [];
 
-  Magazine get _magazine => kMagazines[2]; // ROOM NOTE
+  /// 선반/검색에서 탭한 매거진. 인자 없으면 데모(ROOM NOTE) 폴백.
+  Magazine get _magazine => _magazineArg ?? kMagazines[2];
+
+  /// 내 취향과 이 매거진의 일치 태그 — 추천 근거.
+  List<String> get _matched =>
+      RecommendationService.matchedTags(_taste, _magazine);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_argsApplied) return;
+    _argsApplied = true;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Magazine) _magazineArg = args;
+    _loadTaste();
+  }
+
+  Future<void> _loadTaste() async {
+    try {
+      final tags = await UserService().fetchTasteTags();
+      if (mounted && tags != null) setState(() => _taste = tags);
+    } catch (_) {
+      // 비로그인 — 일치 근거 없이 표시
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +150,11 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                                           '/reader',
                                           arguments: ReaderArgs(
                                             title: _magazine.title,
-                                            publisher: 'Room Note Studio',
+                                            publisher: _magazine.issue,
+                                            // 이 매거진의 아티클을 리더에 로드
+                                            magazineId: _magazine.id.isEmpty
+                                                ? null
+                                                : _magazine.id,
                                           ),
                                         ),
                                         style: FilledButton.styleFrom(
@@ -185,27 +217,30 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const IntrinsicHeight(
+                    IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(
                             child: _ReasonCard(
                               icon: Icons.spa_outlined,
-                              title: 'Recent mood',
-                              subtitle: 'Warm wood,\nQuiet rooms',
+                              title: 'Taste match',
+                              // 실제 일치 태그 — 없으면 새로운 발견으로 안내
+                              subtitle: _matched.isEmpty
+                                  ? 'New territory\nfor you'
+                                  : _matched.take(2).join(',\n'),
                             ),
                           ),
-                          SizedBox(width: 10),
-                          Expanded(
+                          const SizedBox(width: 10),
+                          const Expanded(
                             child: _ReasonCard(
                               icon: Icons.menu_book_outlined,
                               title: 'Reading style',
                               subtitle: 'Visual essays,\nShort issues',
                             ),
                           ),
-                          SizedBox(width: 10),
-                          Expanded(
+                          const SizedBox(width: 10),
+                          const Expanded(
                             child: _ReasonCard(
                               icon: Icons.refresh,
                               title: 'Updated from activity',
@@ -238,11 +273,10 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'A quiet interior story about light, '
-                              'materials, and daily rituals.',
-                              style: TextStyle(
+                              _magazine.tagline,
+                              style: const TextStyle(
                                 fontSize: 13.5,
                                 height: 1.5,
                                 color: AppColors.body,
@@ -322,20 +356,13 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                       spacing: 10,
                       runSpacing: 10,
                       children: [
-                        for (final tag in const [
-                          'Interior',
-                          'Wood',
-                          'Light',
-                          'Objects',
-                        ])
+                        // 이 매거진의 태그 — 내 취향과 일치하면 선택 상태로 강조
+                        for (final tag in _magazine.tags.isEmpty
+                            ? const ['Interior', 'Wood', 'Light', 'Objects']
+                            : _magazine.tags)
                           TasteChip(
                             label: tag,
-                            selected: _aboutTags.contains(tag),
-                            onTap: () => setState(() {
-                              _aboutTags.contains(tag)
-                                  ? _aboutTags.remove(tag)
-                                  : _aboutTags.add(tag);
-                            }),
+                            selected: _matched.contains(tag),
                           ),
                       ],
                     ),
