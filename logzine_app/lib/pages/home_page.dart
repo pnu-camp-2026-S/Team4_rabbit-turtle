@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/magazine.dart';
 import '../services/auth_service.dart';
+import '../services/curator_service.dart';
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
 import '../services/recommendation_service.dart';
@@ -44,6 +45,29 @@ class _HomePageState extends State<HomePage> {
   Future<_HomeData> _homeFuture = _loadHome();
   late final Future<_RecentMarkInfo> _recentMarkFuture = _loadRecentMark();
 
+  /// AI 큐레이터 한 줄 — 홈 데이터가 준비되면 취향+오늘의 픽으로 생성.
+  Future<String>? _curatorFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _watchCurator(_homeFuture);
+  }
+
+  void _watchCurator(Future<_HomeData> future) {
+    future.then((data) {
+      if (!mounted) return;
+      // 선반 정중앙(Today's Pick)이 큐레이터가 소개할 매거진
+      final int center = data.shelf.length > 2 ? 2 : 0;
+      final String topPick =
+          data.shelf.isEmpty ? '' : data.shelf[center].title;
+      setState(() {
+        _curatorFuture =
+            CuratorService.todayLine(taste: data.taste, topPick: topPick);
+      });
+    }).catchError((_) {});
+  }
+
   /// 매거진 + 사용자 취향을 불러와 추천순(취향∩태그 점수)으로 선반 배치.
   /// 취향이 없으면(비로그인/온보딩 전) 원래 순서 그대로.
   static Future<_HomeData> _loadHome() async {
@@ -71,7 +95,11 @@ class _HomePageState extends State<HomePage> {
       ];
     }
 
-    final ranked = RecommendationService.rank(taste, magazines);
+    final ranked = RecommendationService.rank(
+      taste,
+      magazines,
+      daySeed: RecommendationService.todaySeed(), // 동점은 매일 순환
+    );
     return _HomeData(
       shelf: RecommendationService.arrangeForShelf(ranked),
       taste: taste,
@@ -143,6 +171,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _homeFuture = next;
       });
+      _watchCurator(next);
     }
   }
 
@@ -178,12 +207,26 @@ class _HomePageState extends State<HomePage> {
                       onViewAll: () => Navigator.pushNamed(context, '/stand'),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Picked from your taste',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
-                      ),
+                    // AI 큐레이터의 오늘 한 줄 — 도착 전엔 기본 문구
+                    FutureBuilder<String>(
+                      future: _curatorFuture,
+                      builder: (context, snapshot) {
+                        final String line =
+                            snapshot.data ?? 'Picked from your taste';
+                        return AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 400),
+                          child: Text(
+                            line,
+                            key: ValueKey(line),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              height: 1.45,
+                              fontStyle: FontStyle.italic,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -237,6 +280,7 @@ class _HomePageState extends State<HomePage> {
                               setState(() {
                                 _homeFuture = next;
                               });
+                              _watchCurator(next);
                             }
                           },
                           child: const Row(

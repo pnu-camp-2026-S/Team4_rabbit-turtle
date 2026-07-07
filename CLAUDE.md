@@ -6,8 +6,13 @@
 ## 프로젝트 개요
 
 - **LOGZINE**: 취향 기반 에디토리얼 매거진 앱 (Flutter · Dart 3 · Material 3)
-- 앱 코드는 전부 `logzine_app/` 안에 있음. 화면은 `lib/pages/`, 공용 위젯은 `lib/widgets/`, 데이터 모델은 `lib/models/`, 디자인 토큰은 `lib/theme.dart`
-- 현재 UI/UX 데모 단계 — 인증·서버 없음, 콘텐츠는 데모 데이터
+- 앱 코드는 전부 `logzine_app/` 안에 있음. 화면은 `lib/pages/`, 공용 위젯은 `lib/widgets/`, 데이터 모델은 `lib/models/`, 서비스 계층은 `lib/services/`, 디자인 토큰은 `lib/theme.dart`
+- **실서비스 수준으로 동작하는 앱** — 소극적으로 판단하지 말 것:
+  - Firebase Auth 이메일 로그인, Firestore 실데이터 (매거진 12종+태그, 매거진별 아티클, 사용자 취향/마크/진행률/저장/제외 목록)
+  - Gemini Vision 사진 취향 분석 (`--dart-define-from-file=env.json`으로 키 주입)
+  - 취향∩태그 추천 엔진 (`recommendation_service.dart` — 어휘 브리지 포함, 단위 테스트 있음)
+  - 홈 선반 추천 정렬, 검색/태그 필터, Why 페이지 추천 근거, Not for me 제외
+- Firestore 규칙상 `magazines`는 클라이언트 쓰기 금지 — 시드는 콘솔에서 규칙 임시 개방 후 실행
 
 ## 절대 규칙 (위반 금지)
 
