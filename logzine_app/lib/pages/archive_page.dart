@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
@@ -7,6 +8,10 @@ import '../widgets/onboarding_widgets.dart';
 /// 마이 페이지 — Archive.
 class ArchivePage extends StatelessWidget {
   const ArchivePage({super.key});
+
+  static const String _avatarUrl =
+      'https://images.unsplash.com/photo-1485955900006-10f4d324d411'
+      '?auto=format&fit=crop&w=400&q=80';
 
   /// (제목, 발행사, 날짜, 썸네일)
   static const List<(String, String, String, String)> _saved = [
@@ -26,6 +31,8 @@ class ArchivePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String userName = AuthService().currentUserName ?? 'Reader';
+
     return Scaffold(
       backgroundColor: AppColors.screen,
       body: SafeArea(
@@ -39,111 +46,180 @@ class ArchivePage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-              const SizedBox(height: 6),
-              Text(
-                'Archive',
-                style: logoStyle(
-                  size: 32,
-                  weight: FontWeight.w500,
-                  letterSpacingEm: 0.0,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 18),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Archive',
+                      style: logoStyle(
+                        size: 32,
+                        weight: FontWeight.w500,
+                        letterSpacingEm: 0.0,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    _ProfileHeader(avatarUrl: _avatarUrl, userName: userName),
+                    const SizedBox(height: 24),
 
-              // 저장한 아티클
-              SectionHeader(title: 'Saved articles', onViewAll: () {}),
-              const SizedBox(height: 10),
-              _Card(
-                child: Column(
-                  children: [
-                    for (int i = 0; i < _saved.length; i++) ...[
-                      if (i > 0)
-                        const Divider(
-                            color: AppColors.border, height: 1),
-                      _SavedTile(item: _saved[i]),
-                    ],
+                    // 저장한 아티클
+                    SectionHeader(title: 'Saved articles', onViewAll: () {}),
+                    const SizedBox(height: 10),
+                    _Card(
+                      child: Column(
+                        children: [
+                          for (int i = 0; i < _saved.length; i++) ...[
+                            if (i > 0)
+                              const Divider(color: AppColors.border, height: 1),
+                            _SavedTile(item: _saved[i]),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+
+                    // 이번 주 읽기 기록
+                    const SectionHeader(title: 'This week'),
+                    const SizedBox(height: 10),
+                    const _Card(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: IntrinsicHeight(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _StatItem(
+                                  label: 'Time read',
+                                  value: '1h 24m',
+                                  icon: Icons.schedule,
+                                ),
+                              ),
+                              VerticalDivider(
+                                color: AppColors.border,
+                                width: 1,
+                              ),
+                              Expanded(
+                                child: _StatItem(
+                                  label: 'Marks',
+                                  value: '12',
+                                  icon: Icons.edit_outlined,
+                                ),
+                              ),
+                              VerticalDivider(
+                                color: AppColors.border,
+                                width: 1,
+                              ),
+                              Expanded(
+                                child: _StatItem(
+                                  label: 'Streak',
+                                  value: '3 days',
+                                  icon: Icons.auto_awesome,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // 설정 목록
+                    _Card(
+                      child: Column(
+                        children: [
+                          _SettingTile(
+                            icon: Icons.notifications_none,
+                            label: 'Notifications',
+                            onTap: () => _todo(context),
+                          ),
+                          const Divider(color: AppColors.border, height: 1),
+                          _SettingTile(
+                            icon: Icons.person_outline,
+                            label: 'Account',
+                            onTap: () => _todo(context),
+                          ),
+                          const Divider(color: AppColors.border, height: 1),
+                          _SettingTile(
+                            icon: Icons.contrast,
+                            label: 'Appearance',
+                            onTap: () => _todo(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
-              const SizedBox(height: 22),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-              // 이번 주 읽기 기록
-              const SectionHeader(title: 'This week'),
-              const SizedBox(height: 10),
-              const _Card(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: IntrinsicHeight(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _StatItem(
-                            label: 'Time read',
-                            value: '1h 24m',
-                            icon: Icons.schedule,
-                          ),
-                        ),
-                        VerticalDivider(
-                            color: AppColors.border, width: 1),
-                        Expanded(
-                          child: _StatItem(
-                            label: 'Marks',
-                            value: '12',
-                            icon: Icons.edit_outlined,
-                          ),
-                        ),
-                        VerticalDivider(
-                            color: AppColors.border, width: 1),
-                        Expanded(
-                          child: _StatItem(
-                            label: 'Streak',
-                            value: '3 days',
-                            icon: Icons.auto_awesome,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+  static void _todo(BuildContext context) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('준비 중인 기능이에요')));
+  }
+}
 
-              // 취향 프로필
-              const Text(
-                'Taste profile',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.ink,
-                ),
+/// Archive 상단 사용자 프로필.
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.avatarUrl, required this.userName});
+
+  final String avatarUrl;
+  final String userName;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipOval(
+              child: SizedBox(
+                width: 64,
+                height: 64,
+                child: NetworkPhoto(url: avatarUrl, radius: 0),
               ),
-              const SizedBox(height: 12),
-              Row(
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Expanded(
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _TasteTag('Warm wood'),
-                        _TasteTag('Quiet rooms'),
-                        _TasteTag('Editorial mood'),
-                      ],
+                  Text(
+                    userName,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(height: 8),
+                  const Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _TasteTag('Warm wood'),
+                      _TasteTag('Quiet rooms'),
+                      _TasteTag('Editorial mood'),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
                   FilledButton(
                     onPressed: () => Navigator.pushNamed(
-                        context, '/onboarding/profile',
-                        arguments: 'edit'),
+                      context,
+                      '/onboarding/profile',
+                      arguments: 'edit',
+                    ),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.forest,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.card,
                       minimumSize: const Size(0, 40),
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -156,46 +232,10 @@ class ArchivePage extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-
-              // 설정 목록
-              _Card(
-                child: Column(
-                  children: [
-                    _SettingTile(
-                      icon: Icons.notifications_none,
-                      label: 'Notifications',
-                      onTap: () => _todo(context),
-                    ),
-                    const Divider(color: AppColors.border, height: 1),
-                    _SettingTile(
-                      icon: Icons.person_outline,
-                      label: 'Account',
-                      onTap: () => _todo(context),
-                    ),
-                    const Divider(color: AppColors.border, height: 1),
-                    _SettingTile(
-                      icon: Icons.contrast,
-                      label: 'Appearance',
-                      onTap: () => _todo(context),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-                  ],
-                ),
-              ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  static void _todo(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('준비 중인 기능이에요')),
     );
   }
 }
@@ -254,20 +294,23 @@ class _SavedTile extends StatelessWidget {
                 Text(
                   publisher,
                   style: const TextStyle(
-                      fontSize: 12.5, color: AppColors.textSecondary),
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   date,
                   style: const TextStyle(
-                      fontSize: 11.5, color: AppColors.textMuted),
+                    fontSize: 11.5,
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          const Icon(Icons.bookmark_border,
-              size: 20, color: AppColors.ink),
+          const Icon(Icons.bookmark_border, size: 20, color: AppColors.ink),
         ],
       ),
     );
@@ -293,7 +336,9 @@ class _StatItem extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-              fontSize: 11.5, color: AppColors.textSecondary),
+            fontSize: 11.5,
+            color: AppColors.textSecondary,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
@@ -350,20 +395,21 @@ class _SettingTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         child: Row(
           children: [
             Icon(icon, size: 20, color: AppColors.ink),
             const SizedBox(width: 14),
             Text(
               label,
-              style: const TextStyle(
-                  fontSize: 14, color: AppColors.ink),
+              style: const TextStyle(fontSize: 14, color: AppColors.ink),
             ),
             const Spacer(),
-            const Icon(Icons.chevron_right,
-                size: 18, color: AppColors.textSecondary),
+            const Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: AppColors.textSecondary,
+            ),
           ],
         ),
       ),
