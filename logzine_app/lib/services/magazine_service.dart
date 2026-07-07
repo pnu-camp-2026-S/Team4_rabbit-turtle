@@ -114,8 +114,9 @@ class MagazineService {
     }
   }
 
-  /// [시드] 아티클이 없는 매거진에 kArticleSeeds의 전용 아티클을 1편씩 입력 (멱등).
-  /// 이미 아티클이 있는 매거진은 건너뛴다 (기존 마크/진행률 좌표 보호).
+  /// [시드] 매거진별 아티클(1·2호)을 제목 단위로 멱등 시드.
+  /// 같은 제목이 이미 있으면 건너뛰고, 없는 것만 뒤 순번으로 추가한다
+  /// (기존 아티클과 마크/진행률 좌표는 그대로 보호).
   /// rules상 쓰기 금지면 조용히 건너뜀.
   Future<void> syncArticles() async {
     try {
@@ -123,20 +124,36 @@ class MagazineService {
       var writes = 0;
       for (final doc in snapshot.docs) {
         final String title = doc.data()['title'] as String? ?? '';
-        final ArticleSeed? seed = kArticleSeeds[title];
-        if (seed == null) continue;
+        final seeds = <ArticleSeed>[
+          if (kArticleSeeds[title] != null) kArticleSeeds[title]!,
+          if (kSecondArticleSeeds[title] != null) kSecondArticleSeeds[title]!,
+        ];
+        if (seeds.isEmpty) continue;
+
         final articles = doc.reference.collection('articles');
-        final existing = await articles.limit(1).get();
-        if (existing.docs.isNotEmpty) continue;
-        await articles.add({
-          'title': seed.title,
-          'order': 0,
-          'pageCount': seed.pageCount,
-          'paragraphs': [
-            for (final p in seed.paragraphs) {'segments': p},
-          ],
-        });
-        writes++;
+        final existing = await articles.get();
+        final existingTitles = {
+          for (final d in existing.docs) d.data()['title'] as String? ?? '',
+        };
+        var nextOrder = existing.docs.isEmpty
+            ? 0
+            : existing.docs
+                    .map((d) => (d.data()['order'] as num?)?.toInt() ?? 0)
+                    .reduce((a, b) => a > b ? a : b) +
+                1;
+
+        for (final seed in seeds) {
+          if (existingTitles.contains(seed.title)) continue;
+          await articles.add({
+            'title': seed.title,
+            'order': nextOrder++,
+            'pageCount': seed.pageCount,
+            'paragraphs': [
+              for (final p in seed.paragraphs) {'segments': p},
+            ],
+          });
+          writes++;
+        }
       }
       if (writes > 0) {
         debugPrint('MagazineService.syncArticles: $writes편 시드');
@@ -144,6 +161,36 @@ class MagazineService {
     } catch (e) {
       debugPrint('MagazineService.syncArticles 실패: $e');
     }
+  }
+
+  /// 매거진의 아티클 목록 (순서대로) — Why 페이지 목차용.
+  Future<List<Article>> fetchArticles(String magazineId) async {
+    final snap = await _db
+        .collection('magazines')
+        .doc(magazineId)
+        .collection('articles')
+        .orderBy('order')
+        .get();
+    return [
+      for (final d in snap.docs)
+        Article.fromFirestore(d.id, d.data(), magazineId: magazineId),
+    ];
+  }
+
+  /// 아티클 단건 조회 — 목차에서 특정 편을 열 때.
+  Future<Article?> fetchArticleById({
+    required String magazineId,
+    required String articleId,
+  }) async {
+    final doc = await _db
+        .collection('magazines')
+        .doc(magazineId)
+        .collection('articles')
+        .doc(articleId)
+        .get();
+    final data = doc.data();
+    if (data == null) return null;
+    return Article.fromFirestore(doc.id, data, magazineId: magazineId);
   }
 
   /// 아티클 본문 문단 조회. 각 원소는 문장 조각(segment) 리스트.
