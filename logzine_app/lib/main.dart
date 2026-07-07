@@ -3,6 +3,7 @@ import 'firebase_options.dart';
 
 import 'package:flutter/material.dart';
 
+import 'services/magazine_service.dart';
 import 'theme.dart';
 import 'pages/login_welcome_page.dart';
 import 'pages/login_email_page.dart';
@@ -25,6 +26,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // 카탈로그 시드/태그 동기화 — 앱 시작을 막지 않게 비동기 (실패해도 무해)
+  MagazineService().syncCatalog();
   runApp(const MyApp());
 }
 
