@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 매거진: 누구나 읽기 (비로그인 브라우징 지원), 쓰기 금지 — 시드는 관리자가 규칙 임시 개방 후 수행
+    match /magazines/{magazineId}/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // 사용자 데이터: 본인만 읽기/쓰기
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

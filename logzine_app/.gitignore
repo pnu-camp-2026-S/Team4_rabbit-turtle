@@ -48,3 +48,8 @@ app.*.map.json
 serviceAccountKey.json
 *-firebase-adminsdk-*.json
 .env
+
+# Firebase CLI 로컬 설정/캐시 (Rules 파일화 작업 시 생김)
+.firebase/
+firebase-debug.log
+firestore-debug.log
