@@ -110,6 +110,9 @@ class _ReaderPageState extends State<ReaderPage> {
       final Object? args = ModalRoute.of(context)?.settings.arguments;
       if (args is ReaderArgs) _args = args;
       _argsApplied = true;
+      // ⚠️ args(magazineId) 적용 후에 로드해야 해당 매거진 아티클이 열린다.
+      // initState에서 부르면 _args가 아직 기본값이라 항상 첫 매거진으로 폴백.
+      _loadRemote();
     }
   }
 
@@ -126,7 +129,6 @@ class _ReaderPageState extends State<ReaderPage> {
       final double page = 1 + t * (_totalPages - 1);
       if ((page - _page).abs() > 0.05) setState(() => _page = page);
     });
-    _loadRemote();
   }
 
   /// 본문이 교체될 때마다 (paragraphIdx, segmentIdx) 좌표에 맞는 탭 인식기를
