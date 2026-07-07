@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
+
 import '../theme.dart';
 import '../widgets/logzine_logo.dart';
 
@@ -49,8 +51,13 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
       } else {
         await _authService.signIn(email, password);
       }
+
+      try {
+        await UserService().ensureUserDoc();
+      } catch (_) {} // 문서 생성 실패가 로그인 완료를 막지 않게
       if (!mounted) return;
       Navigator.pushNamed(context, '/onboarding/upload');
+
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       _showMessage(AuthService.messageFor(e));

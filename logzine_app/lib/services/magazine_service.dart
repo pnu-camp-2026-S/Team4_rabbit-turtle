@@ -49,4 +49,62 @@ class MagazineService {
     }
     await batch.commit();
   }
+
+  /// [임시] 리더 데모 아티클의 ID — 첫 매거진의 첫 아티클.
+  /// 리더 콘텐츠 동적화(로드맵) 전까지 marks/progress의 대상 지정용.
+  Future<({String magazineId, String articleId})?> fetchDemoArticleIds() async {
+    final mag =
+        await _db.collection('magazines').orderBy('order').limit(1).get();
+    if (mag.docs.isEmpty) return null;
+    final String magId = mag.docs.first.id;
+    final art = await _db
+        .collection('magazines')
+        .doc(magId)
+        .collection('articles')
+        .orderBy('order')
+        .limit(1)
+        .get();
+    if (art.docs.isEmpty) return null;
+    return (magazineId: magId, articleId: art.docs.first.id);
+  }
+
+  /// [시드] 첫 매거진에 데모 아티클 1편 입력 (비어 있을 때만).
+  /// ⚠️ 본문은 reader_page.dart의 _paragraphs와 반드시 동일해야
+  /// (paragraphIdx, segmentIdx) 좌표가 성립한다.
+  Future<void> seedDemoArticleIfEmpty() async {
+    final mag =
+        await _db.collection('magazines').orderBy('order').limit(1).get();
+    if (mag.docs.isEmpty) return;
+    final articles =
+        mag.docs.first.reference.collection('articles');
+    final existing = await articles.limit(1).get();
+    if (existing.docs.isNotEmpty) return;
+
+    await articles.add({
+      'title': 'Quiet Materials',
+      'order': 0,
+      'pageCount': 12,
+      'paragraphs': [
+        {
+          'segments': [
+            'Materials shape the mood of a space.',
+            'When light, texture, and proportion align, '
+                'the quiet becomes a language.',
+          ],
+        },
+        {
+          'segments': [
+            'Wood, stone, linen—honest materials',
+            'that age beautifully and hold meaning over time.',
+          ],
+        },
+        {
+          'segments': [
+            'In a world that moves fast, slow spaces',
+            'remind us to notice the small things.',
+          ],
+        },
+      ],
+    });
+  }
 }

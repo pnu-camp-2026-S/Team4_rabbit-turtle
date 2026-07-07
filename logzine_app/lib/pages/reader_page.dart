@@ -5,6 +5,9 @@ import '../models/reader_args.dart';
 import '../theme.dart';
 import '../widgets/onboarding_widgets.dart';
 
+import '../services/magazine_service.dart';
+import '../services/mark_service.dart';
+
 /// 하이라이트/메모 마크.
 class _Mark {
   const _Mark({required this.color, this.memo});
@@ -89,6 +92,10 @@ class _ReaderPageState extends State<ReaderPage> {
   ReaderArgs _args = const ReaderArgs();
   bool _argsApplied = false;
 
+  final MarkService _markService = MarkService();
+  String? _magazineId;
+  String? _articleId;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -117,10 +124,80 @@ class _ReaderPageState extends State<ReaderPage> {
       final double page = 1 + t * (_totalPages - 1);
       if ((page - _page).abs() > 0.05) setState(() => _page = page);
     });
+    _loadRemote();
+  }
+
+  /// 아티클 ID 확인 + 저장된 마크/진행률 복원
+  Future<void> _loadRemote() async {
+    final ids = await MagazineService().fetchDemoArticleIds();
+    if (ids == null || !mounted) return;
+    _magazineId = ids.magazineId;
+    _articleId = ids.articleId;
+
+    final List<MarkRecord> marks =
+        await _markService.fetchMarks(ids.articleId);
+    final int? lastPage = await _markService.fetchLastPage(ids.articleId);
+    if (!mounted) return;
+    setState(() {
+      for (final r in marks) {
+        _marks[(r.paragraphIdx, r.segmentIdx)] = _Mark(
+          color: r.type == 'underline' ? kInkSwatch : _colorFromHex(r.color),
+          memo: r.memoText,
+        );
+      }
+      if (lastPage != null) {
+        _page = lastPage.clamp(1, _totalPages).toDouble();
+      }
+    });
+  }
+
+  /// 마크 1건 서버 반영 (null이면 삭제)
+  void _syncMark((int, int) key, _Mark? mark) {
+    final String? articleId = _articleId;
+    final String? magazineId = _magazineId;
+    if (articleId == null || magazineId == null) return;
+    if (mark == null) {
+      _markService.deleteMark(articleId, key.$1, key.$2);
+    } else {
+      _markService.saveMark(
+        articleId: articleId,
+        magazineId: magazineId,
+        paragraphIdx: key.$1,
+        segmentIdx: key.$2,
+        type: mark.memo != null
+            ? 'memo'
+            : mark.isUnderline
+                ? 'underline'
+                : 'highlight',
+        colorHex: _hex(mark.color),
+        memoText: mark.memo,
+      );
+    }
+  }
+
+  void _saveProgress() {
+    final String? articleId = _articleId;
+    final String? magazineId = _magazineId;
+    if (articleId == null || magazineId == null) return;
+    _markService.saveProgress(
+      articleId: articleId,
+      magazineId: magazineId,
+      lastPage: _page.round(),
+      percent: (_page / _totalPages * 100).ceil().clamp(0, 100),
+    );
+  }
+
+  static String _hex(Color c) =>
+      '#${c.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+
+  static Color _colorFromHex(String? hex) {
+    if (hex == null || hex.length < 7) return kYellowSwatch;
+    return Color(int.parse(hex.substring(1, 7), radix: 16) | 0xFF000000);
   }
 
   @override
   void dispose() {
+    _saveProgress();
     for (final r in _recognizers.values) {
       r.dispose();
     }
@@ -136,11 +213,15 @@ class _ReaderPageState extends State<ReaderPage> {
 
   void _undo() {
     if (_history.isEmpty) return;
+    final Map<(int, int), _Mark> before = Map.of(_marks);
     setState(() {
       _marks
         ..clear()
         ..addAll(_history.removeLast());
     });
+    for (final key in {...before.keys, ..._marks.keys}) {
+      if (!identical(before[key], _marks[key])) _syncMark(key, _marks[key]);
+    }
   }
 
   Future<void> _onSegmentTap(int p, int s) async {
@@ -154,6 +235,7 @@ class _ReaderPageState extends State<ReaderPage> {
         _pushHistory();
         _marks[key] = _Mark(color: _activeColor, memo: memo.trim());
       });
+      _syncMark(key, _marks[key]);
       return;
     }
 
@@ -168,6 +250,7 @@ class _ReaderPageState extends State<ReaderPage> {
         _marks[key] = _Mark(color: _activeColor);
       }
     });
+    _syncMark(key, _marks[key]);
   }
 
   Future<String?> _askMemo() {
@@ -880,7 +963,10 @@ class _ReaderPageState extends State<ReaderPage> {
                       (_totalPages - 1));
                 }
               },
-              onChangeEnd: (_) => _draggingSlider = false,
+              onChangeEnd: (_) {
+                _draggingSlider = false;
+                _saveProgress();
+              },
             ),
           ),
         ),
