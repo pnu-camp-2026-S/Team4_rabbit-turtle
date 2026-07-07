@@ -225,10 +225,11 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                             child: _ReasonCard(
                               icon: Icons.spa_outlined,
                               title: 'Taste match',
-                              // 실제 일치 태그 — 없으면 새로운 발견으로 안내
+                              // 실제 일치 태그 + 일치율 — 없으면 새로운 발견으로 안내
                               subtitle: _matched.isEmpty
                                   ? 'New territory\nfor you'
-                                  : _matched.take(2).join(',\n'),
+                                  : '${_matched.take(2).join(', ')}\n'
+                                      '${RecommendationService.matchPercent(_taste, _magazine)}% match',
                             ),
                           ),
                           const SizedBox(width: 10),

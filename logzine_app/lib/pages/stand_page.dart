@@ -53,7 +53,11 @@ class _StandPageState extends State<StandPage> {
     }
 
     return _StandData(
-      magazines: RecommendationService.rank(taste, magazines),
+      magazines: RecommendationService.rank(
+        taste,
+        magazines,
+        daySeed: RecommendationService.todaySeed(),
+      ),
       taste: taste,
     );
   }
@@ -137,15 +141,25 @@ class _StandPageState extends State<StandPage> {
                                       color: AppColors.textSecondary,
                                     ),
                                   ),
-                                  // 추천 근거 — 내 취향과 겹치는 태그
+                                  // 추천 근거 — 내 취향과 겹치는 태그 + 일치율
                                   if (matched.isNotEmpty) ...[
                                     const SizedBox(height: 10),
                                     Wrap(
                                       spacing: 6,
                                       runSpacing: 6,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
                                       children: [
                                         for (final tag in matched)
                                           _MatchedTag(label: tag),
+                                        Text(
+                                          '${RecommendationService.matchPercent(taste, magazine)}% match',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.forest,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ],

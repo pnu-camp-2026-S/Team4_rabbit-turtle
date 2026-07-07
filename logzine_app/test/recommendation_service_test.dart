@@ -82,6 +82,28 @@ void main() {
     });
   });
 
+  group('matchPercent / 데일리 로테이션', () {
+    test('일치율 = 매거진 태그 중 겹치는 비율', () {
+      expect(
+        RecommendationService.matchPercent(['카페', '도시 여행'], cafe),
+        67, // 3개 중 2개
+      );
+      expect(RecommendationService.matchPercent(['없음'], cafe), 0);
+    });
+
+    test('daySeed가 같으면 순서도 같다 (결정적)', () {
+      final a = RecommendationService.rank(null, all, daySeed: 42);
+      final b = RecommendationService.rank(null, all, daySeed: 42);
+      expect(a.map((m) => m.title), b.map((m) => m.title));
+    });
+
+    test('daySeed가 있어도 점수 우선순위는 유지된다', () {
+      final ranked =
+          RecommendationService.rank(['바이닐', '재즈'], all, daySeed: 7);
+      expect(ranked.first.title, 'Wax Poetics'); // 2개 일치는 항상 1위
+    });
+  });
+
   group('RecommendationService.arrangeForShelf', () {
     test('1순위가 가운데(centerIndex)에 온다', () {
       final ranked = RecommendationService.rank(['바이닐'], all);

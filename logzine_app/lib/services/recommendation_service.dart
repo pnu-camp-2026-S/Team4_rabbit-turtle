@@ -81,19 +81,54 @@ class RecommendationService {
   static int score(List<String> userTags, Magazine magazine) =>
       matchedTags(userTags, magazine).length;
 
-  /// 점수 내림차순 정렬. 동점은 기존 순서 유지(안정 정렬).
-  /// 취향이 없으면(비로그인/온보딩 전) 원래 순서 그대로.
+  /// 취향 일치율(%) — 매거진 태그 중 내 취향과 겹치는 비율.
+  static int matchPercent(List<String> userTags, Magazine magazine) {
+    if (magazine.tags.isEmpty) return 0;
+    return (matchedTags(userTags, magazine).length /
+            magazine.tags.length *
+            100)
+        .round();
+  }
+
+  /// 점수 내림차순 정렬.
+  /// [daySeed]가 있으면 동점 매거진을 날짜 기준으로 순환시킨다
+  /// (매일 다른 "Today's stand"). 없으면 기존 순서 유지(안정 정렬).
+  /// 취향이 없고 시드도 없으면 원래 순서 그대로.
   static List<Magazine> rank(
     List<String>? userTags,
-    List<Magazine> magazines,
-  ) {
-    if (userTags == null || userTags.isEmpty) return magazines;
+    List<Magazine> magazines, {
+    int? daySeed,
+  }) {
+    final tags = userTags ?? const <String>[];
+    if (tags.isEmpty && daySeed == null) return magazines;
+
+    int tieKey(int index, Magazine m) => daySeed == null
+        ? index
+        : _stableHash('${m.title}|$daySeed');
+
     final indexed = magazines.asMap().entries.toList();
     indexed.sort((a, b) {
-      final int diff = score(userTags, b.value) - score(userTags, a.value);
-      return diff != 0 ? diff : a.key - b.key;
+      final int diff = score(tags, b.value) - score(tags, a.value);
+      if (diff != 0) return diff;
+      return tieKey(a.key, a.value).compareTo(tieKey(b.key, b.value));
     });
     return [for (final e in indexed) e.value];
+  }
+
+  /// 실행 간에도 값이 같은 문자열 해시 (String.hashCode는 보장이 없음).
+  static int _stableHash(String s) {
+    var h = 0;
+    for (final c in s.codeUnits) {
+      h = (h * 31 + c) & 0x7fffffff;
+    }
+    return h;
+  }
+
+  /// 오늘 날짜의 로테이션 시드 (자정 기준으로 매일 바뀜).
+  static int todaySeed() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day).millisecondsSinceEpoch ~/
+        86400000;
   }
 
   /// 선반용 배치 — 1순위가 [centerIndex](= 선반의 "Today's Pick" 자리)에
