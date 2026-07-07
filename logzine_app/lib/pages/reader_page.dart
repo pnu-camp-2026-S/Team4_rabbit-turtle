@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/reader_args.dart';
 import '../theme.dart';
+import '../widgets/logzine_logo.dart';
 import '../widgets/onboarding_widgets.dart';
 
 import '../services/magazine_service.dart';
@@ -373,17 +374,9 @@ class _ReaderPageState extends State<ReaderPage> {
             icon: const Icon(Icons.arrow_back_ios_new,
                 size: 19, color: AppColors.ink),
           ),
-          Expanded(
+          const Expanded(
             child: Center(
-              child: Text(
-                'LOGZINE',
-                style: logoStyle(
-                  size: 16,
-                  weight: FontWeight.w600,
-                  letterSpacingEm: 0.28,
-                  color: AppColors.ink,
-                ),
-              ),
+              child: LogzineLogo(height: 22),
             ),
           ),
           IconButton(

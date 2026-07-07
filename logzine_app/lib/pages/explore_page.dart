@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import '../widgets/logzine_logo.dart';
 
 /// claude.ai/design "탐색 홈 v2" 시안을 Flutter로 옮긴 매거진 탐색 화면.
 class ExplorePage extends StatelessWidget {
@@ -70,7 +71,7 @@ class _Masthead extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('LOGZINE', style: logoStyle(size: 26)),
+                    const LogzineLogo(height: 34),
                     const SizedBox(height: 4),
                     const Text(
                       '닮아 있는 취향, 정제된 매거진',
