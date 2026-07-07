@@ -307,7 +307,11 @@ class _SearchResultCard extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: () => Navigator.pushNamed(context, '/discover/why'),
+        onTap: () => Navigator.pushNamed(
+          context,
+          '/discover/why',
+          arguments: magazine,
+        ),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(12),

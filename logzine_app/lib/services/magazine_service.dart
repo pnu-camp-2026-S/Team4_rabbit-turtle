@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../models/article.dart';
+import '../models/article_seeds.dart';
 import '../models/magazine.dart';
 
 /// 매거진 데이터 접근 서비스.
@@ -110,6 +111,38 @@ class MagazineService {
     } catch (e) {
       // 오프라인/권한 거부 등 — 카탈로그 동기화 실패해도 앱은 계속
       debugPrint('MagazineService.syncCatalog 실패: $e');
+    }
+  }
+
+  /// [시드] 아티클이 없는 매거진에 kArticleSeeds의 전용 아티클을 1편씩 입력 (멱등).
+  /// 이미 아티클이 있는 매거진은 건너뛴다 (기존 마크/진행률 좌표 보호).
+  /// rules상 쓰기 금지면 조용히 건너뜀.
+  Future<void> syncArticles() async {
+    try {
+      final snapshot = await _db.collection('magazines').get();
+      var writes = 0;
+      for (final doc in snapshot.docs) {
+        final String title = doc.data()['title'] as String? ?? '';
+        final ArticleSeed? seed = kArticleSeeds[title];
+        if (seed == null) continue;
+        final articles = doc.reference.collection('articles');
+        final existing = await articles.limit(1).get();
+        if (existing.docs.isNotEmpty) continue;
+        await articles.add({
+          'title': seed.title,
+          'order': 0,
+          'pageCount': seed.pageCount,
+          'paragraphs': [
+            for (final p in seed.paragraphs) {'segments': p},
+          ],
+        });
+        writes++;
+      }
+      if (writes > 0) {
+        debugPrint('MagazineService.syncArticles: $writes편 시드');
+      }
+    } catch (e) {
+      debugPrint('MagazineService.syncArticles 실패: $e');
     }
   }
 

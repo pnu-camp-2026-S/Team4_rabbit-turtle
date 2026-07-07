@@ -126,7 +126,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openMagazine(BuildContext context, Magazine magazine) {
-    Navigator.pushNamed(context, '/discover/why');
+    // 탭한 매거진을 Why 페이지로 전달 — 매거진별 상세/리더 연결
+    Navigator.pushNamed(context, '/discover/why', arguments: magazine);
   }
 
   @override
