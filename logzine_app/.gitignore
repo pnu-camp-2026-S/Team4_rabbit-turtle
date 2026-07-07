@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase 관리자 키 — 절대 커밋 금지
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+.env

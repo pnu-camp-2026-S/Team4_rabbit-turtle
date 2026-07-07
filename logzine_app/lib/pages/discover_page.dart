@@ -5,6 +5,8 @@ import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
+import '../services/magazine_service.dart';
+
 /// 디스커버 홈 — 오늘의 스탠드.
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
@@ -20,6 +22,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
       PageController(viewportFraction: 0.52, initialPage: _initialPage);
 
   final Set<String> _tasteTags = {'Warm wood'};
+
+  late final Future<List<Magazine>> _magazinesFuture =
+      MagazineService().fetchMagazines();
 
   @override
   void dispose() {
@@ -71,7 +76,41 @@ class _DiscoverPageState extends State<DiscoverPage> {
                     const SizedBox(height: 18),
 
                     // 매거진 선반
-                    _MagazineShelf(controller: _shelfController),
+                    FutureBuilder<List<Magazine>>(
+                      future: _magazinesFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState !=
+                            ConnectionState.done) {
+                          return const SizedBox(
+                            height: 320,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.forest,
+                              ),
+                            ),
+                          );
+                        }
+                        if (snapshot.hasError ||
+                            (snapshot.data?.isEmpty ?? true)) {
+                          return const SizedBox(
+                            height: 320,
+                            child: Center(
+                              child: Text(
+                                '매거진을 불러오지 못했어요',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        return _MagazineShelf(
+                          controller: _shelfController,
+                          magazines: snapshot.data!,
+                        );
+                      },
+                    ),
                     const SizedBox(height: 12),
                     const Center(
                       child: Text(
@@ -205,9 +244,13 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
 /// 나무 선반 위에 매거진들이 서 있는 캐러셀.
 class _MagazineShelf extends StatelessWidget {
-  const _MagazineShelf({required this.controller});
+  const _MagazineShelf({
+    required this.controller,
+    required this.magazines,
+  });
 
   final PageController controller;
+  final List<Magazine> magazines;
 
   @override
   Widget build(BuildContext context) {
