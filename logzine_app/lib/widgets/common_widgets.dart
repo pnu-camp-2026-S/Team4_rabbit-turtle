@@ -9,11 +9,13 @@ class LogzineTopBar extends StatelessWidget {
     this.showBack = false,
     this.showBell = true,
     this.showSettings = false,
+    this.onBellTap,
   });
 
   final bool showBack;
   final bool showBell;
   final bool showSettings;
+  final VoidCallback? onBellTap;
 
   @override
   Widget build(BuildContext context) {
@@ -40,15 +42,21 @@ class LogzineTopBar extends StatelessWidget {
           const Spacer(),
           if (showBell)
             IconButton(
-              onPressed: () => _showNotifications(context),
-              icon: const Icon(Icons.notifications_none,
-                  size: 23, color: AppColors.ink),
+              onPressed: onBellTap ?? () => _showNotifications(context),
+              icon: const Icon(
+                Icons.notifications_none,
+                size: 23,
+                color: AppColors.ink,
+              ),
             ),
           if (showSettings)
             IconButton(
               onPressed: () {},
-              icon: const Icon(Icons.settings_outlined,
-                  size: 23, color: AppColors.ink),
+              icon: const Icon(
+                Icons.settings_outlined,
+                size: 23,
+                color: AppColors.ink,
+              ),
             ),
         ],
       ),
@@ -106,14 +114,18 @@ void _showNotifications(BuildContext context) {
                       child: Text(
                         title,
                         style: const TextStyle(
-                            fontSize: 13.5, color: AppColors.ink),
+                          fontSize: 13.5,
+                          color: AppColors.ink,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Text(
                       time,
                       style: const TextStyle(
-                          fontSize: 11.5, color: AppColors.textMuted),
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -153,10 +165,15 @@ class SectionHeader extends StatelessWidget {
                 Text(
                   'View all',
                   style: TextStyle(
-                      fontSize: 12.5, color: AppColors.textSecondary),
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-                Icon(Icons.chevron_right,
-                    size: 16, color: AppColors.textSecondary),
+                Icon(
+                  Icons.chevron_right,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
               ],
             ),
           ),
@@ -183,8 +200,11 @@ class KeywordChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.wb_sunny_outlined,
-              size: 15, color: Color(0xFFE0A83C)),
+          const Icon(
+            Icons.wb_sunny_outlined,
+            size: 15,
+            color: Color(0xFFE0A83C),
+          ),
           const SizedBox(width: 8),
           const Text(
             "Today's keyword: ",

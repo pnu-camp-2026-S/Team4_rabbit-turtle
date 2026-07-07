@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/magazine.dart';
+import '../services/auth_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
@@ -19,20 +20,120 @@ class HomePage extends StatelessWidget {
       'https://images.unsplash.com/photo-1493809842364-78817add7ffb'
       '?auto=format&fit=crop&w=400&q=80';
 
-  (String, String) get _greeting {
+  String get _greeting {
     final int hour = DateTime.now().hour;
-    if (hour < 12) {
-      return ('Good morning, Min', 'A slow start with quiet pages.');
+
+    final String salutation;
+    if (hour >= 5 && hour < 12) {
+      salutation = 'Good morning';
+    } else if (hour >= 12 && hour < 18) {
+      salutation = 'Good afternoon';
+    } else {
+      salutation = 'Good evening';
     }
-    if (hour < 18) {
-      return ('Good afternoon, Min', 'A short read between moments.');
-    }
-    return ('Good evening, Min', 'Picked for a quiet evening.');
+
+    final String? userName = AuthService().currentUserName;
+    return userName == null ? salutation : '$salutation, $userName';
+  }
+
+  void _showTodaysKeywordSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                "TODAY'S KEYWORD",
+                style: logoStyle(
+                  size: 28,
+                  weight: FontWeight.w600,
+                  letterSpacingEm: 0.08,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: KeywordChip(keyword: 'Light'),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '빛이 머무는 공간과 조용한 소재를 중심으로 오늘 읽기 좋은 매거진을 골라봤어요.',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.55,
+                  color: AppColors.body,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  TasteChip(label: 'Light', selected: true),
+                  TasteChip(label: 'Quiet rooms', selected: false),
+                  TasteChip(label: 'Warm wood', selected: false),
+                ],
+              ),
+              const SizedBox(height: 22),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.pushNamed(context, '/reader');
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.forest,
+                  foregroundColor: AppColors.card,
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                child: const Text("Read today's pick"),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  MainShell.switchTab(context, 1);
+                },
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: AppColors.card,
+                  foregroundColor: AppColors.ink,
+                  minimumSize: const Size.fromHeight(52),
+                  side: const BorderSide(color: AppColors.border),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                child: const Text('Explore more'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final (title, subtitle) = _greeting;
+    final String title = _greeting;
 
     return Scaffold(
       backgroundColor: AppColors.screen,
@@ -42,7 +143,7 @@ class HomePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 4),
-              const LogzineTopBar(),
+              LogzineTopBar(onBellTap: () => _showTodaysKeywordSheet(context)),
 
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -60,12 +161,6 @@ class HomePage extends StatelessWidget {
                         letterSpacingEm: 0.0,
                         color: AppColors.ink,
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                          fontSize: 14, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 16),
 
@@ -106,11 +201,9 @@ class HomePage extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   scrollDirection: Axis.horizontal,
                   itemCount: kMagazines.length,
-                  separatorBuilder: (context, i) =>
-                      const SizedBox(width: 12),
+                  separatorBuilder: (context, i) => const SizedBox(width: 12),
                   itemBuilder: (context, i) => GestureDetector(
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/discover/why'),
+                    onTap: () => Navigator.pushNamed(context, '/discover/why'),
                     child: SizedBox(
                       width: 128,
                       child: Container(
@@ -144,8 +237,10 @@ class HomePage extends StatelessWidget {
                         const Spacer(),
                         InkWell(
                           onTap: () => Navigator.pushNamed(
-                              context, '/onboarding/profile',
-                              arguments: 'edit'),
+                            context,
+                            '/onboarding/profile',
+                            arguments: 'edit',
+                          ),
                           child: const Row(
                             children: [
                               Text(
@@ -156,8 +251,11 @@ class HomePage extends StatelessWidget {
                                   color: AppColors.forest,
                                 ),
                               ),
-                              Icon(Icons.chevron_right,
-                                  size: 16, color: AppColors.forest),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: AppColors.forest,
+                              ),
                             ],
                           ),
                         ),
@@ -170,8 +268,7 @@ class HomePage extends StatelessWidget {
                       children: [
                         TasteChip(label: 'Warm wood', selected: true),
                         TasteChip(label: 'Quiet rooms', selected: false),
-                        TasteChip(
-                            label: 'Editorial mood', selected: false),
+                        TasteChip(label: 'Editorial mood', selected: false),
                       ],
                     ),
                     const SizedBox(height: 26),
@@ -255,20 +352,21 @@ class _ContinueReadingCard extends StatelessWidget {
                     const Text(
                       'Studio Log · Issue 34',
                       style: TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.textSecondary),
+                        fontSize: 12.5,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        const Expanded(
-                            child: ReadProgressBar(percent: 42)),
+                        const Expanded(child: ReadProgressBar(percent: 42)),
                         const SizedBox(width: 10),
                         Text(
                           '42%',
                           style: const TextStyle(
-                              fontSize: 11.5,
-                              color: AppColors.textSecondary),
+                            fontSize: 11.5,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -283,8 +381,11 @@ class _ContinueReadingCard extends StatelessWidget {
                   color: AppColors.forest,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.arrow_forward,
-                    size: 18, color: Colors.white),
+                child: const Icon(
+                  Icons.arrow_forward,
+                  size: 18,
+                  color: Colors.white,
+                ),
               ),
             ],
           ),
@@ -340,7 +441,9 @@ class _TodaysPickCard extends StatelessWidget {
                     // 상단 라벨
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.88),
                         borderRadius: BorderRadius.circular(14),
@@ -348,8 +451,11 @@ class _TodaysPickCard extends StatelessWidget {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.auto_awesome,
-                              size: 12, color: AppColors.ink),
+                          Icon(
+                            Icons.auto_awesome,
+                            size: 12,
+                            color: AppColors.ink,
+                          ),
                           SizedBox(width: 6),
                           Text(
                             'Picked from your taste',
@@ -375,8 +481,7 @@ class _TodaysPickCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     const Text(
                       'A quiet life with things that last · Issue 28',
-                      style: TextStyle(
-                          fontSize: 13, color: Color(0xE6FFFFFF)),
+                      style: TextStyle(fontSize: 13, color: Color(0xE6FFFFFF)),
                     ),
                     const SizedBox(height: 14),
                     Row(
@@ -388,8 +493,7 @@ class _TodaysPickCard extends StatelessWidget {
                             backgroundColor: AppColors.forest,
                             foregroundColor: Colors.white,
                             minimumSize: const Size(0, 42),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(9),
                             ),
@@ -402,8 +506,8 @@ class _TodaysPickCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         TextButton(
-                          onPressed: () => Navigator.pushNamed(
-                              context, '/discover/why'),
+                          onPressed: () =>
+                              Navigator.pushNamed(context, '/discover/why'),
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.white,
                             textStyle: const TextStyle(
@@ -480,13 +584,18 @@ class _RecentMarkCard extends StatelessWidget {
                     const Text(
                       'Quiet Materials · p.4',
                       style: TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary),
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right,
-                  size: 18, color: AppColors.textSecondary),
+              const Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
             ],
           ),
         ),
