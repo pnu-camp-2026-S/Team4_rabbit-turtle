@@ -8,6 +8,22 @@ class AuthService {
   /// 현재 로그인된 사용자 (없으면 null)
   User? get currentUser => _auth.currentUser;
 
+  /// Home 인사말 등에 표시할 현재 사용자 이름.
+  /// 이름이 없으면 이메일 앞부분을 사용하고, 둘 다 없으면 null을 반환한다.
+  String? get currentUserName {
+    final User? user = currentUser;
+    final String? displayName = user?.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
+
+    final String? email = user?.email?.trim();
+    if (email == null || email.isEmpty) return null;
+
+    final String localPart = email.split('@').first.trim();
+    return localPart.isEmpty ? null : localPart;
+  }
+
   /// 로그인 상태 변화 스트림 (자동 로그인 분기에 사용)
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
@@ -21,10 +37,7 @@ class AuthService {
 
   /// 이메일 로그인
   Future<UserCredential> signIn(String email, String password) {
-    return _auth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
+    return _auth.signInWithEmailAndPassword(email: email, password: password);
   }
 
   /// 로그아웃
