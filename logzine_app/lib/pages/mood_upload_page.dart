@@ -1,7 +1,20 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
+import '../services/mood_analyzer.dart';
 import '../theme.dart';
 import '../widgets/onboarding_widgets.dart';
+
+/// 업로드된 사진 한 장 — 갤러리에서 고른 bytes 또는 데모용 URL.
+class _Photo {
+  const _Photo.bytes(this.bytes) : url = null;
+  const _Photo.url(this.url) : bytes = null;
+
+  final Uint8List? bytes;
+  final String? url;
+}
 
 /// 온보딩 1단계 — 무드 사진 업로드.
 class MoodUploadPage extends StatefulWidget {
@@ -12,31 +25,69 @@ class MoodUploadPage extends StatefulWidget {
 }
 
 class _MoodUploadPageState extends State<MoodUploadPage> {
-  final List<String> _photos = List.of(kMoodPhotos);
+  static const int _maxPhotos = 8;
+
+  /// 시작은 데모 프리셋 4장 — 갤러리에서 추가하거나 지울 수 있다.
+  final List<_Photo> _photos = [
+    for (final url in kMoodPhotos) _Photo.url(url),
+  ];
+
+  final ImagePicker _picker = ImagePicker();
   bool _analyzing = false;
 
-  void _addPhoto() {
-    // 데모: 지운 사진을 다시 채워 넣는다 (실제 갤러리 연동 전까지).
-    final String? missing =
-        kMoodPhotos.where((url) => !_photos.contains(url)).firstOrNull;
-    if (missing == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('데모에서는 사진 4장까지 추가할 수 있어요')),
-      );
-      return;
+  /// 갤러리에서 사진 선택 (여러 장).
+  Future<void> _addPhoto() async {
+    final List<XFile> picked = await _picker.pickMultiImage(
+      maxWidth: 1280,
+      imageQuality: 80,
+    );
+    if (picked.isEmpty || !mounted) return;
+
+    final List<_Photo> added = [];
+    for (final file in picked) {
+      added.add(_Photo.bytes(await file.readAsBytes()));
     }
-    setState(() => _photos.add(missing));
+    setState(() {
+      _photos.addAll(added);
+      if (_photos.length > _maxPhotos) {
+        _photos.removeRange(_maxPhotos, _photos.length);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('사진은 최대 8장까지 분석해요')),
+        );
+      }
+    });
   }
 
-  /// 분석 시작 — 버튼이 분석 중 상태로 바뀐 뒤 태그 화면으로 이동.
-  /// TODO(#24 후속): 실제 AI 분석 API 호출이 이 대기 시간을 대체한다.
+  /// 사진들을 AI에 보내 무드 태그를 분석한 뒤 결과와 함께 태그 화면으로.
+  /// API 키가 없거나 실패하면 결과 없이 이동 → 태그 화면이 데모 태그로 폴백.
   Future<void> _analyze() async {
     if (_analyzing) return;
     setState(() => _analyzing = true);
-    await Future<void>.delayed(const Duration(milliseconds: 1400));
+
+    // 프리셋(URL) 사진은 다운로드해서 bytes로 변환
+    final List<Uint8List> bytesList = [];
+    for (final photo in _photos) {
+      if (photo.bytes != null) {
+        bytesList.add(photo.bytes!);
+      } else if (photo.url != null) {
+        try {
+          final res = await http
+              .get(Uri.parse(photo.url!))
+              .timeout(const Duration(seconds: 8));
+          if (res.statusCode == 200) bytesList.add(res.bodyBytes);
+        } catch (_) {/* 이 장은 건너뜀 */}
+      }
+    }
+
+    // 분석 + 최소 연출 시간(1.4초)을 함께 대기
+    final results = await Future.wait<dynamic>([
+      GeminiMoodAnalyzer().analyze(bytesList),
+      Future<void>.delayed(const Duration(milliseconds: 1400)),
+    ]);
+
     if (!mounted) return;
     setState(() => _analyzing = false);
-    Navigator.pushNamed(context, '/onboarding/tags');
+    Navigator.pushNamed(context, '/onboarding/tags', arguments: results[0]);
   }
 
   @override
@@ -67,20 +118,27 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
                       _AddPhotosArea(onTap: _addPhoto),
                       const SizedBox(height: 20),
 
-                      // 업로드된 사진 썸네일
-                      Row(
-                        children: [
-                          for (final url in _photos) ...[
-                            Expanded(
-                              child: _PhotoThumb(
-                                url: url,
-                                onRemove: () =>
-                                    setState(() => _photos.remove(url)),
-                              ),
-                            ),
-                            if (url != _photos.last) const SizedBox(width: 10),
-                          ],
-                        ],
+                      // 업로드된 사진 썸네일 (4장 넘으면 줄바꿈)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final double size =
+                              (constraints.maxWidth - 30) / 4;
+                          return Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              for (final photo in _photos)
+                                SizedBox(
+                                  width: size,
+                                  child: _PhotoThumb(
+                                    photo: photo,
+                                    onRemove: () => setState(
+                                        () => _photos.remove(photo)),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 28),
 
@@ -210,11 +268,11 @@ class _AddPhotosArea extends StatelessWidget {
   }
 }
 
-/// 정사각 썸네일 + 우상단 X 삭제 배지.
+/// 정사각 썸네일 + 우상단 X 삭제 배지. (갤러리 bytes / 데모 URL 모두 지원)
 class _PhotoThumb extends StatelessWidget {
-  const _PhotoThumb({required this.url, required this.onRemove});
+  const _PhotoThumb({required this.photo, required this.onRemove});
 
-  final String url;
+  final _Photo photo;
   final VoidCallback onRemove;
 
   @override
@@ -224,7 +282,13 @@ class _PhotoThumb extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          NetworkPhoto(url: url),
+          if (photo.bytes != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.memory(photo.bytes!, fit: BoxFit.cover),
+            )
+          else
+            NetworkPhoto(url: photo.url!),
           Positioned(
             top: 6,
             right: 6,

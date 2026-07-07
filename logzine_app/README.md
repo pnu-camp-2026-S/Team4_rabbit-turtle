@@ -147,6 +147,19 @@ flutter run --no-enable-impeller
 - 빠른 UI 확인만 필요하면: `flutter run -d chrome` → F12 → `Ctrl+Shift+M` → iPhone 프리셋
 - 핫 리로드: 실행 터미널에서 `r`, 재시작 `R`, 종료 `q`
 
+### AI 사진 무드 분석 활성화 (선택)
+
+온보딩의 사진 분석을 실제 AI(Gemini)로 돌리려면 API 키를 넣어 실행합니다:
+
+```powershell
+# 키 발급(무료): https://aistudio.google.com → Get API key
+flutter run --no-enable-impeller --dart-define=GEMINI_API_KEY=발급받은키
+```
+
+- ⚠️ **키를 코드/저장소에 절대 커밋하지 말 것** — 실행 시 주입만 허용
+- 키가 없으면 자동으로 데모 태그로 폴백되므로 시연은 항상 안전함
+- 공급자 교체(CLOVA 등)는 `lib/services/mood_analyzer.dart`의 `MoodAnalyzer` 구현체 추가로
+
 ### 트러블슈팅 (이 프로젝트에서 실제 겪은 이슈)
 
 | 증상 | 원인 | 해결 |

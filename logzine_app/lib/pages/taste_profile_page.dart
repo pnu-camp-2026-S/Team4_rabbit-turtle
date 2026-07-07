@@ -26,13 +26,22 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
 
   /// 메인 화면(홈·Archive의 Refine)에서 진입한 편집 모드 여부.
   bool _editMode = false;
+
+  /// 온보딩에서 AI가 생성한 취향 한 줄 요약 (없으면 데모 문구 사용).
+  String? _aiSummary;
   bool _argsApplied = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_argsApplied) {
-      _editMode = ModalRoute.of(context)?.settings.arguments == 'edit';
+      // arguments: 'edit'(편집 모드) 또는 AI 요약 문자열 또는 null
+      final Object? args = ModalRoute.of(context)?.settings.arguments;
+      if (args == 'edit') {
+        _editMode = true;
+      } else if (args is String && args.isNotEmpty) {
+        _aiSummary = args;
+      }
       _argsApplied = true;
     }
   }
@@ -68,7 +77,7 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
                       const SizedBox(height: 22),
 
                       // 취향 요약 카드 (콜라주 + 태그 + 한 줄 요약)
-                      const _TasteCard(tags: _tasteTags),
+                      _TasteCard(tags: _tasteTags, summary: _aiSummary),
                       const SizedBox(height: 24),
 
                       const Text(
@@ -169,9 +178,12 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
 
 /// 사진 콜라주 + 취향 태그 + AI 한 줄 요약 카드.
 class _TasteCard extends StatelessWidget {
-  const _TasteCard({required this.tags});
+  const _TasteCard({required this.tags, this.summary});
 
   final List<String> tags;
+
+  /// AI가 생성한 한 줄 요약 — null이면 데모 문구를 사용.
+  final String? summary;
 
   @override
   Widget build(BuildContext context) {
@@ -246,14 +258,15 @@ class _TasteCard extends StatelessWidget {
           const SizedBox(height: 16),
 
           // AI 한 줄 요약
-          const Row(
+          Row(
             children: [
-              Icon(Icons.auto_awesome, size: 15, color: AppColors.ink),
-              SizedBox(width: 8),
+              const Icon(Icons.auto_awesome, size: 15, color: AppColors.ink),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'A calm editorial space with warm materials.',
-                  style: TextStyle(fontSize: 13.5, color: AppColors.body),
+                  summary ?? 'A calm editorial space with warm materials.',
+                  style: const TextStyle(
+                      fontSize: 13.5, color: AppColors.body),
                 ),
               ),
             ],

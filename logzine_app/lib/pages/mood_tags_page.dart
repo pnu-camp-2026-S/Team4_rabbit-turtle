@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/mood_analysis.dart';
 import '../theme.dart';
 import '../widgets/onboarding_widgets.dart';
 
@@ -12,25 +13,43 @@ class MoodTagsPage extends StatefulWidget {
 }
 
 class _MoodTagsPageState extends State<MoodTagsPage> {
-  static const Map<String, List<String>> _groups = {
-    'Mood': ['Calm', 'Warm', 'Minimal', 'Sensory'],
-    'Space': ['Interior', 'Studio', 'Living', 'Wood'],
-    'Style': ['Editorial', 'Natural light', 'Objects', 'Books'],
-  };
+  /// 태그 어휘 — AI 분석기와 공유하는 단일 출처.
+  static const Map<String, List<String>> _groups = kMoodVocab;
 
-  static const List<String> _suggested = [
+  /// AI 분석 실패/미사용 시의 데모 기본값.
+  static const List<String> _demoSuggested = [
     'Warm wood',
     'Soft light',
     'Quiet room',
   ];
-
-  final Set<String> _selected = {
+  static const Set<String> _demoSelected = {
     'Calm',
     'Interior',
     'Wood',
     'Editorial',
     'Natural light',
   };
+
+  MoodAnalysis? _analysis;
+  bool _argsApplied = false;
+
+  Set<String> _selected = Set.of(_demoSelected);
+  List<String> _suggested = _demoSuggested;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_argsApplied) return;
+    _argsApplied = true;
+
+    // 업로드 화면에서 넘어온 실제 AI 분석 결과가 있으면 반영
+    final Object? args = ModalRoute.of(context)?.settings.arguments;
+    if (args is MoodAnalysis) {
+      _analysis = args;
+      if (args.tags.isNotEmpty) _selected = Set.of(args.tags);
+      if (args.suggested.isNotEmpty) _suggested = args.suggested;
+    }
+  }
 
   void _toggle(String tag) {
     setState(() {
@@ -165,8 +184,14 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
 
               OnboardingPrimaryButton(
                 label: 'Continue',
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/onboarding/profile'),
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  '/onboarding/profile',
+                  // AI가 생성한 취향 한 줄 요약을 프로필 화면에 전달
+                  arguments: (_analysis?.summary.isNotEmpty ?? false)
+                      ? _analysis!.summary
+                      : null,
+                ),
               ),
               const SizedBox(height: 16),
             ],
