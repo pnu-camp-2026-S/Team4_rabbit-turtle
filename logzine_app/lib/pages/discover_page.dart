@@ -5,9 +5,7 @@ import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
-import '../services/magazine_service.dart';
-
-/// 디스커버 홈 — 오늘의 스탠드.
+/// 돋보기 탭 — 검색 전용 화면.
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
 
@@ -16,24 +14,64 @@ class DiscoverPage extends StatefulWidget {
 }
 
 class _DiscoverPageState extends State<DiscoverPage> {
-  static const int _initialPage = 2; // ROOM NOTE가 가운데
+  static const List<String> _publishers = [
+    'AROUND',
+    'KINFOLK',
+    'CEREAL',
+    'Monocle',
+    'Openhouse',
+  ];
 
-  final PageController _shelfController =
-      PageController(viewportFraction: 0.52, initialPage: _initialPage);
+  static const List<String> _popularTags = [
+    '#가구',
+    '#조용한',
+    '#여행',
+    '#브랜드',
+    '#공간',
+    '#빈티지',
+    '#미니멀',
+    '#패션',
+    '#음향',
+    '#요리',
+  ];
 
-  final Set<String> _tasteTags = {'Warm wood'};
-
-  late final Future<List<Magazine>> _magazinesFuture =
-      MagazineService().fetchMagazines();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void dispose() {
-    _shelfController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final List<_SearchResult> results = [
+      _SearchResult(
+        title: 'SEONGSU',
+        subtitle: 'SUMMER WALK',
+        publisher: 'AROUND',
+        description: '성수동의 한낮 공원, 오래된 벽돌과 푸른 잎사귀 사이를 걷는 가벼운 산책을 담아냈어요.',
+        tags: const ['#가구', '#조명', '#브랜드', '#빈티지'],
+        imageUrl: kMagazines[0].coverUrl,
+      ),
+      _SearchResult(
+        title: 'AROUND',
+        subtitle: 'SLOW LIFE & GREENERY',
+        publisher: 'AROUND',
+        description: '차분히 흘러가는 일상을 바라보며 식물로 둘러싸인 느린 라이프스타일을 소개합니다.',
+        tags: const ['#가구', '#식물', '#미니멀', '#요리'],
+        imageUrl: kMagazines[3].coverUrl,
+      ),
+      _SearchResult(
+        title: 'nice things.',
+        subtitle: 'LOCAL HANDCRAFT',
+        publisher: 'nice things.',
+        description: '손의 온도가 느껴지는 작은 사물들의 이야기. 오래 두고 볼수록 더 좋아지는 브랜드를 모았어요.',
+        tags: const ['#브랜드', '#로컬', '#오브제'],
+        imageUrl: kMagazines[4].coverUrl,
+      ),
+    ];
+
     return Scaffold(
       backgroundColor: AppColors.screen,
       body: SafeArea(
@@ -41,196 +79,76 @@ class _DiscoverPageState extends State<DiscoverPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 4),
-            const LogzineTopBar(),
+            const LogzineTopBar(showBell: false),
             Expanded(
               child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 8),
-                          Text(
-                            "Today's stand",
-                            style: logoStyle(
-                              size: 34,
-                              weight: FontWeight.w500,
-                              letterSpacingEm: 0.0,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Picked from your taste',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // 매거진 선반
-                    FutureBuilder<List<Magazine>>(
-                      future: _magazinesFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState !=
-                            ConnectionState.done) {
-                          return const SizedBox(
-                            height: 320,
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.forest,
-                              ),
-                            ),
-                          );
-                        }
-                        if (snapshot.hasError ||
-                            (snapshot.data?.isEmpty ?? true)) {
-                          return const SizedBox(
-                            height: 320,
-                            child: Center(
-                              child: Text(
-                                '매거진을 불러오지 못했어요',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        return _MagazineShelf(
-                          controller: _shelfController,
-                          magazines: snapshot.data!,
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    const Center(
-                      child: Text(
-                        'Swipe the shelf',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.textSecondary,
-                        ),
+                    Text(
+                      'Search',
+                      style: logoStyle(
+                        size: 34,
+                        weight: FontWeight.w500,
+                        letterSpacingEm: 0.0,
+                        color: AppColors.ink,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Center(
-                      child: CustomPaint(
-                        size: Size(150, 10),
-                        painter: _DoubleArrowPainter(),
+                    const KeywordChip(),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _searchController,
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(
+                          Icons.search,
+                          size: 18,
+                          color: AppColors.textMuted,
+                        ),
+                        hintText: '매거진, 키워드, 발행사 검색...',
                       ),
                     ),
-                    const SizedBox(height: 26),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Your taste',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              for (final tag in const [
-                                'Warm wood',
-                                'Quiet rooms',
-                                'Editorial mood',
-                              ])
-                                TasteChip(
-                                  label: tag,
-                                  selected: _tasteTags.contains(tag),
-                                  onTap: () => setState(() {
-                                    _tasteTags.contains(tag)
-                                        ? _tasteTags.remove(tag)
-                                        : _tasteTags.add(tag);
-                                  }),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-
-                          // 최근 활동 기반 추천 카드
-                          Material(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            child: InkWell(
-                              onTap: () => Navigator.pushNamed(
-                                context,
-                                '/discover/why',
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border:
-                                      Border.all(color: AppColors.border),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Icon(
-                                      Icons.bar_chart,
-                                      size: 22,
-                                      color: AppColors.ink,
-                                    ),
-                                    SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Recommended based on your '
-                                            'recent activity',
-                                            style: TextStyle(
-                                              fontSize: 13.5,
-                                              fontWeight: FontWeight.w500,
-                                              color: AppColors.ink,
-                                            ),
-                                          ),
-                                          SizedBox(height: 4),
-                                          Text(
-                                            'Refined taste · 2 hours ago',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color:
-                                                  AppColors.textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Icon(
-                                      Icons.chevron_right,
-                                      size: 20,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-                      ),
+                    const SizedBox(height: 20),
+                    const _SectionLabel('Publishers'),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final publisher in _publishers)
+                          _OutlineChip(label: publisher),
+                      ],
                     ),
+                    const SizedBox(height: 20),
+                    const _SectionLabel('Popular tags'),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final tag in _popularTags) _OutlineChip(label: tag),
+                      ],
+                    ),
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        const _SectionLabel('All magazines'),
+                        const SizedBox(width: 6),
+                        Text(
+                          '(${results.length})',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    for (final result in results) ...[
+                      _SearchResultCard(result: result),
+                      const SizedBox(height: 12),
+                    ],
                   ],
                 ),
               ),
@@ -242,208 +160,203 @@ class _DiscoverPageState extends State<DiscoverPage> {
   }
 }
 
-/// 나무 선반 위에 매거진들이 서 있는 캐러셀.
-class _MagazineShelf extends StatelessWidget {
-  const _MagazineShelf({
-    required this.controller,
-    required this.magazines,
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        color: AppColors.ink,
+      ),
+    );
+  }
+}
+
+class _OutlineChip extends StatelessWidget {
+  const _OutlineChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w500,
+          color: AppColors.ink,
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchResult {
+  const _SearchResult({
+    required this.title,
+    required this.subtitle,
+    required this.publisher,
+    required this.description,
+    required this.tags,
+    required this.imageUrl,
   });
 
-  final PageController controller;
-  final List<Magazine> magazines;
+  final String title;
+  final String subtitle;
+  final String publisher;
+  final String description;
+  final List<String> tags;
+  final String imageUrl;
+}
+
+class _SearchResultCard extends StatelessWidget {
+  const _SearchResultCard({required this.result});
+
+  final _SearchResult result;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 320,
-      child: Stack(
-        children: [
-          // 나무 선반
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 6,
-            child: Container(
-              height: 16,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFFDCC5A2), Color(0xFFB8986C)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x33000000),
-                    blurRadius: 10,
-                    offset: Offset(0, 6),
-                  ),
-                ],
-              ),
-            ),
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, '/discover/why'),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
           ),
-
-          // 매거진 카드들
-          PageView.builder(
-            controller: controller,
-            itemCount: kMagazines.length,
-            itemBuilder: (context, index) {
-              return AnimatedBuilder(
-                animation: controller,
-                builder: (context, child) {
-                  double page = _DiscoverPageState._initialPage.toDouble();
-                  if (controller.hasClients &&
-                      controller.position.haveDimensions) {
-                    page = controller.page!;
-                  }
-                  final double t = (page - index).abs().clamp(0.0, 1.0);
-                  final double scale = 1 - 0.16 * t;
-                  final bool isCenter = t < 0.5;
-
-                  return Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Transform.scale(
-                      scale: scale,
-                      alignment: Alignment.bottomCenter,
-                      child: GestureDetector(
-                        onTap: () {
-                          if (isCenter) {
-                            Navigator.pushNamed(context, '/discover/why');
-                          } else {
-                            controller.animateToPage(
-                              index,
-                              duration: const Duration(milliseconds: 350),
-                              curve: Curves.easeOut,
-                            );
-                          }
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          height: 264,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x40000000),
-                                blurRadius: 16,
-                                offset: Offset(0, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 74,
+                height: 96,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      NetworkPhoto(url: result.imageUrl, radius: 4),
+                      Container(
+                        color: Colors.black.withValues(alpha: 0.08),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              result.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: logoStyle(
+                                size: 12,
+                                weight: FontWeight.w700,
+                                letterSpacingEm: 0.04,
+                                color: Colors.white,
                               ),
-                            ],
-                          ),
-                          child: MagazineCover(magazine: kMagazines[index]),
+                            ),
+                            const Spacer(),
+                            Text(
+                              result.publisher,
+                              style: const TextStyle(
+                                fontSize: 8.5,
+                                color: Color(0xE6FFFFFF),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(
+                          fontSize: 15,
+                          color: AppColors.ink,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: result.title,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          TextSpan(
+                            text: ' · ${result.subtitle}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w400,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  );
-                },
-              );
-            },
+                    const SizedBox(height: 6),
+                    Text(
+                      result.description,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.45,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final tag in result.tags)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.screen,
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Text(
+                              tag,
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
-}
-
-/// 매거진 표지 — 사진 + 제목/태그라인/호수 오버레이.
-class MagazineCover extends StatelessWidget {
-  const MagazineCover({super.key, required this.magazine});
-
-  final Magazine magazine;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          NetworkPhoto(url: magazine.coverUrl, radius: 0),
-          // 텍스트 가독성용 상단 어두운 그라데이션
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x8A000000), Color(0x00000000)],
-                stops: [0.0, 0.55],
-              ),
-            ),
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [Color(0x66000000), Color(0x00000000)],
-                stops: [0.0, 0.3],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  magazine.title,
-                  style: logoStyle(
-                    size: 17,
-                    weight: FontWeight.w600,
-                    letterSpacingEm: 0.08,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  magazine.tagline,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    height: 1.35,
-                    color: Color(0xE6FFFFFF),
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  magazine.issue,
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: Color(0xD9FFFFFF),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// ←──→ 양방향 화살표.
-class _DoubleArrowPainter extends CustomPainter {
-  const _DoubleArrowPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..color = AppColors.textSecondary
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-
-    final double y = size.height / 2;
-    const double head = 5;
-
-    canvas.drawLine(Offset(head, y), Offset(size.width - head, y), paint);
-    // 왼쪽 화살촉
-    canvas.drawLine(Offset(0, y), Offset(head + 3, y - 4), paint);
-    canvas.drawLine(Offset(0, y), Offset(head + 3, y + 4), paint);
-    // 오른쪽 화살촉
-    canvas.drawLine(
-        Offset(size.width, y), Offset(size.width - head - 3, y - 4), paint);
-    canvas.drawLine(
-        Offset(size.width, y), Offset(size.width - head - 3, y + 4), paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _DoubleArrowPainter oldDelegate) => false;
 }
