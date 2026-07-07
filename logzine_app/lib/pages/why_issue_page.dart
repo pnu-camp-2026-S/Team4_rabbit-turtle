@@ -369,12 +369,27 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     const SizedBox(height: 20),
 
                     OutlinedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('이 매거진은 추천에서 제외할게요'),
-                          ),
-                        );
+                      onPressed: () async {
+                        // 실제 제외 — users/{uid}.excludedMagazines에 저장
+                        final messenger = ScaffoldMessenger.of(context);
+                        final navigator = Navigator.of(context);
+                        try {
+                          if (_magazine.id.isNotEmpty) {
+                            await UserService().excludeMagazine(_magazine.id);
+                          }
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('이 매거진을 추천에서 제외했어요'),
+                            ),
+                          );
+                          navigator.pop();
+                        } catch (_) {
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('로그인하면 추천에서 제외할 수 있어요'),
+                            ),
+                          );
+                        }
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.ink,

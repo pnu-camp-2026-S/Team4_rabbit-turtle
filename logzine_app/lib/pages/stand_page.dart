@@ -43,6 +43,15 @@ class _StandPageState extends State<StandPage> {
       // 비로그인 — 개인화 없이 진행
     }
 
+    // "Not for me"로 제외한 매거진은 목록에서 뺀다
+    final excluded = await UserService().fetchExcludedMagazineIds();
+    if (excluded.isNotEmpty) {
+      magazines = [
+        for (final m in magazines)
+          if (!excluded.contains(m.id)) m,
+      ];
+    }
+
     return _StandData(
       magazines: RecommendationService.rank(taste, magazines),
       taste: taste,
