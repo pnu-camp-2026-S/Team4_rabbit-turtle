@@ -20,6 +20,7 @@ class MagazineService {
   Magazine _fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
     return Magazine(
+      id: doc.id,
       title: data['title'] as String? ?? '',
       tagline: data['tagline'] as String? ?? '',
       issue: data['issue'] as String? ?? '',
@@ -48,6 +49,27 @@ class MagazineService {
       });
     }
     await batch.commit();
+  }
+
+  /// 아티클 본문 문단 조회. 각 원소는 문장 조각(segment) 리스트.
+  /// 마크의 좌표(paragraphIdx, segmentIdx)로 인용문을 찾을 때 사용.
+  /// 스키마: magazines/{magazineId}/articles/{articleId}.paragraphs
+  Future<List<List<String>>?> fetchArticleParagraphs({
+    required String magazineId,
+    required String articleId,
+  }) async {
+    final doc = await _db
+        .collection('magazines')
+        .doc(magazineId)
+        .collection('articles')
+        .doc(articleId)
+        .get();
+    final List<dynamic>? paragraphs = doc.data()?['paragraphs'] as List<dynamic>?;
+    if (paragraphs == null) return null;
+    return paragraphs.map((p) {
+      final segments = (p as Map<String, dynamic>)['segments'] as List<dynamic>?;
+      return List<String>.from(segments ?? const []);
+    }).toList();
   }
 
   /// [임시] 리더 데모 아티클의 ID — 첫 매거진의 첫 아티클.

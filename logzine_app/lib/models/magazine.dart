@@ -1,12 +1,15 @@
 /// 매거진 정보 (선반 캐러셀 · 상세 · 홈 공용 모델).
 class Magazine {
   const Magazine({
+    this.id = '',
     required this.title,
     required this.tagline,
     required this.issue,
     required this.coverUrl,
   });
 
+  /// Firestore 문서 ID. 데모 상수(kMagazines)는 빈 문자열.
+  final String id;
   final String title;
   final String tagline;
   final String issue;
@@ -14,6 +17,7 @@ class Magazine {
 }
 
 /// 데모용 매거진 카탈로그.
+/// TODO: 전 화면 Firestore 전환 후 제거.
 /// TODO(#8): 백엔드/로컬 저장소 연동 시 리포지토리 계층으로 대체.
 const List<Magazine> kMagazines = [
   Magazine(
