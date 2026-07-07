@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/onboarding_widgets.dart';
 
@@ -92,6 +93,52 @@ class _TastePickerPageState extends State<TastePickerPage>
   bool _opened = false;
   final Set<String> _selected = {};
 
+  /// 메인(마이페이지 Refine)에서 진입한 편집 모드 — 저장 후 이전 화면으로 복귀.
+  bool _editMode = false;
+  bool _argsApplied = false;
+  bool _saving = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_argsApplied) return;
+    _argsApplied = true;
+    _editMode = ModalRoute.of(context)?.settings.arguments == 'edit';
+    _preloadTags();
+  }
+
+  /// 이미 저장된 취향이 있으면 미리 선택 상태로 불러온다.
+  Future<void> _preloadTags() async {
+    final tags = await UserService().fetchTasteTags();
+    if (!mounted || tags == null || tags.isEmpty) return;
+    setState(() => _selected.addAll(tags));
+  }
+
+  /// 선택한 태그를 users/{uid}에 저장한 뒤 다음 화면으로.
+  Future<void> _saveAndContinue() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await UserService().saveTasteTags(_selected.toList());
+    } catch (_) {
+      // 비로그인 등 — 저장 실패해도 흐름은 계속 (데모 안전)
+    }
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    if (_editMode) {
+      Navigator.pop(context); // 마이페이지로 복귀 → 갱신됨
+    } else {
+      // 온보딩 완료 → 디스커버 탭으로 (스택 초기화)
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/main',
+        (route) => false,
+        arguments: 1,
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -140,16 +187,9 @@ class _TastePickerPageState extends State<TastePickerPage>
               // 가판대 + (열리면) 세부 태그가 함께 배치되는 영역
               Expanded(child: _buildStage()),
               _BottomAction(
-                enabled: _selected.isNotEmpty,
-                onNext: () {
-                  // 온보딩 완료 → 디스커버 탭으로 (스택 초기화)
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/main',
-                    (route) => false,
-                    arguments: 1,
-                  );
-                },
+                enabled: _selected.isNotEmpty && !_saving,
+                editMode: _editMode,
+                onNext: _saveAndContinue,
               ),
               const SizedBox(height: 16),
             ],
@@ -559,9 +599,14 @@ class _SoftTag extends StatelessWidget {
 /// 하단 액션 — 채운 버튼이 아니라 오른쪽 정렬 텍스트 + 화살표.
 /// 선택 0개면 흐리게, 선택 후 muted green으로 활성화.
 class _BottomAction extends StatelessWidget {
-  const _BottomAction({required this.enabled, required this.onNext});
+  const _BottomAction({
+    required this.enabled,
+    required this.onNext,
+    this.editMode = false,
+  });
 
   final bool enabled;
+  final bool editMode;
   final VoidCallback onNext;
 
   @override
@@ -578,11 +623,15 @@ class _BottomAction extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '다음',
+                editMode ? '저장' : '다음',
                 style: serifHeading(size: 17, color: color),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.arrow_forward, size: 18, color: color),
+              Icon(
+                editMode ? Icons.check : Icons.arrow_forward,
+                size: 18,
+                color: color,
+              ),
             ],
           ),
         ),
