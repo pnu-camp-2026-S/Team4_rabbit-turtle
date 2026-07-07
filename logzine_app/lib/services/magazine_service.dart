@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../models/magazine.dart';
 
@@ -25,6 +26,7 @@ class MagazineService {
       tagline: data['tagline'] as String? ?? '',
       issue: data['issue'] as String? ?? '',
       coverUrl: data['coverUrl'] as String? ?? '',
+      tags: List<String>.from(data['tags'] as List<dynamic>? ?? const []),
     );
   }
 
@@ -43,12 +45,57 @@ class MagazineService {
         'tagline': m.tagline,
         'issue': m.issue,
         'coverUrl': m.coverUrl,
-        'tags': <String>[],
+        'tags': m.tags,
         'order': i,
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
     await batch.commit();
+  }
+
+  /// [시드] kMagazines 카탈로그를 Firestore에 동기화 (멱등).
+  /// - 제목이 같은 기존 문서: tags가 비어 있으면 태그/순서만 채움
+  /// - 없는 매거진: 새로 추가
+  /// 이미 맞춰져 있으면 쓰기 0회. rules상 쓰기 금지면 조용히 건너뜀.
+  Future<void> syncCatalog() async {
+    try {
+      final snapshot = await _db.collection('magazines').get();
+      final byTitle = {
+        for (final d in snapshot.docs) (d.data()['title'] as String? ?? ''): d,
+      };
+
+      final batch = _db.batch();
+      var writes = 0;
+      for (var i = 0; i < kMagazines.length; i++) {
+        final m = kMagazines[i];
+        final existing = byTitle[m.title];
+        if (existing == null) {
+          batch.set(_db.collection('magazines').doc(), {
+            'title': m.title,
+            'tagline': m.tagline,
+            'issue': m.issue,
+            'coverUrl': m.coverUrl,
+            'tags': m.tags,
+            'order': i,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+          writes++;
+        } else {
+          final tags =
+              List<String>.from(existing.data()['tags'] as List<dynamic>? ?? const []);
+          if (tags.isEmpty) {
+            batch.update(existing.reference, {'tags': m.tags, 'order': i});
+            writes++;
+          }
+        }
+      }
+      if (writes == 0) return;
+      await batch.commit();
+      debugPrint('MagazineService.syncCatalog: $writes개 문서 갱신/추가');
+    } catch (e) {
+      // 오프라인/권한 거부 등 — 카탈로그 동기화 실패해도 앱은 계속
+      debugPrint('MagazineService.syncCatalog 실패: $e');
+    }
   }
 
   /// 아티클 본문 문단 조회. 각 원소는 문장 조각(segment) 리스트.
