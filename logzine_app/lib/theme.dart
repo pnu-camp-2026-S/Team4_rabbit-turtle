@@ -17,6 +17,8 @@ class AppColors {
   static const Color forest = Color(0xFF1C4A36); // 로그인 딥 그린 버튼
   static const Color forestDark = Color(0xFF153A2A); // 딥 그린 pressed
   static const Color wine = Color(0xFF8E3B46); // 로고 밑줄 와인 레드
+  static const Color sage = Color(0xFF5B7A63); // muted sage-green (선택 태그 테두리/텍스트)
+  static const Color sageSoft = Color(0xFFFBFAF7); // 태그 off-white 배경
 
   // 기존 회원가입 페이지 호환용 별칭
   static const Color primary = ink;

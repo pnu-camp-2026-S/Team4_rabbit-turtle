@@ -17,6 +17,7 @@ import 'pages/interest_page.dart';
 import 'pages/explore_page.dart';
 import 'pages/create_page.dart';
 import 'pages/mypage_page.dart';
+import 'pages/taste_picker_page.dart';
 
 import 'services/magazine_service.dart';
 
@@ -53,6 +54,7 @@ class MyApp extends StatelessWidget {
         '/explore': (context) => const ExplorePage(),
         '/create': (context) => const CreatePage(),
         '/mypage': (context) => const MyPagePage(),
+        '/taste': (context) => const TastePickerPage(),
       },
     );
   }
