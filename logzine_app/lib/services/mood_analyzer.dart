@@ -18,7 +18,10 @@ abstract class MoodAnalyzer {
 /// (키는 절대 커밋하지 않는다 — 없으면 자동으로 데모 모드)
 class GeminiMoodAnalyzer implements MoodAnalyzer {
   static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
-  static const String _model = 'gemini-2.0-flash';
+
+  /// 무료 티어의 최신 flash 모델을 자동 추적.
+  /// (구버전 고정 모델은 무료 쿼터가 0인 경우가 있음 — 2.0-flash가 그랬다)
+  static const String _model = 'gemini-flash-latest';
 
   static final String _prompt = '''
 You are the taste analyzer for LOGZINE, a quiet editorial magazine app.
