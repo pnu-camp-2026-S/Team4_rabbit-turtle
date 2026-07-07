@@ -180,6 +180,8 @@ class MagazineCover extends StatelessWidget {
               children: [
                 Text(
                   magazine.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: logoStyle(
                     size: 17,
                     weight: FontWeight.w600,
@@ -190,6 +192,8 @@ class MagazineCover extends StatelessWidget {
                 const SizedBox(height: 5),
                 Text(
                   magazine.tagline,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 10,
                     height: 1.35,
@@ -199,6 +203,8 @@ class MagazineCover extends StatelessWidget {
                 const Spacer(),
                 Text(
                   magazine.issue,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 9.5,
                     color: Color(0xD9FFFFFF),

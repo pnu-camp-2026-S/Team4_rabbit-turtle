@@ -2,9 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../models/magazine.dart';
 import '../services/magazine_service.dart';
+import '../services/recommendation_service.dart';
+import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
+
+/// 검색 화면 데이터 — 매거진 전체 + 사용자 취향(일치 태그 강조용).
+class _SearchData {
+  const _SearchData({required this.magazines, required this.taste});
+
+  final List<Magazine> magazines;
+  final List<String> taste;
+}
 
 /// 돋보기 탭 — 검색 전용 화면.
 class DiscoverPage extends StatefulWidget {
@@ -15,42 +25,40 @@ class DiscoverPage extends StatefulWidget {
 }
 
 class _DiscoverPageState extends State<DiscoverPage> {
-  static const List<String> _publishers = [
-    'AROUND',
-    'KINFOLK',
-    'CEREAL',
-    'Monocle',
-    'Openhouse',
-  ];
-
-  static const List<String> _popularTags = [
-    '#가구',
-    '#조용한',
-    '#여행',
-    '#브랜드',
-    '#공간',
-    '#빈티지',
-    '#미니멀',
-    '#패션',
-    '#음향',
-    '#요리',
-  ];
-
   final TextEditingController _searchController = TextEditingController();
-  late final Future<List<Magazine>> _magazinesFuture = _loadMagazines();
+  late final Future<_SearchData> _dataFuture = _loadData();
 
-  static Future<List<Magazine>> _loadMagazines() async {
+  /// 검색어 (실시간 반영)
+  String _query = '';
+
+  /// 탭해서 켠 태그 필터 (없으면 null)
+  String? _activeTag;
+
+  static Future<_SearchData> _loadData() async {
+    List<Magazine> magazines;
     try {
-      final magazines = await MagazineService().fetchMagazines();
-      return magazines.isEmpty ? kMagazines : magazines;
+      magazines = await MagazineService().fetchMagazines();
+      if (magazines.isEmpty) magazines = kMagazines;
     } catch (_) {
-      return kMagazines;
+      magazines = kMagazines;
     }
+
+    List<String> taste = const [];
+    try {
+      taste = await UserService().fetchTasteTags() ?? const [];
+    } catch (_) {
+      // 비로그인 — 강조 없이 진행
+    }
+    return _SearchData(magazines: magazines, taste: taste);
   }
 
-  /// index가 범위를 벗어나면(Firestore에 아직 다 시드되지 않은 경우) 데모 데이터로 대체.
-  static Magazine _magazineAt(List<Magazine> magazines, int index) =>
-      index < magazines.length ? magazines[index] : kMagazines[index];
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() => _query = _searchController.text.trim());
+    });
+  }
 
   @override
   void dispose() {
@@ -58,45 +66,53 @@ class _DiscoverPageState extends State<DiscoverPage> {
     super.dispose();
   }
 
+  /// 검색어·태그 필터를 적용한 매거진 목록.
+  List<Magazine> _filter(List<Magazine> magazines) {
+    final String q = _query.toLowerCase();
+    return magazines.where((m) {
+      if (_activeTag != null && !m.tags.contains(_activeTag)) return false;
+      if (q.isEmpty) return true;
+      return m.title.toLowerCase().contains(q) ||
+          m.tagline.toLowerCase().contains(q) ||
+          m.issue.toLowerCase().contains(q) ||
+          m.tags.any((t) => t.toLowerCase().contains(q));
+    }).toList();
+  }
+
+  /// 카탈로그에서 자주 쓰인 순서대로 태그를 뽑는다 (인기 태그).
+  static List<String> _popularTagsOf(List<Magazine> magazines) {
+    final counts = <String, int>{};
+    for (final m in magazines) {
+      for (final t in m.tags) {
+        counts[t] = (counts[t] ?? 0) + 1;
+      }
+    }
+    final sorted = counts.keys.toList()
+      ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+    return sorted.take(10).toList();
+  }
+
+  void _toggleTag(String tag) {
+    setState(() => _activeTag = _activeTag == tag ? null : tag);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Magazine>>(
-      future: _magazinesFuture,
+    return FutureBuilder<_SearchData>(
+      future: _dataFuture,
       builder: (context, snapshot) {
-        final List<Magazine> magazines = snapshot.data ?? kMagazines;
-        final List<_SearchResult> results = [
-          _SearchResult(
-            title: 'SEONGSU',
-            subtitle: 'SUMMER WALK',
-            publisher: 'AROUND',
-            description: '성수동의 한낮 공원, 오래된 벽돌과 푸른 잎사귀 사이를 걷는 가벼운 산책을 담아냈어요.',
-            tags: const ['#가구', '#조명', '#브랜드', '#빈티지'],
-            imageUrl: _magazineAt(magazines, 0).coverUrl,
-          ),
-          _SearchResult(
-            title: 'AROUND',
-            subtitle: 'SLOW LIFE & GREENERY',
-            publisher: 'AROUND',
-            description: '차분히 흘러가는 일상을 바라보며 식물로 둘러싸인 느린 라이프스타일을 소개합니다.',
-            tags: const ['#가구', '#식물', '#미니멀', '#요리'],
-            imageUrl: _magazineAt(magazines, 3).coverUrl,
-          ),
-          _SearchResult(
-            title: 'nice things.',
-            subtitle: 'LOCAL HANDCRAFT',
-            publisher: 'nice things.',
-            description: '손의 온도가 느껴지는 작은 사물들의 이야기. 오래 두고 볼수록 더 좋아지는 브랜드를 모았어요.',
-            tags: const ['#브랜드', '#로컬', '#오브제'],
-            imageUrl: _magazineAt(magazines, 4).coverUrl,
-          ),
-        ];
-
-        return _buildScaffold(context, results);
+        final data = snapshot.data ??
+            const _SearchData(magazines: kMagazines, taste: []);
+        return _buildScaffold(context, data);
       },
     );
   }
 
-  Widget _buildScaffold(BuildContext context, List<_SearchResult> results) {
+  Widget _buildScaffold(BuildContext context, _SearchData data) {
+    final List<Magazine> results = _filter(data.magazines);
+    final List<String> popularTags = _popularTagsOf(data.magazines);
+    final List<String> quickNames =
+        [for (final m in data.magazines.take(5)) m.title];
     return Scaffold(
       backgroundColor: AppColors.screen,
       body: SafeArea(
@@ -135,14 +151,17 @@ class _DiscoverPageState extends State<DiscoverPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const _SectionLabel('Publishers'),
+                    const _SectionLabel('Magazines'),
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        for (final publisher in _publishers)
-                          _OutlineChip(label: publisher),
+                        for (final name in quickNames)
+                          _OutlineChip(
+                            label: name,
+                            onTap: () => _searchController.text = name,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -152,13 +171,22 @@ class _DiscoverPageState extends State<DiscoverPage> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        for (final tag in _popularTags) _OutlineChip(label: tag),
+                        for (final tag in popularTags)
+                          _OutlineChip(
+                            label: '#$tag',
+                            selected: _activeTag == tag,
+                            onTap: () => _toggleTag(tag),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 22),
                     Row(
                       children: [
-                        const _SectionLabel('All magazines'),
+                        _SectionLabel(
+                          _query.isEmpty && _activeTag == null
+                              ? 'All magazines'
+                              : 'Results',
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           '(${results.length})',
@@ -170,8 +198,29 @@ class _DiscoverPageState extends State<DiscoverPage> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    for (final result in results) ...[
-                      _SearchResultCard(result: result),
+                    if (results.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: Center(
+                          child: Text(
+                            '검색 결과가 없어요.\n다른 키워드나 태그로 찾아보세요.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.6,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    for (final magazine in results) ...[
+                      _SearchResultCard(
+                        magazine: magazine,
+                        matched: RecommendationService.matchedTags(
+                          data.taste,
+                          magazine,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                     ],
                   ],
@@ -204,53 +253,53 @@ class _SectionLabel extends StatelessWidget {
 }
 
 class _OutlineChip extends StatelessWidget {
-  const _OutlineChip({required this.label});
+  const _OutlineChip({
+    required this.label,
+    this.selected = false,
+    this.onTap,
+  });
 
   final String label;
+  final bool selected;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: selected ? AppColors.forest : Colors.white,
+      borderRadius: BorderRadius.circular(4),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 11.5,
-          fontWeight: FontWeight.w500,
-          color: AppColors.ink,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: selected ? AppColors.forest : AppColors.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              color: selected ? Colors.white : AppColors.ink,
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _SearchResult {
-  const _SearchResult({
-    required this.title,
-    required this.subtitle,
-    required this.publisher,
-    required this.description,
-    required this.tags,
-    required this.imageUrl,
-  });
-
-  final String title;
-  final String subtitle;
-  final String publisher;
-  final String description;
-  final List<String> tags;
-  final String imageUrl;
-}
-
 class _SearchResultCard extends StatelessWidget {
-  const _SearchResultCard({required this.result});
+  const _SearchResultCard({required this.magazine, required this.matched});
 
-  final _SearchResult result;
+  final Magazine magazine;
+
+  /// 사용자 취향과 일치하는 태그 (forest 색으로 강조)
+  final List<String> matched;
 
   @override
   Widget build(BuildContext context) {
@@ -277,7 +326,7 @@ class _SearchResultCard extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      NetworkPhoto(url: result.imageUrl, radius: 4),
+                      NetworkPhoto(url: magazine.coverUrl, radius: 4),
                       Container(
                         color: Colors.black.withValues(alpha: 0.08),
                       ),
@@ -287,7 +336,7 @@ class _SearchResultCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              result.title,
+                              magazine.title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: logoStyle(
@@ -299,7 +348,7 @@ class _SearchResultCard extends StatelessWidget {
                             ),
                             const Spacer(),
                             Text(
-                              result.publisher,
+                              magazine.issue,
                               style: const TextStyle(
                                 fontSize: 8.5,
                                 color: Color(0xE6FFFFFF),
@@ -325,11 +374,11 @@ class _SearchResultCard extends StatelessWidget {
                         ),
                         children: [
                           TextSpan(
-                            text: result.title,
+                            text: magazine.title,
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           TextSpan(
-                            text: ' · ${result.subtitle}',
+                            text: ' · ${magazine.issue}',
                             style: const TextStyle(
                               fontWeight: FontWeight.w400,
                               color: AppColors.textSecondary,
@@ -340,7 +389,7 @@ class _SearchResultCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      result.description,
+                      magazine.tagline,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -354,22 +403,34 @@ class _SearchResultCard extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        for (final tag in result.tags)
+                        // 내 취향과 일치하는 태그는 forest 색으로 강조
+                        for (final tag in magazine.tags)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 7,
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.screen,
+                              color: matched.contains(tag)
+                                  ? AppColors.forest.withValues(alpha: 0.08)
+                                  : AppColors.screen,
                               borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: AppColors.border),
+                              border: Border.all(
+                                color: matched.contains(tag)
+                                    ? AppColors.forest.withValues(alpha: 0.4)
+                                    : AppColors.border,
+                              ),
                             ),
                             child: Text(
-                              tag,
-                              style: const TextStyle(
+                              '#$tag',
+                              style: TextStyle(
                                 fontSize: 10.5,
-                                color: AppColors.textSecondary,
+                                fontWeight: matched.contains(tag)
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: matched.contains(tag)
+                                    ? AppColors.forest
+                                    : AppColors.textSecondary,
                               ),
                             ),
                           ),

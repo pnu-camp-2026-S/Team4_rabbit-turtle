@@ -4,6 +4,8 @@ import '../models/magazine.dart';
 import '../services/auth_service.dart';
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
+import '../services/recommendation_service.dart';
+import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/magazine_shelf.dart';
@@ -30,17 +32,41 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+/// 홈에 필요한 데이터 묶음 — 추천순으로 배치된 선반 + 사용자 취향 태그.
+class _HomeData {
+  const _HomeData({required this.shelf, required this.taste});
+
+  final List<Magazine> shelf;
+  final List<String> taste;
+}
+
 class _HomePageState extends State<HomePage> {
-  late final Future<List<Magazine>> _magazinesFuture = _loadMagazines();
+  Future<_HomeData> _homeFuture = _loadHome();
   late final Future<_RecentMarkInfo> _recentMarkFuture = _loadRecentMark();
 
-  static Future<List<Magazine>> _loadMagazines() async {
+  /// 매거진 + 사용자 취향을 불러와 추천순(취향∩태그 점수)으로 선반 배치.
+  /// 취향이 없으면(비로그인/온보딩 전) 원래 순서 그대로.
+  static Future<_HomeData> _loadHome() async {
+    List<Magazine> magazines;
     try {
-      final magazines = await MagazineService().fetchMagazines();
-      return magazines.isEmpty ? kMagazines : magazines;
+      magazines = await MagazineService().fetchMagazines();
+      if (magazines.isEmpty) magazines = kMagazines;
     } catch (_) {
-      return kMagazines;
+      magazines = kMagazines;
     }
+
+    List<String> taste = const [];
+    try {
+      taste = await UserService().fetchTasteTags() ?? const [];
+    } catch (_) {
+      // 비로그인 등 — 개인화 없이 진행
+    }
+
+    final ranked = RecommendationService.rank(taste, magazines);
+    return _HomeData(
+      shelf: RecommendationService.arrangeForShelf(ranked),
+      taste: taste,
+    );
   }
 
   /// 사용자의 가장 최근 마크를 인용문으로 변환. 마크가 없거나, 좌표가 가리키는
@@ -146,10 +172,15 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 18),
-              FutureBuilder<List<Magazine>>(
-                future: _magazinesFuture,
+              FutureBuilder<_HomeData>(
+                future: _homeFuture,
                 builder: (context, snapshot) {
-                  final magazines = snapshot.data ?? const <Magazine>[];
+                  final magazines = snapshot.data?.shelf ?? const <Magazine>[];
+                  // 데이터 도착 전에 PageView를 만들면 초기 페이지(가운데)가
+                  // 0으로 밀리므로, 로드 완료 후에 선반을 만든다.
+                  if (magazines.isEmpty) {
+                    return const SizedBox(height: 320);
+                  }
                   return MagazineShelf(
                     magazines: magazines,
                     showTodaysPick: true,
@@ -177,11 +208,17 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const Spacer(),
                         InkWell(
-                          onTap: () => Navigator.pushNamed(
-                            context,
-                            '/onboarding/profile',
-                            arguments: 'edit',
-                          ),
+                          onTap: () async {
+                            // 취향 픽커(편집 모드)로 — 저장 후 홈 새로고침
+                            await Navigator.pushNamed(
+                              context,
+                              '/taste',
+                              arguments: 'edit',
+                            );
+                            if (mounted) {
+                              setState(() => _homeFuture = _loadHome());
+                            }
+                          },
                           child: const Row(
                             children: [
                               Text(
@@ -203,14 +240,23 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        TasteChip(label: 'Warm wood', selected: true),
-                        TasteChip(label: 'Quiet rooms', selected: false),
-                        TasteChip(label: 'Editorial mood', selected: false),
-                      ],
+                    // 온보딩/Refine에서 저장한 실제 취향 — 없으면 기본 문구
+                    FutureBuilder<_HomeData>(
+                      future: _homeFuture,
+                      builder: (context, snapshot) {
+                        final taste = snapshot.data?.taste ?? const <String>[];
+                        final labels = taste.isEmpty
+                            ? const ['Warm wood', 'Quiet rooms', 'Editorial mood']
+                            : taste.take(6).toList();
+                        return Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            for (var i = 0; i < labels.length; i++)
+                              TasteChip(label: labels[i], selected: i == 0),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 26),
                     FutureBuilder<_RecentMarkInfo>(
