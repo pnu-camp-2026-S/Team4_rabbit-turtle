@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 /// 온보딩 태그 어휘 — UI(태그 화면)와 AI 분석기가 공유하는 단일 출처.
 const Map<String, List<String>> kMoodVocab = {
   'Mood': ['Calm', 'Warm', 'Minimal', 'Sensory'],
@@ -9,6 +11,24 @@ const Map<String, List<String>> kMoodVocab = {
 final Set<String> kAllMoodTags = {
   for (final tags in kMoodVocab.values) ...tags,
 };
+
+/// 업로드 화면 → 태그 화면으로 넘기는 온보딩 데이터 묶음.
+class MoodTagsArgs {
+  const MoodTagsArgs({
+    this.analysis,
+    this.photoBytes = const [],
+    this.photoUrls = const [],
+  });
+
+  /// AI 분석 결과 (실패/미사용이면 null → 데모 폴백).
+  final MoodAnalysis? analysis;
+
+  /// 갤러리에서 첨부한 사진들 (bytes).
+  final List<Uint8List> photoBytes;
+
+  /// 데모 프리셋 사진 URL들.
+  final List<String> photoUrls;
+}
 
 /// AI 사진 무드 분석 결과.
 class MoodAnalysis {

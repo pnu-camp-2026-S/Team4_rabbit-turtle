@@ -74,6 +74,9 @@ Only include a tag if you are confident it matches. Return valid JSON only.
               'generationConfig': {
                 'response_mime_type': 'application/json',
                 'temperature': 0.4,
+                'maxOutputTokens': 800,
+                // thinking 모델의 사고 토큰이 출력을 잘라먹지 않도록 비활성화
+                'thinkingConfig': {'thinkingBudget': 0},
               },
             }),
           )
@@ -84,10 +87,18 @@ Only include a tag if you are confident it matches. Return valid JSON only.
         return null;
       }
 
-      final String text = (jsonDecode(res.body) as Map<String, dynamic>)
-          ['candidates'][0]['content']['parts'][0]['text'] as String;
+      // 모든 텍스트 파트를 합치고(사고 파트 제외), JSON 본문만 안전하게 추출
+      final List responseParts = (jsonDecode(res.body)
+          as Map<String, dynamic>)['candidates'][0]['content']['parts'] as List;
+      final String text = responseParts
+          .where((p) => p['thought'] != true && p['text'] != null)
+          .map((p) => p['text'] as String)
+          .join();
+      final int start = text.indexOf('{');
+      final int end = text.lastIndexOf('}');
+      if (start < 0 || end <= start) return null;
       final Map<String, dynamic> data =
-          jsonDecode(text) as Map<String, dynamic>;
+          jsonDecode(text.substring(start, end + 1)) as Map<String, dynamic>;
 
       final Set<String> tags = ((data['tags'] as List?) ?? const [])
           .cast<String>()

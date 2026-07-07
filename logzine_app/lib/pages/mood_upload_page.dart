@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
+import '../models/mood_analysis.dart';
 import '../services/mood_analyzer.dart';
 import '../theme.dart';
 import '../widgets/onboarding_widgets.dart';
@@ -87,7 +88,21 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
 
     if (!mounted) return;
     setState(() => _analyzing = false);
-    Navigator.pushNamed(context, '/onboarding/tags', arguments: results[0]);
+    Navigator.pushNamed(
+      context,
+      '/onboarding/tags',
+      arguments: MoodTagsArgs(
+        analysis: results[0] as MoodAnalysis?,
+        photoBytes: [
+          for (final p in _photos)
+            if (p.bytes != null) p.bytes!,
+        ],
+        photoUrls: [
+          for (final p in _photos)
+            if (p.url != null) p.url!,
+        ],
+      ),
+    );
   }
 
   @override
