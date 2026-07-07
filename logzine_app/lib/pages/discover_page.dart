@@ -130,9 +130,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
                     Text(
                       'Search',
                       style: logoStyle(
-                        size: 34,
+                        size: 27,
                         weight: FontWeight.w500,
-                        letterSpacingEm: 0.0,
+                        letterSpacingEm: 0.01,
                         color: AppColors.ink,
                       ),
                     ),
@@ -244,13 +244,10 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 잡지 러닝헤드 스타일 아이브로우 라벨
     return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-        color: AppColors.ink,
-      ),
+      text.toUpperCase(),
+      style: eyebrowStyle(color: AppColors.ink),
     );
   }
 }
@@ -268,16 +265,17 @@ class _OutlineChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 각진 사각 칩 → 부드러운 필 (딱딱함 제거)
     return Material(
       color: selected ? AppColors.forest : Colors.white,
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(999),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: selected ? AppColors.forest : AppColors.border,
             ),

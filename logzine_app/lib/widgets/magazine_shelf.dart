@@ -346,21 +346,22 @@ class ShelfSwipeHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        Text(
-          'Swipe the shelf',
-          style: TextStyle(
-            fontSize: 12.5,
-            color: AppColors.textSecondary,
+    // 조용한 힌트 — 와이어프레임 느낌이 나지 않게 아주 옅게
+    return Opacity(
+      opacity: 0.55,
+      child: Column(
+        children: [
+          Text(
+            'SWIPE THE SHELF',
+            style: eyebrowStyle(size: 9.5, color: AppColors.textMuted),
           ),
-        ),
-        SizedBox(height: 8),
-        CustomPaint(
-          size: Size(150, 10),
-          painter: _DoubleArrowPainter(),
-        ),
-      ],
+          const SizedBox(height: 6),
+          const CustomPaint(
+            size: Size(96, 8),
+            painter: _DoubleArrowPainter(),
+          ),
+        ],
+      ),
     );
   }
 }
