@@ -149,14 +149,20 @@ flutter run --no-enable-impeller
 
 ### AI 사진 무드 분석 활성화 (선택)
 
-온보딩의 사진 분석을 실제 AI(Gemini)로 돌리려면 API 키를 넣어 실행합니다:
+온보딩의 사진 분석을 실제 AI(Gemini)로 돌리려면 **본인 API 키**가 필요합니다.
 
+**최초 1회 설정:**
+1. 무료 키 발급: https://aistudio.google.com → **Get API key** (2분)
+2. `logzine_app/env.example.json`을 복사해 같은 폴더에 **`env.json`** 생성, 안에 본인 키 입력
+   (`env.json`은 gitignore되어 있어 실수로도 커밋되지 않음)
+
+**실행 (매번):**
 ```powershell
-# 키 발급(무료): https://aistudio.google.com → Get API key
-flutter run --no-enable-impeller --dart-define=GEMINI_API_KEY=발급받은키
+flutter run --dart-define-from-file=env.json
+# 안드로이드 에뮬레이터는 --no-enable-impeller 추가
 ```
 
-- ⚠️ **키를 코드/저장소에 절대 커밋하지 말 것** — 실행 시 주입만 허용
+- ⚠️ **키를 코드/저장소에 절대 커밋하지 말 것** — env.json/실행 주입만 허용
 - 키가 없으면 자동으로 데모 태그로 폴백되므로 시연은 항상 안전함
 - 공급자 교체(CLOVA 등)는 `lib/services/mood_analyzer.dart`의 `MoodAnalyzer` 구현체 추가로
 

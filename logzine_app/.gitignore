@@ -48,3 +48,6 @@ app.*.map.json
 serviceAccountKey.json
 *-firebase-adminsdk-*.json
 .env
+
+# 개인 API 키 (env.example.json을 복사해서 만들기 — 절대 커밋 금지)
+env.json
