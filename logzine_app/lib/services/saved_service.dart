@@ -13,11 +13,20 @@ class SavedService {
       _db.collection('users').doc(uid).collection('saved').doc(articleId);
 
   /// 저장 (문서 ID: articleId)
-  Future<void> save(String articleId, String magazineId) async {
+  Future<void> save({
+    required String articleId,
+    required String magazineId,
+    required String articleTitle,
+    required String magazineTitle,
+    required String coverUrl,
+  }) async {
     final uid = _uid;
     if (uid == null) return;
     await _ref(uid, articleId).set({
       'magazineId': magazineId,
+      'articleTitle': articleTitle,
+      'magazineTitle': magazineTitle,
+      'coverUrl': coverUrl,
       'savedAt': FieldValue.serverTimestamp(),
     });
   }

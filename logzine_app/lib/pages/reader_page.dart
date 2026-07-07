@@ -132,28 +132,34 @@ class _ReaderPageState extends State<ReaderPage> {
 
   /// 아티클 ID 확인 + 저장된 마크/진행률 복원
   Future<void> _loadRemote() async {
-    final ids = await MagazineService().fetchDemoArticleIds();
-    if (ids == null || !mounted) return;
-    _magazineId = ids.magazineId;
-    _articleId = ids.articleId;
+    try {
+      final ids = await MagazineService().fetchDemoArticleIds();
+      debugPrint('[ReaderPage] fetchDemoArticleIds → $ids');
+      if (ids == null || !mounted) return;
+      _magazineId = ids.magazineId;
+      _articleId = ids.articleId;
 
-    final List<MarkRecord> marks =
-        await _markService.fetchMarks(ids.articleId);
-    final int? lastPage = await _markService.fetchLastPage(ids.articleId);
-    final bool saved = await _savedService.isSaved(ids.articleId);
-    if (!mounted) return;
-    setState(() {
-      _saved = saved;
-      for (final r in marks) {
-        _marks[(r.paragraphIdx, r.segmentIdx)] = _Mark(
-          color: r.type == 'underline' ? kInkSwatch : _colorFromHex(r.color),
-          memo: r.memoText,
-        );
-      }
-      if (lastPage != null) {
-        _page = lastPage.clamp(1, _totalPages).toDouble();
-      }
-    });
+      final List<MarkRecord> marks =
+          await _markService.fetchMarks(ids.articleId);
+      final int? lastPage = await _markService.fetchLastPage(ids.articleId);
+      final bool saved = await _savedService.isSaved(ids.articleId);
+      if (!mounted) return;
+      setState(() {
+        _saved = saved;
+        for (final r in marks) {
+          _marks[(r.paragraphIdx, r.segmentIdx)] = _Mark(
+            color:
+                r.type == 'underline' ? kInkSwatch : _colorFromHex(r.color),
+            memo: r.memoText,
+          );
+        }
+        if (lastPage != null) {
+          _page = lastPage.clamp(1, _totalPages).toDouble();
+        }
+      });
+    } catch (e) {
+      debugPrint('[ReaderPage] _loadRemote error: $e');
+    }
   }
 
   /// 마크 1건 서버 반영 (null이면 삭제)
@@ -192,18 +198,48 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
-  void _toggleSaved() {
-    setState(() => _saved = !_saved);
+  Future<void> _toggleSaved() async {
     final String? articleId = _articleId;
     final String? magazineId = _magazineId;
-    if (articleId != null && magazineId != null) {
-      _saved
-          ? _savedService.save(articleId, magazineId)
-          : _savedService.unsave(articleId);
+    if (articleId == null || magazineId == null) {
+      // _loadRemote()가 아직 끝나지 않아 대상 아티클을 모르는 상태.
+      // 예전에는 이 경우 조용히 스킵하면서도 "저장했어요" 스낵바를 그대로
+      // 띄워서 실제로는 저장되지 않았는데 성공한 것처럼 보였다.
+      debugPrint('[ReaderPage] _toggleSaved skipped: article ids not loaded yet');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('아직 불러오는 중이에요. 잠시 후 다시 시도해주세요')),
+      );
+      return;
     }
+
+    setState(() => _saved = !_saved);
+    final bool nowSaved = _saved;
+    try {
+      if (nowSaved) {
+        await _savedService.save(
+          articleId: articleId,
+          magazineId: magazineId,
+          articleTitle: _args.title,
+          magazineTitle: _args.publisher,
+          coverUrl: _heroUrl,
+        );
+      } else {
+        await _savedService.unsave(articleId);
+      }
+    } catch (e) {
+      debugPrint('[ReaderPage] _toggleSaved failed: $e');
+      if (!mounted) return;
+      setState(() => _saved = !nowSaved);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('저장 중 문제가 발생했어요')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_saved ? '이 이슈를 저장했어요' : '저장을 취소했어요'),
+        content: Text(nowSaved ? '이 이슈를 저장했어요' : '저장을 취소했어요'),
         duration: const Duration(seconds: 1),
       ),
     );

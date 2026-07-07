@@ -36,8 +36,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Logzine',
       theme: buildAppTheme(),
-      // 첫 화면은 로그인 웰컴 페이지.
-      initialRoute: '/',
       routes: {
         '/': (context) => const LoginWelcomePage(),
         '/login/email': (context) => const LoginEmailPage(),
