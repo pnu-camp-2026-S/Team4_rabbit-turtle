@@ -4,25 +4,34 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// users/{uid}/marks 문서 1건. 스키마: DB_SCHEMA.md § users/{uid}/marks
 class MarkRecord {
   const MarkRecord({
+    required this.articleId,
+    required this.magazineId,
     required this.paragraphIdx,
     required this.segmentIdx,
     required this.type,
     this.color,
     this.memoText,
+    this.createdAt,
   });
 
+  final String articleId;
+  final String magazineId;
   final int paragraphIdx;
   final int segmentIdx;
   final String type; // "highlight" | "underline" | "memo"
   final String? color;
   final String? memoText;
+  final DateTime? createdAt;
 
   factory MarkRecord.fromMap(Map<String, dynamic> data) => MarkRecord(
+        articleId: data['articleId'] as String? ?? '',
+        magazineId: data['magazineId'] as String? ?? '',
         paragraphIdx: (data['paragraphIdx'] as num?)?.toInt() ?? 0,
         segmentIdx: (data['segmentIdx'] as num?)?.toInt() ?? 0,
         type: data['type'] as String? ?? 'highlight',
         color: data['color'] as String?,
         memoText: data['memoText'] as String?,
+        createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       );
 }
 
@@ -76,6 +85,21 @@ class MarkService {
         .doc(uid)
         .collection('marks')
         .where('articleId', isEqualTo: articleId)
+        .get();
+    return snap.docs.map((d) => MarkRecord.fromMap(d.data())).toList();
+  }
+
+  /// 아티클 구분 없이 가장 최근 마크 [limit]개 (createdAt 내림차순).
+  /// 홈 화면의 "최근 하이라이트" 카드 등에서 사용. 비로그인 시 빈 리스트.
+  Future<List<MarkRecord>> fetchRecentMarks({int limit = 1}) async {
+    final uid = _uid;
+    if (uid == null) return const [];
+    final snap = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('marks')
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
         .get();
     return snap.docs.map((d) => MarkRecord.fromMap(d.data())).toList();
   }

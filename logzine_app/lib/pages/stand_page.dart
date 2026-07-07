@@ -1,12 +1,29 @@
 import 'package:flutter/material.dart';
 
 import '../models/magazine.dart';
+import '../services/magazine_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/magazine_shelf.dart';
 
-class StandPage extends StatelessWidget {
+class StandPage extends StatefulWidget {
   const StandPage({super.key});
+
+  @override
+  State<StandPage> createState() => _StandPageState();
+}
+
+class _StandPageState extends State<StandPage> {
+  late final Future<List<Magazine>> _magazinesFuture = _loadMagazines();
+
+  static Future<List<Magazine>> _loadMagazines() async {
+    try {
+      final magazines = await MagazineService().fetchMagazines();
+      return magazines.isEmpty ? kMagazines : magazines;
+    } catch (_) {
+      return kMagazines;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,13 +35,18 @@ class StandPage extends StatelessWidget {
           children: [
             const LogzineTopBar(showBack: true, showBell: false),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                itemCount: kMagazines.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 14),
-                itemBuilder: (context, index) {
-                  final magazine = kMagazines[index];
-                  return Material(
+              child: FutureBuilder<List<Magazine>>(
+                future: _magazinesFuture,
+                builder: (context, snapshot) {
+                  final magazines = snapshot.data ?? const <Magazine>[];
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                    itemCount: magazines.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      final magazine = magazines[index];
+                      return Material(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     child: InkWell(
@@ -100,6 +122,8 @@ class StandPage extends StatelessWidget {
                         ),
                       ),
                     ),
+                  );
+                },
                   );
                 },
               ),

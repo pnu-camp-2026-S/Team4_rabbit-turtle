@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/magazine.dart';
+import '../services/magazine_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
@@ -36,6 +37,20 @@ class _DiscoverPageState extends State<DiscoverPage> {
   ];
 
   final TextEditingController _searchController = TextEditingController();
+  late final Future<List<Magazine>> _magazinesFuture = _loadMagazines();
+
+  static Future<List<Magazine>> _loadMagazines() async {
+    try {
+      final magazines = await MagazineService().fetchMagazines();
+      return magazines.isEmpty ? kMagazines : magazines;
+    } catch (_) {
+      return kMagazines;
+    }
+  }
+
+  /// index가 범위를 벗어나면(Firestore에 아직 다 시드되지 않은 경우) 데모 데이터로 대체.
+  static Magazine _magazineAt(List<Magazine> magazines, int index) =>
+      index < magazines.length ? magazines[index] : kMagazines[index];
 
   @override
   void dispose() {
@@ -45,33 +60,43 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<_SearchResult> results = [
-      _SearchResult(
-        title: 'SEONGSU',
-        subtitle: 'SUMMER WALK',
-        publisher: 'AROUND',
-        description: '성수동의 한낮 공원, 오래된 벽돌과 푸른 잎사귀 사이를 걷는 가벼운 산책을 담아냈어요.',
-        tags: const ['#가구', '#조명', '#브랜드', '#빈티지'],
-        imageUrl: kMagazines[0].coverUrl,
-      ),
-      _SearchResult(
-        title: 'AROUND',
-        subtitle: 'SLOW LIFE & GREENERY',
-        publisher: 'AROUND',
-        description: '차분히 흘러가는 일상을 바라보며 식물로 둘러싸인 느린 라이프스타일을 소개합니다.',
-        tags: const ['#가구', '#식물', '#미니멀', '#요리'],
-        imageUrl: kMagazines[3].coverUrl,
-      ),
-      _SearchResult(
-        title: 'nice things.',
-        subtitle: 'LOCAL HANDCRAFT',
-        publisher: 'nice things.',
-        description: '손의 온도가 느껴지는 작은 사물들의 이야기. 오래 두고 볼수록 더 좋아지는 브랜드를 모았어요.',
-        tags: const ['#브랜드', '#로컬', '#오브제'],
-        imageUrl: kMagazines[4].coverUrl,
-      ),
-    ];
+    return FutureBuilder<List<Magazine>>(
+      future: _magazinesFuture,
+      builder: (context, snapshot) {
+        final List<Magazine> magazines = snapshot.data ?? kMagazines;
+        final List<_SearchResult> results = [
+          _SearchResult(
+            title: 'SEONGSU',
+            subtitle: 'SUMMER WALK',
+            publisher: 'AROUND',
+            description: '성수동의 한낮 공원, 오래된 벽돌과 푸른 잎사귀 사이를 걷는 가벼운 산책을 담아냈어요.',
+            tags: const ['#가구', '#조명', '#브랜드', '#빈티지'],
+            imageUrl: _magazineAt(magazines, 0).coverUrl,
+          ),
+          _SearchResult(
+            title: 'AROUND',
+            subtitle: 'SLOW LIFE & GREENERY',
+            publisher: 'AROUND',
+            description: '차분히 흘러가는 일상을 바라보며 식물로 둘러싸인 느린 라이프스타일을 소개합니다.',
+            tags: const ['#가구', '#식물', '#미니멀', '#요리'],
+            imageUrl: _magazineAt(magazines, 3).coverUrl,
+          ),
+          _SearchResult(
+            title: 'nice things.',
+            subtitle: 'LOCAL HANDCRAFT',
+            publisher: 'nice things.',
+            description: '손의 온도가 느껴지는 작은 사물들의 이야기. 오래 두고 볼수록 더 좋아지는 브랜드를 모았어요.',
+            tags: const ['#브랜드', '#로컬', '#오브제'],
+            imageUrl: _magazineAt(magazines, 4).coverUrl,
+          ),
+        ];
 
+        return _buildScaffold(context, results);
+      },
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, List<_SearchResult> results) {
     return Scaffold(
       backgroundColor: AppColors.screen,
       body: SafeArea(
