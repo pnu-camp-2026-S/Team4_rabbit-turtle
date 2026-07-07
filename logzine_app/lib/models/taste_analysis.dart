@@ -290,8 +290,6 @@ class PhotoTasteAnalyzer {
       trimmedFeedback,
       analysis.keywords,
     );
-    final feedbackKeywords = _keywordsFromFeedback(trimmedFeedback);
-
     final confirmed = [
       ...analysis.keywords
           .where(
@@ -302,7 +300,6 @@ class PhotoTasteAnalyzer {
           .map(
             (keyword) => keyword.copyWith(status: TasteKeywordStatus.confirmed),
           ),
-      ...feedbackKeywords,
     ];
 
     final photoTags = analysis.keywords
@@ -331,6 +328,179 @@ class PhotoTasteAnalyzer {
     );
   }
 
+  static Future<TasteProfileDraft> refineProfile({
+    required TasteAnalysisResult analysis,
+    required Set<String> confirmedLabels,
+    required String feedback,
+  }) async {
+    final fallback = buildProfile(
+      analysis: analysis,
+      confirmedLabels: confirmedLabels,
+      feedback: '',
+    );
+    final trimmedFeedback = feedback.trim();
+    if (_apiKey.isEmpty || trimmedFeedback.isEmpty) return fallback;
+
+    final aiKeywords = [for (final keyword in analysis.keywords) keyword.label];
+    final selectedKeywords = [
+      for (final keyword in analysis.keywords)
+        if (confirmedLabels.contains(keyword.label)) keyword.label,
+    ];
+    final deselectedKeywords = [
+      for (final keyword in analysis.keywords)
+        if (!confirmedLabels.contains(keyword.label)) keyword.label,
+    ];
+
+    try {
+      final response = await _requestKeywordRefinement(
+        aiKeywords: aiKeywords,
+        selectedKeywords: selectedKeywords,
+        deselectedKeywords: deselectedKeywords,
+        feedback: trimmedFeedback,
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return fallback;
+      }
+
+      final outputText = _extractOutputText(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+      if (outputText == null || outputText.trim().isEmpty) return fallback;
+
+      final data = jsonDecode(outputText) as Map<String, dynamic>;
+      final excludedLabels = _excludedLabelsFromJson(data);
+      final refinedKeywords = _cleanProfileKeywords([
+        ..._refinedKeywordsFromJson(data),
+      ], excludedLabels: excludedLabels);
+      if (refinedKeywords.isEmpty) return fallback;
+
+      final photoTags = analysis.keywords.map((keyword) {
+        return excludedLabels.any(
+              (label) => _labelsOverlap(label, keyword.label),
+            )
+            ? keyword.copyWith(status: TasteKeywordStatus.removed)
+            : keyword;
+      }).toList();
+
+      return TasteProfileDraft(
+        photoTags: photoTags,
+        confirmedTags: refinedKeywords,
+        preferenceProfile: refinedKeywords,
+        summary: _profileSummary(refinedKeywords),
+        photos: analysis.photos,
+        feedback: trimmedFeedback,
+      );
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  static Future<http.Response> _requestKeywordRefinement({
+    required List<String> aiKeywords,
+    required List<String> selectedKeywords,
+    required List<String> deselectedKeywords,
+    required String feedback,
+  }) {
+    final input = {
+      'ai_keywords': aiKeywords,
+      'selected_keywords': selectedKeywords,
+      'deselected_keywords': deselectedKeywords,
+      'free_text_feedback': feedback,
+    };
+
+    return http
+        .post(
+          Uri.parse(
+            'https://generativelanguage.googleapis.com/v1beta/models/$_fallbackModel:generateContent',
+          ),
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': _apiKey,
+          },
+          body: jsonEncode({
+            'contents': [
+              {
+                'role': 'user',
+                'parts': [
+                  {
+                    'text':
+                        '$_refinerPrompt\n\nInput JSON:\n${jsonEncode(input)}\n\nReturn only valid JSON that matches this schema:\n${jsonEncode(_refinerSchema)}',
+                  },
+                ],
+              },
+            ],
+            'generationConfig': {'responseMimeType': 'application/json'},
+          }),
+        )
+        .timeout(const Duration(seconds: 25));
+  }
+
+  static List<TasteKeyword> _refinedKeywordsFromJson(
+    Map<String, dynamic> json,
+  ) {
+    final displayKeywords = _displayKeywordsFromJson(json);
+    if (displayKeywords.isNotEmpty) {
+      return [
+        for (final label in displayKeywords)
+          TasteKeyword(
+            label: label,
+            type: TasteKeywordType.preference,
+            confidence: 0.95,
+            evidence: '사용자 피드백 정제',
+            status: TasteKeywordStatus.confirmed,
+          ),
+      ];
+    }
+
+    final items = json['final_keywords'];
+    if (items is! List<dynamic>) return const <TasteKeyword>[];
+
+    final keywords = <TasteKeyword>[];
+    for (final item in items) {
+      if (item is! Map<String, dynamic>) continue;
+      final label = _normalizeFinalLabel(item['label'] as String? ?? '');
+      if (label == null || label.isEmpty) continue;
+      if (keywords.any((keyword) => keyword.label == label)) continue;
+      keywords.add(
+        TasteKeyword(
+          label: label,
+          type: _typeFromApi(item['type'] as String? ?? 'preference'),
+          confidence: ((item['confidence'] as num?) ?? 0.9).toDouble(),
+          evidence: item['reason'] as String? ?? '사용자 피드백 정제',
+          status: TasteKeywordStatus.confirmed,
+        ),
+      );
+      if (keywords.length >= 8) break;
+    }
+    return keywords;
+  }
+
+  static List<String> _displayKeywordsFromJson(Map<String, dynamic> json) {
+    final items = json['display_keywords'];
+    if (items is! List<dynamic>) return const <String>[];
+    final labels = <String>[];
+    for (final item in items) {
+      if (item is! String) continue;
+      final label = _normalizeFinalLabel(item);
+      if (label == null || labels.contains(label)) continue;
+      labels.add(label);
+      if (labels.length >= 8) break;
+    }
+    return labels;
+  }
+
+  static Set<String> _excludedLabelsFromJson(Map<String, dynamic> json) {
+    final items = json['excluded_keywords'];
+    if (items is! List<dynamic>) return const <String>{};
+    return {
+      for (final item in items)
+        if (item is Map<String, dynamic> &&
+            item['label'] is String &&
+            (item['label'] as String).trim().isNotEmpty)
+          (item['label'] as String).trim(),
+    };
+  }
+
   static Set<String> _feedbackRemovedLabels(
     String feedback,
     List<TasteKeyword> keywords,
@@ -338,6 +508,7 @@ class PhotoTasteAnalyzer {
     if (feedback.isEmpty) return const <String>{};
     final lower = feedback.toLowerCase();
     final removed = <String>{};
+    final negativeSubjects = _negativeSubjects(feedback);
     for (final keyword in keywords) {
       final label = keyword.label;
       final labelLower = label.toLowerCase();
@@ -354,55 +525,243 @@ class PhotoTasteAnalyzer {
       ).hasMatch(feedback);
       if (negativeNearLabel || negativeBeforeLabel) {
         removed.add(label);
+        continue;
+      }
+      for (final subject in negativeSubjects) {
+        if (_labelsOverlap(label, subject)) {
+          removed.add(label);
+          break;
+        }
       }
     }
     return removed;
   }
 
-  static List<TasteKeyword> _keywordsFromFeedback(String feedback) {
-    if (feedback.isEmpty) return const <TasteKeyword>[];
+  static Set<String> _negativeSubjects(String feedback) {
+    final subjects = <String>{};
+    final patterns = [
+      RegExp(r'([가-힣A-Za-z0-9/·\s]{2,18})(?:보다는|보다\s+|말고)'),
+      RegExp(
+        r'([가-힣A-Za-z0-9/·\s]{2,18})(?:은|는|이|가)?\s*(?:안\s*좋아|싫어|별로|관심\s*없|제외|빼줘)',
+      ),
+      RegExp(
+        r"(?:don't like|do not like|dislike|hate|not into|exclude|remove|less)\s+([a-zA-Z][a-zA-Z\s/&-]{1,28})",
+        caseSensitive: false,
+      ),
+    ];
 
-    final normalized = feedback
-        .replaceAll(RegExp(r'예\s*:\s*'), '')
-        .replaceAll(RegExp(r'[.!?。！？]'), ',')
-        .replaceAll(' 그리고 ', ',')
-        .replaceAll(' 보다는 ', ',')
-        .replaceAll('보다 ', ',')
-        .replaceAll('해서 ', ',');
-
-    final labels = <String>[];
-    for (final rawPart in normalized.split(',')) {
-      var label = rawPart.trim();
-      if (label.isEmpty) continue;
-      if (RegExp(r'(아니|싫|제외|빼|삭제|별로)').hasMatch(label)) continue;
-      label = label
-          .replaceAll(RegExp(r'(좋아서|좋아|원해|선호해|찍었어|느낌|위주로)$'), '')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
-      if (label.length < 2) continue;
-      if (label.length > 18) label = '${label.substring(0, 18).trim()}...';
-      if (!labels.contains(label)) labels.add(label);
-      if (labels.length >= 3) break;
+    for (final pattern in patterns) {
+      for (final match in pattern.allMatches(feedback)) {
+        final value = match.group(1)?.trim();
+        if (value == null || value.isEmpty) continue;
+        final normalized = _normalizeFinalLabel(
+          _normalizeEnglishKeyword(value),
+        );
+        if (normalized != null) subjects.add(normalized);
+      }
     }
+    return subjects;
+  }
 
-    if (labels.isEmpty && feedback.length >= 2) {
-      labels.add(
-        feedback.length > 18
-            ? '${feedback.substring(0, 18).trim()}...'
-            : feedback,
+  static List<TasteKeyword> _cleanProfileKeywords(
+    List<TasteKeyword> keywords, {
+    required Set<String> excludedLabels,
+  }) {
+    final cleaned = <TasteKeyword>[];
+    for (final keyword in keywords) {
+      final label = _normalizeFinalLabel(keyword.label);
+      if (label == null) continue;
+      final excluded = excludedLabels.any(
+        (excludedLabel) => _labelsOverlap(label, excludedLabel),
       );
-    }
-
-    return [
-      for (final label in labels)
+      if (excluded) continue;
+      if (cleaned.any((item) => _labelsOverlap(item.label, label))) continue;
+      cleaned.add(
         TasteKeyword(
           label: label,
-          type: TasteKeywordType.preference,
-          confidence: 1,
-          evidence: '사용자 피드백',
-          status: TasteKeywordStatus.confirmed,
+          type: keyword.type,
+          confidence: keyword.confidence,
+          evidence: keyword.evidence,
+          status: keyword.status,
         ),
-    ];
+      );
+      if (cleaned.length >= 6) break;
+    }
+    return cleaned;
+  }
+
+  static bool _labelsOverlap(String left, String right) {
+    final leftParts = left
+        .split(RegExp(r'[/·\s]+'))
+        .where((part) => part.length >= 2)
+        .toSet();
+    final rightParts = right
+        .split(RegExp(r'[/·\s]+'))
+        .where((part) => part.length >= 2)
+        .toSet();
+    return left.contains(right) ||
+        right.contains(left) ||
+        leftParts.intersection(rightParts).isNotEmpty;
+  }
+
+  static String _normalizeEnglishKeyword(String value) {
+    final lower = value.toLowerCase().trim();
+    return switch (lower) {
+      'soccer' || 'football' => '축구',
+      'playing soccer' || 'playing football' => '축구하기',
+      'baking' => '베이킹',
+      'coffee' => '커피',
+      'cafe' || 'cafes' => '카페',
+      'reading' || 'books' => '독서',
+      'art' => '예술',
+      'gallery' || 'galleries' => '갤러리',
+      'exhibition' || 'exhibitions' => '전시',
+      _ =>
+        value
+            .split(RegExp(r'\s+'))
+            .map(
+              (word) => word.isEmpty
+                  ? word
+                  : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}',
+            )
+            .join(' '),
+    };
+  }
+
+  static String? _normalizeFinalLabel(String value) {
+    var label = value.trim();
+    if (label.isEmpty) return null;
+    if (_looksLikeRawOrNegativeFeedback(label)) return null;
+
+    final mapped = _taxonomyLabelFor(label);
+    if (mapped != null) return mapped;
+
+    label = label
+        .replaceAll(
+          RegExp(
+            r'\bI\s+(also\s+)?(like|love|prefer|want)\b',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceAll(RegExp(r"\bI'm into\b", caseSensitive: false), '')
+        .replaceAll(RegExp(r'\bnot into\b', caseSensitive: false), '')
+        .replaceAll(RegExp(r"\bdon'?t like\b", caseSensitive: false), '')
+        .replaceAll(RegExp(r'\bdislike\b|\bhate\b', caseSensitive: false), '')
+        .replaceAll(RegExp(r'^(나는|제가|내가)\s*'), '')
+        .replaceAll(RegExp(r'^((것|거)(보다는|보다)|사실|그리고|또한|또)\s*'), '')
+        .replaceAll(RegExp(r'.*(?:보다는|보다\s+|말고)\s*'), '')
+        .replaceAll(
+          RegExp(r'(좋아하긴\s*해|좋아해|좋아하고|좋습니다|좋아|관심 있어|관심있어|원해|선호해|하고 싶어).*$'),
+          '',
+        )
+        .replaceAll(RegExp(r'(싫어|안 좋아|관심 없어|별로|아니야).*$'), '')
+        .trim();
+
+    final remapped = _taxonomyLabelFor(label);
+    if (remapped != null) return remapped;
+
+    label = switch (label) {
+      '도시탐험' => '도시 탐험',
+      'playing soccer' || 'Playing Soccer' => '축구하기',
+      'soccer' || 'Soccer' || 'football' || 'Football' => '축구',
+      'outdoor' || 'Outdoor' || 'outdoors' || 'Outdoors' => '아웃도어',
+      _ => label,
+    };
+
+    label = label.replaceAll(RegExp(r'\s+'), ' ').trim();
+    label = label.replaceAll(RegExp(r'(을|를|은|는|이|가|하고|안|도)$'), '').trim();
+
+    final finalMapped = _taxonomyLabelFor(label);
+    if (finalMapped != null) return finalMapped;
+
+    if (label.length < 2 || label.length > 16) return null;
+    if (label.contains('...') || label.contains('…')) return null;
+    if (label.contains('보다는') || label.contains('좋아하긴')) return null;
+    if (RegExp(
+      r"나는|제가|내가|I like|I\b|I'm",
+      caseSensitive: false,
+    ).hasMatch(label)) {
+      return null;
+    }
+    if (RegExp(
+      r"싫어|안 좋아|관심 없어|무서워|두려워|겁나|not into|don'?t like|afraid|scared",
+      caseSensitive: false,
+    ).hasMatch(label)) {
+      return null;
+    }
+    if (RegExp(r'(을|를|은|는|이|가|하고|안|도)$').hasMatch(label)) {
+      return null;
+    }
+    return label;
+  }
+
+  static bool _looksLikeRawOrNegativeFeedback(String value) {
+    final compact = value.replaceAll(RegExp(r'\s+'), '');
+    if (RegExp(r'^(나|나는|내가|제가)').hasMatch(compact)) return true;
+    if (RegExp(r'(싫어|안좋아|관심없어|별로|무서워|두려워|겁나)').hasMatch(compact)) {
+      return true;
+    }
+    if (RegExp(
+      r"\b(i\s+|i'm|i like|not into|don't like|do not like|afraid|scared)\b",
+      caseSensitive: false,
+    ).hasMatch(value)) {
+      return true;
+    }
+    return false;
+  }
+
+  static String? _taxonomyLabelFor(String value) {
+    final compact = value
+        .toLowerCase()
+        .replaceAll(RegExp(r'\s+'), '')
+        .replaceAll(RegExp(r'[.!?。！？,]'), '');
+    if (compact.isEmpty) return null;
+
+    if (compact.contains('조용한') && compact.contains('분위기')) {
+      return '조용한 분위기';
+    }
+    if (compact.contains('조용한') &&
+        (compact.contains('휴식') || compact.contains('쉬'))) {
+      return '조용한 휴식';
+    }
+    if (compact.contains('차분한') || compact.contains('잔잔한')) {
+      return '차분한 분위기';
+    }
+    if (compact.contains('여행')) return '여행';
+    if (compact.contains('활동적') || compact.contains('액티브')) {
+      return '활동적인 취향';
+    }
+    if (compact.contains('아웃도어') || compact.contains('야외')) {
+      return '자연/아웃도어';
+    }
+    if (compact.contains('자연') || compact.contains('풍경')) {
+      return '자연 풍경';
+    }
+    if (compact.contains('공부') ||
+        compact.contains('업무') ||
+        compact.contains('작업')) {
+      return '공부/작업';
+    }
+    if (compact.contains('문화') && compact.contains('건축')) {
+      return '문화/건축';
+    }
+    if (compact.contains('건축') || compact.contains('디자인')) {
+      return '건축/디자인';
+    }
+    if (compact.contains('전시') ||
+        compact.contains('갤러리') ||
+        compact.contains('예술')) {
+      return '전시/예술';
+    }
+    if (compact.contains('카페') && compact.contains('커피')) {
+      return '카페/커피';
+    }
+    if (compact.contains('카페')) return '카페';
+    if (compact.contains('커피')) return '커피';
+    if (compact.contains('책') || compact.contains('독서')) return '독서';
+    if (compact.contains('산책')) return '산책';
+    return null;
   }
 
   static TasteKeyword _keywordFromJson(Map<String, dynamic> json) {
@@ -422,6 +781,7 @@ class PhotoTasteAnalyzer {
       'activity' => TasteKeywordType.activity,
       'mood' => TasteKeywordType.mood,
       'interest' => TasteKeywordType.interest,
+      'content' => TasteKeywordType.interest,
       'context' => TasteKeywordType.context,
       'preference' => TasteKeywordType.preference,
       'negative_signal' => TasteKeywordType.negativeSignal,
@@ -556,6 +916,48 @@ Taxonomy examples:
 - urban_local: neighborhood, bookstore, market, street scene, local brand
 ''';
 
+const String _refinerPrompt = '''
+Use the Taste Keyword Refiner skill to merge photo-analysis keywords, selected chips, deselected chips, and free-text feedback into final recommendation keywords for LOGZINE.
+
+Rules:
+- You are the only component that decides final user taste keywords from free_text_feedback. The app will only render your display_keywords/final_keywords.
+- Do semantic interpretation, not word matching. Understand whether a sentence means preference, dislike, fear/avoidance, correction, context, or explanation.
+- User free-text feedback always has higher priority than AI guesses and chip state.
+- If the user explicitly dislikes or negates a keyword, remove it from final_keywords and include it in excluded_keywords.
+- If the user says they fear or avoid something, do not make that phrase a keyword. Convert it into excluded_keywords or downweighted_keywords for the relevant taste category.
+- If the user adds a new interest in Korean or English, normalize it into short Korean recommendation keywords.
+- Snap free-text meanings to the closest recommendation taxonomy label when possible: 여행, 조용한 분위기, 조용한 휴식, 카페/커피, 건축/디자인, 전시/예술, 자연 풍경, 자연/아웃도어, 공부/작업, 문화/건축, 독서, 산책.
+- Expand concrete interests only a little: 2-4 closely related keywords at most.
+- Do not create sensitive personal traits or infer identity, home, wealth, health, religion, politics, age, gender, ethnicity, or relationships.
+- Keep final keywords short, natural, and useful for magazine/content recommendation.
+- display_keywords is the only list used as UI chips. It must contain complete noun phrases only.
+- Never put raw free text, reasons, negative sentences, first-person phrases, clipped text, or labels ending with particles into display_keywords.
+- Comparative Korean feedback means the phrase before "보다는/보다/말고" is downweighted or excluded, and the phrase after it is the positive focus.
+- Remove duplicates and merge overly similar keywords.
+- If a selected chip conflicts with free text, follow the free text.
+- If a deselected broad keyword conflicts with a specific positive free-text preference, keep the specific preference and exclude or downweight the broad one.
+
+Example:
+free_text_feedback: "나는 활동적인 것보다는 조용한분위기를 좋아해. 여행도 좋아하긴해."
+Correct display_keywords: ["조용한 분위기", "여행"]
+Correct excluded_keywords or downweighted_keywords: ["활동적인 취향"]
+Wrong display_keywords: ["것보다는 사실 조용한 분위기", "여행도", "여행도 좋아하긴해"]
+
+Example:
+free_text_feedback: "나 벌레를 무서워해서 자연은 싫어."
+Correct display_keywords: []
+Correct excluded_keywords: ["자연/아웃도어", "자연 풍경", "자연휴식"]
+Wrong display_keywords: ["나 벌레를 무서워", "벌레", "자연"]
+
+Output:
+- display_keywords: final UI chip labels only.
+- final_keywords: confirmed interest/profile keywords to show and save.
+- excluded_keywords: labels to avoid in future recommendations.
+- downweighted_keywords: labels to reduce but not fully remove.
+- profile_update_summary: one concise Korean sentence.
+- clarifying_question: null unless a short question is truly needed.
+''';
+
 const Map<String, dynamic> _schema = {
   'type': 'object',
   'additionalProperties': false,
@@ -596,6 +998,80 @@ const Map<String, dynamic> _schema = {
     'privacy_notes': {
       'type': 'array',
       'items': {'type': 'string'},
+    },
+  },
+};
+
+const Map<String, dynamic> _refinerSchema = {
+  'type': 'object',
+  'additionalProperties': false,
+  'required': [
+    'display_keywords',
+    'final_keywords',
+    'excluded_keywords',
+    'downweighted_keywords',
+    'profile_update_summary',
+    'clarifying_question',
+  ],
+  'properties': {
+    'display_keywords': {
+      'type': 'array',
+      'items': {'type': 'string'},
+    },
+    'final_keywords': {
+      'type': 'array',
+      'items': {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['label', 'type', 'source', 'confidence', 'reason'],
+        'properties': {
+          'label': {'type': 'string'},
+          'type': {
+            'type': 'string',
+            'enum': [
+              'interest',
+              'activity',
+              'place_type',
+              'mood',
+              'content',
+              'preference',
+              'negative_signal',
+            ],
+          },
+          'source': {'type': 'string'},
+          'confidence': {'type': 'number'},
+          'reason': {'type': 'string'},
+        },
+      },
+    },
+    'excluded_keywords': {
+      'type': 'array',
+      'items': {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['label', 'source', 'reason'],
+        'properties': {
+          'label': {'type': 'string'},
+          'source': {'type': 'string'},
+          'reason': {'type': 'string'},
+        },
+      },
+    },
+    'downweighted_keywords': {
+      'type': 'array',
+      'items': {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['label', 'reason'],
+        'properties': {
+          'label': {'type': 'string'},
+          'reason': {'type': 'string'},
+        },
+      },
+    },
+    'profile_update_summary': {'type': 'string'},
+    'clarifying_question': {
+      'type': ['string', 'null'],
     },
   },
 };
