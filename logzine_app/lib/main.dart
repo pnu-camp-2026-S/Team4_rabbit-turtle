@@ -18,14 +18,11 @@ import 'pages/explore_page.dart';
 import 'pages/create_page.dart';
 import 'pages/mypage_page.dart';
 
-import 'services/magazine_service.dart';
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await MagazineService().seedIfEmpty();
   runApp(const MyApp());
 }
 
