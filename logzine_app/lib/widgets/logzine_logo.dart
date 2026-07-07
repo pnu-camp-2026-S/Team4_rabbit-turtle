@@ -1,35 +1,18 @@
 import 'package:flutter/material.dart';
 
-import '../theme.dart';
-
-/// 세리프 'LOGZINE' 워드마크 + 와인색 밑줄.
+/// LOGZINE 로고 이미지 (세리프 워드마크 + 초록 북마크 리본).
+/// [height] = 표시 높이(px). 가로는 원본 비율(약 3.8:1)로 자동.
 class LogzineLogo extends StatelessWidget {
-  const LogzineLogo({super.key, this.size = 30});
+  const LogzineLogo({super.key, this.height = 52});
 
-  final double size;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'LOGZINE',
-          textAlign: TextAlign.center,
-          style: logoStyle(
-            size: size,
-            weight: FontWeight.w500,
-            letterSpacingEm: 0.32,
-            color: AppColors.ink,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: 34,
-          height: 2.4,
-          color: AppColors.wine,
-        ),
-      ],
+    return Image.asset(
+      'assets/images/logzine_logo.png',
+      height: height,
+      fit: BoxFit.contain,
     );
   }
 }
