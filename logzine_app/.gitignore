@@ -49,6 +49,9 @@ serviceAccountKey.json
 *-firebase-adminsdk-*.json
 .env
 
+# 개인 API 키 (env.example.json을 복사해서 만들기 — 절대 커밋 금지)
+env.json
+
 # Firebase CLI 로컬 설정/캐시 (Rules 파일화 작업 시 생김)
 .firebase/
 firebase-debug.log
