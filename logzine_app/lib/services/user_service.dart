@@ -30,4 +30,16 @@ class UserService {
   Future<void> saveTasteTags(List<String> tags) {
     return _userRef.update({'tasteTags': tags});
   }
+
+  /// 저장된 취향 태그 읽기. 로그인 안 됨/문서 없음/실패 시 null.
+  Future<List<String>?> fetchTasteTags() async {
+    try {
+      final snap = await _userRef.get();
+      final raw = snap.data()?['tasteTags'];
+      if (raw is List) return raw.cast<String>();
+      return null;
+    } catch (_) {
+      return null; // 비로그인 등 — 호출부에서 폴백 처리
+    }
+  }
 }

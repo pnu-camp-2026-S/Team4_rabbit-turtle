@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
@@ -167,14 +168,50 @@ class ArchivePage extends StatelessWidget {
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
+class _ProfileHeader extends StatefulWidget {
   const _ProfileHeader({required this.avatarUrl, required this.userName});
 
   final String avatarUrl;
   final String userName;
 
   @override
+  State<_ProfileHeader> createState() => _ProfileHeaderState();
+}
+
+class _ProfileHeaderState extends State<_ProfileHeader> {
+  /// Firestore에 저장된 취향이 없을 때 보여줄 기본값.
+  static const List<String> _fallbackTags = [
+    'Warm wood',
+    'Quiet rooms',
+    'Editorial mood',
+  ];
+
+  List<String> _tags = _fallbackTags;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTaste();
+  }
+
+  /// 온보딩에서 users/{uid}에 저장한 실제 취향 태그를 불러온다.
+  Future<void> _loadTaste() async {
+    final tags = await UserService().fetchTasteTags();
+    if (!mounted || tags == null || tags.isEmpty) return;
+    setState(() => _tags = tags);
+  }
+
+  Future<void> _openRefine() async {
+    // 실제 취향 편집은 취향 픽커(/taste)에서 — 편집 모드로 진입
+    await Navigator.pushNamed(context, '/taste', arguments: 'edit');
+    // 편집 화면에서 돌아오면 최신 취향으로 갱신
+    _loadTaste();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final String avatarUrl = widget.avatarUrl;
+    final String userName = widget.userName;
     return _SurfaceCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -202,22 +239,16 @@ class _ProfileHeader extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Wrap(
+                  Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _TasteTag('Warm wood'),
-                      _TasteTag('Quiet rooms'),
-                      _TasteTag('Editorial mood'),
+                      for (final tag in _tags) _TasteTag(tag),
                     ],
                   ),
                   const SizedBox(height: 14),
                   FilledButton(
-                    onPressed: () => Navigator.pushNamed(
-                      context,
-                      '/onboarding/profile',
-                      arguments: 'edit',
-                    ),
+                    onPressed: _openRefine,
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.forest,
                       foregroundColor: AppColors.card,
