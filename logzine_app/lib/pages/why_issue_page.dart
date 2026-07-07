@@ -128,7 +128,11 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                           SizedBox(
                             width: 132,
                             height: 178,
-                            child: MagazineCover(magazine: _magazine),
+                            // 선반/가판대에서 표지가 날아와 이어진다
+                            child: Hero(
+                              tag: magazineHeroTag(_magazine),
+                              child: MagazineCover(magazine: _magazine),
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(

@@ -108,7 +108,10 @@ class _StandPageState extends State<StandPage> {
                             SizedBox(
                               width: 94,
                               height: 126,
-                              child: MagazineCover(magazine: magazine),
+                              child: Hero(
+                                tag: magazineHeroTag(magazine),
+                                child: MagazineCover(magazine: magazine),
+                              ),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
