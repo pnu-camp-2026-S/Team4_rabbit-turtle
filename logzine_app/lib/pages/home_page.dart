@@ -138,7 +138,12 @@ class _HomePageState extends State<HomePage> {
     // 탭한 매거진을 Why 페이지로 전달 — 매거진별 상세/리더 연결
     await Navigator.pushNamed(context, '/discover/why', arguments: magazine);
     // Not for me 제외 등 반영 — 돌아오면 선반 새로고침
-    if (mounted) setState(() => _homeFuture = _loadHome());
+    if (mounted) {
+      final next = _loadHome();
+      setState(() {
+        _homeFuture = next;
+      });
+    }
   }
 
   @override
@@ -228,7 +233,10 @@ class _HomePageState extends State<HomePage> {
                               arguments: 'edit',
                             );
                             if (mounted) {
-                              setState(() => _homeFuture = _loadHome());
+                              final next = _loadHome();
+                              setState(() {
+                                _homeFuture = next;
+                              });
                             }
                           },
                           child: const Row(
