@@ -1,17 +1,68 @@
 import 'dart:math' as math;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
 import '../theme.dart';
 import '../widgets/logzine_logo.dart';
 
 /// 이메일로 시작 화면 — 이메일 입력 + 소셜 로그인 + 하단 무드 이미지.
-class LoginEmailPage extends StatelessWidget {
+class LoginEmailPage extends StatefulWidget {
   const LoginEmailPage({super.key});
 
+  @override
+  State<LoginEmailPage> createState() => _LoginEmailPageState();
+}
+
+class _LoginEmailPageState extends State<LoginEmailPage> {
   static const String _footImageUrl =
       'https://images.unsplash.com/photo-1519710164239-da123dc03ef4'
       '?auto=format&fit=crop&w=1200&q=80';
+
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  /// 로그인 또는 회원가입 실행.
+  Future<void> _submit({required bool isSignUp}) async {
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('이메일과 비밀번호를 입력해주세요.');
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      if (isSignUp) {
+        await _authService.signUp(email, password);
+      } else {
+        await _authService.signIn(email, password);
+      }
+      if (!mounted) return;
+      Navigator.pushNamed(context, '/onboarding/upload');
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      _showMessage(AuthService.messageFor(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,9 +93,10 @@ class LoginEmailPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 28),
-                  const TextField(
+                  TextField(
+                    controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'Email address',
                       prefixIcon: Icon(
                         Icons.mail_outline,
@@ -53,10 +105,23 @@ class LoginEmailPage extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      hintText: 'Password',
+                      prefixIcon: Icon(
+                        Icons.lock_outline,
+                        size: 20,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   FilledButton(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, '/onboarding/upload'),
+                    onPressed:
+                        _loading ? null : () => _submit(isSignUp: false),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.forest,
                       foregroundColor: Colors.white,
@@ -69,12 +134,32 @@ class LoginEmailPage extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    child: const Text('Continue'),
+                    child: _loading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Continue'),
                   ),
-                  const SizedBox(height: 22),
+                  TextButton(
+                    onPressed:
+                        _loading ? null : () => _submit(isSignUp: true),
+                    child: const Text(
+                      '처음이신가요? 이 이메일로 가입하기',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   const _OrDivider(),
                   const SizedBox(height: 22),
-                  // 실제 인증 미구현 — 모든 소셜 버튼은 일단 다음 화면으로 이동.
+                  // 소셜 로그인은 실제 인증 미구현 — 별도 이슈로 진행.
                   _SocialButton(
                     icon: const _KakaoIcon(),
                     label: 'Continue with Kakao',
@@ -103,8 +188,6 @@ class LoginEmailPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-
-            // 하단 무드 이미지 (풀블리드)
             Expanded(
               child: Image.network(
                 _footImageUrl,
