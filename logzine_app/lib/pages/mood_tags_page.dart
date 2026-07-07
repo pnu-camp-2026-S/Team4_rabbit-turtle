@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../models/mood_analysis.dart';
+import '../models/taste_analysis.dart';
 import '../theme.dart';
-import '../widgets/onboarding_widgets.dart';
+import '../widgets/onboarding_widgets.dart'
+    show OnboardingHeader, OnboardingPrimaryButton, OnboardingTopBar, TasteChip;
+
+import '../services/user_service.dart';
 
 /// 온보딩 2단계 — 분석 중 태그 선택.
 class MoodTagsPage extends StatefulWidget {
@@ -13,68 +16,10 @@ class MoodTagsPage extends StatefulWidget {
 }
 
 class _MoodTagsPageState extends State<MoodTagsPage> {
-  /// 태그 어휘 — AI 분석기와 공유하는 단일 출처.
-  static const Map<String, List<String>> _groups = kMoodVocab;
-
-  /// AI 분석 실패/미사용 시의 데모 기본값.
-  static const List<String> _demoSuggested = [
-    'Warm wood',
-    'Soft light',
-    'Quiet room',
-  ];
-  static const Set<String> _demoSelected = {
-    'Calm',
-    'Interior',
-    'Wood',
-    'Editorial',
-    'Natural light',
-  };
-
-  MoodAnalysis? _analysis;
-  MoodTagsArgs? _args;
+  final TextEditingController _feedbackController = TextEditingController();
+  final Set<String> _selected = <String>{};
+  TasteAnalysisResult? _analysis;
   bool _argsApplied = false;
-
-  Set<String> _selected = Set.of(_demoSelected);
-  List<String> _suggested = _demoSuggested;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_argsApplied) return;
-    _argsApplied = true;
-
-    // 업로드 화면에서 넘어온 사진 + AI 분석 결과 반영
-    final Object? args = ModalRoute.of(context)?.settings.arguments;
-    if (args is MoodTagsArgs) {
-      _args = args;
-      final MoodAnalysis? analysis = args.analysis;
-      if (analysis != null) {
-        _analysis = analysis;
-        if (analysis.tags.isNotEmpty) _selected = Set.of(analysis.tags);
-        if (analysis.suggested.isNotEmpty) _suggested = analysis.suggested;
-        // AI가 뽑은 자유 키워드는 처음부터 선택된 상태 = "자동으로 정리된 내 취향"
-        _selected.addAll(_suggested);
-      }
-    }
-  }
-
-  /// 상단에 보여줄 사진들 — 첨부한 사진(bytes) 우선, 없으면 프리셋.
-  List<Widget> _photoWidgets() {
-    final List<Widget> photos = [
-      if (_args != null) ...[
-        for (final bytes in _args!.photoBytes)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.memory(bytes, fit: BoxFit.cover),
-          ),
-        for (final url in _args!.photoUrls) NetworkPhoto(url: url),
-      ],
-    ];
-    if (photos.isEmpty) {
-      photos.addAll([for (final url in kMoodPhotos) NetworkPhoto(url: url)]);
-    }
-    return photos.take(4).toList();
-  }
 
   void _toggle(String tag) {
     setState(() {
@@ -83,7 +28,42 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_argsApplied) return;
+    _analysis =
+        ModalRoute.of(context)?.settings.arguments as TasteAnalysisResult? ??
+        TasteAnalysisResult.empty();
+    _selected.addAll(
+      _analysis!.primaryKeywords.map((keyword) => keyword.label),
+    );
+    _argsApplied = true;
+  }
+
+  @override
+  void dispose() {
+    _feedbackController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _continue() async {
+    final analysis = _analysis ?? TasteAnalysisResult.empty();
+    final profile = PhotoTasteAnalyzer.buildProfile(
+      analysis: analysis,
+      confirmedLabels: _selected,
+      feedback: _feedbackController.text,
+    );
+    try {
+      await UserService().saveTasteTags(_selected.toList());
+    } catch (_) {} // 비로그인·오프라인이어도 온보딩은 계속
+    if (!mounted) return;
+    Navigator.pushNamed(context, '/onboarding/profile', arguments: profile);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final analysis = _analysis ?? TasteAnalysisResult.empty();
+
     return Scaffold(
       backgroundColor: AppColors.screen,
       body: SafeArea(
@@ -102,7 +82,7 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
                       const SizedBox(height: 16),
                       const OnboardingHeader(
                         title: 'Choose while we read',
-                        subtitle: 'Select tags that match your taste.',
+                        subtitle: '맞는 관심사 후보만 남겨주세요.',
                       ),
                       const SizedBox(height: 22),
 
@@ -110,26 +90,44 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
                       const _AnalyzingCard(),
                       const SizedBox(height: 18),
 
-                      // 분석에 사용된 사진들 (사용자가 첨부한 사진 우선)
-                      Builder(builder: (context) {
-                        final photos = _photoWidgets();
-                        return Row(
-                          children: [
-                            for (int i = 0; i < photos.length; i++) ...[
-                              if (i > 0) const SizedBox(width: 10),
-                              Expanded(
-                                child: AspectRatio(
-                                  aspectRatio: 0.82,
-                                  child: photos[i],
+                      // 분석 중인 사진들 (마지막 장은 로딩 중 느낌)
+                      Row(
+                        children: [
+                          for (int i = 0; i < analysis.photos.length; i++) ...[
+                            if (i > 0) const SizedBox(width: 10),
+                            Expanded(
+                              child: AspectRatio(
+                                aspectRatio: 0.82,
+                                child: Opacity(
+                                  opacity: i == analysis.photos.length - 1
+                                      ? 0.45
+                                      : 1,
+                                  child: _PhotoPreview(
+                                    photo: analysis.photos[i],
+                                  ),
                                 ),
                               ),
-                            ],
+                            ),
                           ],
-                        );
-                      }),
+                        ],
+                      ),
                       const SizedBox(height: 24),
 
-                      // ★ AI가 사진에서 읽어낸 키워드 — 자동 정리된 내 취향 (주인공)
+                      _KeywordGroup(
+                        title: 'Representative candidates',
+                        keywords: analysis.primaryKeywords,
+                        selected: _selected,
+                        onToggle: _toggle,
+                      ),
+                      const SizedBox(height: 20),
+                      _KeywordGroup(
+                        title: 'More signals',
+                        keywords: analysis.secondaryKeywords,
+                        selected: _selected,
+                        onToggle: _toggle,
+                      ),
+                      const SizedBox(height: 20),
+
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -144,91 +142,125 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
                                 Icon(
                                   Icons.auto_awesome,
                                   size: 15,
-                                  color: AppColors.forest,
+                                  color: AppColors.ink,
                                 ),
                                 SizedBox(width: 8),
                                 Text(
-                                  'From your photos',
+                                  'Photo taste note',
                                   style: TextStyle(
                                     fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w500,
                                     color: AppColors.ink,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              '사진에서 읽어낸 키워드예요 — 탭해서 뺄 수 있어요',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: AppColors.textSecondary,
+                            const SizedBox(height: 12),
+                            Text(
+                              analysis.summary,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                height: 1.45,
+                                color: AppColors.body,
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                for (final tag in _suggested)
-                                  TasteChip(
-                                    label: tag,
-                                    selected: _selected.contains(tag),
-                                    onTap: () => _toggle(tag),
-                                  ),
-                              ],
+                            Text(
+                              analysis.recommendedQuestion,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                height: 1.45,
+                                color: AppColors.ink,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
-
-                      // 고정 어휘 태그 그룹 — 미세 조정용
-                      for (final entry in _groups.entries) ...[
-                        Text(
-                          entry.key,
-                          style: const TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.ink,
-                          ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _feedbackController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          hintText: '예: 여행은 아니고 조용한 분위기가 좋아서 찍었어',
                         ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            for (final tag in entry.value)
-                              TasteChip(
-                                label: tag,
-                                selected: _selected.contains(tag),
-                                onTap: () => _toggle(tag),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                      ],
+                      ),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
               ),
 
-              OnboardingPrimaryButton(
-                label: 'Continue',
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  '/onboarding/profile',
-                  // AI가 생성한 취향 한 줄 요약을 프로필 화면에 전달
-                  arguments: (_analysis?.summary.isNotEmpty ?? false)
-                      ? _analysis!.summary
-                      : null,
-                ),
-              ),
+              OnboardingPrimaryButton(label: 'Continue', onPressed: _continue),
               const SizedBox(height: 16),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PhotoPreview extends StatelessWidget {
+  const _PhotoPreview({required this.photo});
+
+  final TastePhoto photo;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Image.memory(
+        photo.bytes,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+      ),
+    );
+  }
+}
+
+class _KeywordGroup extends StatelessWidget {
+  const _KeywordGroup({
+    required this.title,
+    required this.keywords,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final String title;
+  final List<TasteKeyword> keywords;
+  final Set<String> selected;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    if (keywords.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+            color: AppColors.ink,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final keyword in keywords)
+              TasteChip(
+                label: keyword.label,
+                selected: selected.contains(keyword.label),
+                onTap: () => onToggle(keyword.label),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -343,9 +375,7 @@ class _Segment extends StatelessWidget {
         height: 5,
         child: Stack(
           children: [
-            const Positioned.fill(
-              child: ColoredBox(color: Color(0xFFE8E5DE)),
-            ),
+            const Positioned.fill(child: ColoredBox(color: Color(0xFFE8E5DE))),
             FractionallySizedBox(
               widthFactor: fill,
               heightFactor: 1,

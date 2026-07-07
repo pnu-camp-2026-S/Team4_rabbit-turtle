@@ -147,9 +147,10 @@ flutter run --no-enable-impeller
 - 빠른 UI 확인만 필요하면: `flutter run -d chrome` → F12 → `Ctrl+Shift+M` → iPhone 프리셋
 - 핫 리로드: 실행 터미널에서 `r`, 재시작 `R`, 종료 `q`
 
-### AI 사진 무드 분석 활성화 (선택)
+### Gemini 사진 취향 분석 실행 (선택)
 
-온보딩의 사진 분석을 실제 AI(Gemini)로 돌리려면 **본인 API 키**가 필요합니다.
+온보딩의 `Add photos`는 실제 파일 선택기를 열고, `Analyze photos`는 Gemini API로 이미지 분석을 요청합니다.
+실행하려면 **본인 API 키**가 필요하며, 키는 코드에 넣지 않고 실행 시에만 주입합니다.
 
 **최초 1회 설정:**
 1. 무료 키 발급: https://aistudio.google.com → **Get API key** (2분)
@@ -160,12 +161,12 @@ flutter run --no-enable-impeller
 ```powershell
 flutter run --dart-define-from-file=env.json
 # 안드로이드 에뮬레이터는 --no-enable-impeller 추가
+# (env.json 없이 일회성 실행: --dart-define=GEMINI_API_KEY=키 도 가능)
 ```
 
 - ⚠️ **키를 코드/저장소에 절대 커밋하지 말 것** — env.json/실행 주입만 허용
 - 키가 없으면 자동으로 데모 태그로 폴백되므로 시연은 항상 안전함
-- 공급자 교체(CLOVA 등)는 `lib/services/mood_analyzer.dart`의 `MoodAnalyzer` 구현체 추가로
-
+- 공급자 교체는 `lib/services/mood_analyzer.dart`의 `MoodAnalyzer` 구현체 추가로 확장 가능
 ### 트러블슈팅 (이 프로젝트에서 실제 겪은 이슈)
 
 | 증상 | 원인 | 해결 |
@@ -208,3 +209,4 @@ flutter run --dart-define-from-file=env.json
 
 **기술 스택**: Flutter (Dart SDK ^3.12) · Material 3 · google_fonts ^8.1
 **타깃**: Android (검증 완료) / iOS·Web (미검증)
+

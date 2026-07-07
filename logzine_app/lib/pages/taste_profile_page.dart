@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../models/taste_analysis.dart';
 import '../theme.dart';
-import '../widgets/onboarding_widgets.dart';
+import '../widgets/onboarding_widgets.dart'
+    show OnboardingHeader, OnboardingTopBar;
 
 /// 온보딩 3단계 — 분석된 취향 프로필.
 class TasteProfilePage extends StatefulWidget {
@@ -12,48 +14,33 @@ class TasteProfilePage extends StatefulWidget {
 }
 
 class _TasteProfilePageState extends State<TasteProfilePage> {
-  static const int _maxLength = 120;
-  static const List<String> _tasteTags = [
-    'Warm wood',
-    'Quiet rooms',
-    'Soft light',
-    'Minimal objects',
-    'Editorial mood',
-  ];
-
-  final TextEditingController _commentController = TextEditingController();
-  int _commentLength = 0;
-
   /// 메인 화면(홈·Archive의 Refine)에서 진입한 편집 모드 여부.
   bool _editMode = false;
-
-  /// 온보딩에서 AI가 생성한 취향 한 줄 요약 (없으면 데모 문구 사용).
-  String? _aiSummary;
   bool _argsApplied = false;
+  TasteProfileDraft? _profile;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_argsApplied) {
-      // arguments: 'edit'(편집 모드) 또는 AI 요약 문자열 또는 null
-      final Object? args = ModalRoute.of(context)?.settings.arguments;
-      if (args == 'edit') {
-        _editMode = true;
-      } else if (args is String && args.isNotEmpty) {
-        _aiSummary = args;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      _editMode = args == 'edit';
+      if (args is TasteProfileDraft) {
+        _profile = args;
       }
       _argsApplied = true;
     }
   }
 
   @override
-  void dispose() {
-    _commentController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final profile =
+        _profile ??
+        PhotoTasteAnalyzer.buildProfile(
+          analysis: TasteAnalysisResult.empty(),
+          confirmedLabels: const <String>{},
+        );
+
     return Scaffold(
       backgroundColor: AppColors.screen,
       body: SafeArea(
@@ -72,76 +59,17 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
                       const SizedBox(height: 16),
                       const OnboardingHeader(
                         title: 'Your taste profile',
-                        subtitle: "Here's what we found.",
+                        subtitle: '확인한 후보만 취향 프로필에 반영했어요.',
                       ),
                       const SizedBox(height: 22),
 
                       // 취향 요약 카드 (콜라주 + 태그 + 한 줄 요약)
-                      _TasteCard(tags: _tasteTags, summary: _aiSummary),
+                      _TasteCard(profile: profile),
                       const SizedBox(height: 24),
 
-                      const Text(
-                        'Refine with a comment',
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // 코멘트 입력 (우하단 글자수 카운터)
-                      Stack(
-                        children: [
-                          TextField(
-                            controller: _commentController,
-                            maxLines: 4,
-                            maxLength: _maxLength,
-                            onChanged: (text) =>
-                                setState(() => _commentLength = text.length),
-                            decoration: const InputDecoration(
-                              hintText:
-                                  'I want more modern studios and fewer '
-                                  'rustic rooms',
-                              counterText: '',
-                              contentPadding: EdgeInsets.fromLTRB(
-                                16, 14, 16, 30,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            right: 14,
-                            bottom: 10,
-                            child: Text(
-                              '$_commentLength / $_maxLength',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      OnboardingPrimaryButton(
-                        label: 'Update taste',
-                        onPressed: () {
-                          FocusScope.of(context).unfocus();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('취향 프로필이 업데이트됐어요'),
-                            ),
-                          );
-                          // 편집 모드에서는 저장 후 이전 화면으로 복귀
-                          if (_editMode) Navigator.pop(context);
-                        },
-                      ),
                       if (!_editMode) ...[
-                        const SizedBox(height: 12),
                         OutlinedButton(
-                          onPressed: () =>
-                              Navigator.pushNamedAndRemoveUntil(
+                          onPressed: () => Navigator.pushNamedAndRemoveUntil(
                             context,
                             '/main',
                             (route) => false,
@@ -178,12 +106,9 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
 
 /// 사진 콜라주 + 취향 태그 + AI 한 줄 요약 카드.
 class _TasteCard extends StatelessWidget {
-  const _TasteCard({required this.tags, this.summary});
+  const _TasteCard({required this.profile});
 
-  final List<String> tags;
-
-  /// AI가 생성한 한 줄 요약 — null이면 데모 문구를 사용.
-  final String? summary;
+  final TasteProfileDraft profile;
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +129,9 @@ class _TasteCard extends StatelessWidget {
               children: [
                 Expanded(
                   flex: 3,
-                  child: NetworkPhoto(url: kMoodPhotos[0], radius: 10),
+                  child: _ProfilePhoto(
+                    photo: profile.photos.isNotEmpty ? profile.photos[0] : null,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -212,13 +139,19 @@ class _TasteCard extends StatelessWidget {
                   child: Column(
                     children: [
                       Expanded(
-                        child:
-                            NetworkPhoto(url: kMoodPhotos[1], radius: 10),
+                        child: _ProfilePhoto(
+                          photo: profile.photos.length > 1
+                              ? profile.photos[1]
+                              : profile.photos.firstOrNull,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Expanded(
-                        child:
-                            NetworkPhoto(url: kMoodPhotos[2], radius: 10),
+                        child: _ProfilePhoto(
+                          photo: profile.photos.length > 2
+                              ? profile.photos[2]
+                              : profile.photos.firstOrNull,
+                        ),
                       ),
                     ],
                   ),
@@ -234,7 +167,7 @@ class _TasteCard extends StatelessWidget {
             runSpacing: 10,
             alignment: WrapAlignment.center,
             children: [
-              for (final tag in tags)
+              for (final tag in profile.displayTags)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -264,15 +197,51 @@ class _TasteCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  summary ?? 'A calm editorial space with warm materials.',
-                  style: const TextStyle(
-                      fontSize: 13.5, color: AppColors.body),
+                  profile.summary,
+                  style: const TextStyle(fontSize: 13.5, color: AppColors.body),
                 ),
               ),
             ],
           ),
+          if (profile.confirmedTags.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              '${profile.confirmedTags.length} confirmed signals · '
+              '${profile.photoTags.length} photo candidates',
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfilePhoto extends StatelessWidget {
+  const _ProfilePhoto({required this.photo});
+
+  final TastePhoto? photo;
+
+  @override
+  Widget build(BuildContext context) {
+    if (photo == null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: const ColoredBox(color: AppColors.placeholder),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Image.memory(
+        photo!.bytes,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
       ),
     );
   }
