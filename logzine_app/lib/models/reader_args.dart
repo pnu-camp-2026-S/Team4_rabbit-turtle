@@ -6,10 +6,14 @@ class ReaderArgs {
     this.title = 'Quiet Materials',
     this.publisher = 'Studio Log',
     this.minutes = 18,
+    this.magazineId,
   });
 
   final String category;
   final String title;
   final String publisher;
   final int minutes;
+
+  /// 지정되면 이 매거진의 첫 아티클을 리더에 로드한다. null이면 데모 매거진(첫 매거진)으로 폴백.
+  final String? magazineId;
 }

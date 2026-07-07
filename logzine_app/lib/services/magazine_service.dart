@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 
+import '../models/article.dart';
 import '../models/magazine.dart';
 
 /// 매거진 데이터 접근 서비스.
@@ -51,6 +52,20 @@ class MagazineService {
       });
     }
     await batch.commit();
+  }
+
+  /// 매거진 하나의 첫 아티클(order 기준)을 Article로 반환. 없으면 null.
+  Future<Article?> fetchFirstArticle(String magazineId) async {
+    final art = await _db
+        .collection('magazines')
+        .doc(magazineId)
+        .collection('articles')
+        .orderBy('order')
+        .limit(1)
+        .get();
+    if (art.docs.isEmpty) return null;
+    final doc = art.docs.first;
+    return Article.fromFirestore(doc.id, doc.data(), magazineId: magazineId);
   }
 
   /// [시드] kMagazines 카탈로그를 Firestore에 동기화 (멱등).

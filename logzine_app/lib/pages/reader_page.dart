@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../models/article.dart';
 import '../models/reader_args.dart';
 import '../theme.dart';
 import '../widgets/logzine_logo.dart';
@@ -34,10 +35,12 @@ class _ReaderPageState extends State<ReaderPage> {
       'https://images.unsplash.com/photo-1493809842364-78817add7ffb'
       '?auto=format&fit=crop&w=1200&q=80';
 
-  static const int _totalPages = 12;
+  /// 로딩 중·오프라인 시 폴백 겸 초기값. Firestore 아티클을 불러오면 교체된다.
+  int _totalPages = 12;
 
   /// 문단 → 탭 가능한 문장 조각. (조각 단위로 하이라이트)
-  static const List<List<String>> _paragraphs = [
+  /// static const 하드코딩은 로딩 중·아티클 fetch 실패 시의 폴백 콘텐츠로 유지.
+  List<List<String>> _paragraphs = const [
     [
       'Materials shape the mood of a space.',
       'When light, texture, and proportion align, '
@@ -53,8 +56,9 @@ class _ReaderPageState extends State<ReaderPage> {
     ],
   ];
 
-  /// 문단별 페이지 라벨 (p.4, p.5, p.6).
-  static const List<int> _paragraphPages = [4, 5, 6];
+  /// 문단별 페이지 라벨 (p.4, p.5, p.6). 실제 아티클엔 문단별 페이지 메타데이터가
+  /// 없으므로, 로드 후에는 pageCount와 문단 수로 균등 계산한 값으로 교체된다.
+  List<int> _paragraphPages = const [4, 5, 6];
 
   // 팔레트 스와치.
   static const Color kYellowSwatch = Color(0xFFE9C46A);
@@ -112,12 +116,7 @@ class _ReaderPageState extends State<ReaderPage> {
   @override
   void initState() {
     super.initState();
-    for (int p = 0; p < _paragraphs.length; p++) {
-      for (int s = 0; s < _paragraphs[p].length; s++) {
-        _recognizers[(p, s)] = TapGestureRecognizer()
-          ..onTap = () => _onSegmentTap(p, s);
-      }
-    }
+    _rebuildRecognizers(_paragraphs);
     // 스크롤 → 읽기 진행률 연동
     _scroll.addListener(() {
       if (_draggingSlider || !_scroll.hasClients) return;
@@ -130,21 +129,66 @@ class _ReaderPageState extends State<ReaderPage> {
     _loadRemote();
   }
 
-  /// 아티클 ID 확인 + 저장된 마크/진행률 복원
+  /// 본문이 교체될 때마다 (paragraphIdx, segmentIdx) 좌표에 맞는 탭 인식기를
+  /// 새로 만든다. 기존 인식기는 반드시 dispose 후 교체 (누수 방지).
+  void _rebuildRecognizers(List<List<String>> paragraphs) {
+    for (final r in _recognizers.values) {
+      r.dispose();
+    }
+    _recognizers.clear();
+    for (int p = 0; p < paragraphs.length; p++) {
+      for (int s = 0; s < paragraphs[p].length; s++) {
+        _recognizers[(p, s)] = TapGestureRecognizer()
+          ..onTap = () => _onSegmentTap(p, s);
+      }
+    }
+  }
+
+  /// 문단별 페이지 라벨을 pageCount 안에서 균등 배치로 계산.
+  /// (실제 아티클 문서엔 문단별 페이지 메타데이터가 없어 근사치로만 표시)
+  static List<int> _computeParagraphPages(int paragraphCount, int totalPages) {
+    if (paragraphCount <= 0) return const [];
+    return List<int>.generate(paragraphCount, (i) {
+      final int page = ((i + 1) * totalPages / (paragraphCount + 1)).round();
+      return page.clamp(1, totalPages);
+    });
+  }
+
+  /// 아티클 본문·ID 확인 + 저장된 마크/진행률 복원
   Future<void> _loadRemote() async {
     try {
-      final ids = await MagazineService().fetchDemoArticleIds();
-      debugPrint('[ReaderPage] fetchDemoArticleIds → $ids');
-      if (ids == null || !mounted) return;
-      _magazineId = ids.magazineId;
-      _articleId = ids.articleId;
+      final MagazineService magazineService = MagazineService();
+      String? magazineId = _args.magazineId;
+      String? fallbackArticleId;
 
-      final List<MarkRecord> marks =
-          await _markService.fetchMarks(ids.articleId);
-      final int? lastPage = await _markService.fetchLastPage(ids.articleId);
-      final bool saved = await _savedService.isSaved(ids.articleId);
+      if (magazineId == null) {
+        final ids = await magazineService.fetchDemoArticleIds();
+        if (ids == null || !mounted) return;
+        magazineId = ids.magazineId;
+        fallbackArticleId = ids.articleId;
+      }
+
+      final Article? article =
+          await magazineService.fetchFirstArticle(magazineId);
+      final String? articleId = article?.id ?? fallbackArticleId;
+      if (articleId == null || !mounted) return;
+
+      final List<MarkRecord> marks = await _markService.fetchMarks(articleId);
+      final int? lastPage = await _markService.fetchLastPage(articleId);
+      final bool saved = await _savedService.isSaved(articleId);
       if (!mounted) return;
+
+      _magazineId = magazineId;
+      _articleId = articleId;
+
       setState(() {
+        if (article != null && article.paragraphs.isNotEmpty) {
+          _rebuildRecognizers(article.paragraphs);
+          _paragraphs = article.paragraphs;
+          if (article.pageCount > 0) _totalPages = article.pageCount;
+          _paragraphPages =
+              _computeParagraphPages(_paragraphs.length, _totalPages);
+        }
         _saved = saved;
         for (final r in marks) {
           _marks[(r.paragraphIdx, r.segmentIdx)] = _Mark(
