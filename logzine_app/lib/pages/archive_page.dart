@@ -6,13 +6,19 @@ import '../services/article_text_size_service.dart';
 import '../services/auth_service.dart';
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
+import '../services/reading_stats_service.dart';
 import '../services/saved_service.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
-typedef _SavedArticleItem = ({String title, String publisher, String date, String imageUrl});
+typedef _SavedArticleItem = ({
+  String title,
+  String publisher,
+  String date,
+  String imageUrl,
+});
 typedef _MarkItem = ({String quote, String source, String note, Color color});
 
 /// Archive 화면 데이터 묶음. 폴백 정책(library_page와 동일):
@@ -24,12 +30,33 @@ class _ArchiveData {
     required this.savedArticles,
     required this.marks,
     required this.marksCount,
+    required this.todaySeconds,
   });
 
   final bool isLoggedIn;
   final List<_SavedArticleItem> savedArticles;
   final List<_MarkItem> marks;
   final int marksCount;
+  final int todaySeconds;
+}
+
+/// 초 → '0m' / '1h 24m' 표기 (기존 화면 형식 유지).
+String _formatReadTime(int seconds) {
+  final int totalMinutes = seconds ~/ 60;
+  final int hours = totalMinutes ~/ 60;
+  final int minutes = totalMinutes % 60;
+  return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
+}
+
+/// yyyyMMdd 문서 ID → 요일 라벨 (Mon~Sun)
+String _weekdayLabelFor(String yyyyMMdd) {
+  final DateTime date = DateTime(
+    int.parse(yyyyMMdd.substring(0, 4)),
+    int.parse(yyyyMMdd.substring(4, 6)),
+    int.parse(yyyyMMdd.substring(6, 8)),
+  );
+  const List<String> labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  return labels[date.weekday - 1];
 }
 
 class ArchivePage extends StatefulWidget {
@@ -64,7 +91,8 @@ class _ArchivePageState extends State<ArchivePage> {
   /// [폴백] 비로그인일 때만 노출하는 데모 문장 보관함.
   static const List<_MarkItem> _demoMarks = [
     (
-      quote: 'When light, texture, and proportion align, the quiet becomes a language.',
+      quote:
+          'When light, texture, and proportion align, the quiet becomes a language.',
       source: 'Quiet Materials · p.4',
       note: '좋아하는 공간감 표현',
       color: Color(0xFFE9C46A),
@@ -103,6 +131,7 @@ class _ArchivePageState extends State<ArchivePage> {
         savedArticles: _demoSavedArticles,
         marks: _demoMarks,
         marksCount: _demoMarksCount,
+        todaySeconds: 0,
       );
     }
 
@@ -116,9 +145,7 @@ class _ArchivePageState extends State<ArchivePage> {
         final mags = await MagazineService().fetchMagazines();
         coverOf = {for (final m in mags) m.id: m.coverUrl};
       } catch (_) {}
-      savedArticles = [
-        for (final doc in docs) _savedItemFromDoc(doc, coverOf),
-      ];
+      savedArticles = [for (final doc in docs) _savedItemFromDoc(doc, coverOf)];
     } catch (_) {
       savedArticles = const [];
     }
@@ -138,11 +165,19 @@ class _ArchivePageState extends State<ArchivePage> {
       marks = const [];
     }
 
+    int todaySeconds = 0;
+    try {
+      todaySeconds = await ReadingStatsService().fetchTodaySeconds();
+    } catch (_) {
+      todaySeconds = 0;
+    }
+
     return _ArchiveData(
       isLoggedIn: true,
       savedArticles: savedArticles,
       marks: marks,
       marksCount: marksCount,
+      todaySeconds: todaySeconds,
     );
   }
 
@@ -188,14 +223,20 @@ class _ArchivePageState extends State<ArchivePage> {
         articleCache[key] = article;
       }
       if (article == null) continue;
-      if (record.paragraphIdx < 0 || record.paragraphIdx >= article.paragraphs.length) {
+      if (record.paragraphIdx < 0 ||
+          record.paragraphIdx >= article.paragraphs.length) {
         continue;
       }
       final segments = article.paragraphs[record.paragraphIdx];
-      if (record.segmentIdx < 0 || record.segmentIdx >= segments.length) continue;
+      if (record.segmentIdx < 0 || record.segmentIdx >= segments.length) {
+        continue;
+      }
 
-      final String articleTitle = article.title.isNotEmpty ? article.title : '(제목 없음)';
-      final String note = (record.memoText != null && record.memoText!.isNotEmpty)
+      final String articleTitle = article.title.isNotEmpty
+          ? article.title
+          : '(제목 없음)';
+      final String note =
+          (record.memoText != null && record.memoText!.isNotEmpty)
           ? record.memoText!
           : (record.type == 'underline' ? '밑줄 표시' : '하이라이트 표시');
 
@@ -247,10 +288,13 @@ class _ArchivePageState extends State<ArchivePage> {
                 builder: (context, snapshot) {
                   final data = snapshot.data;
                   final bool isLoggedIn = data?.isLoggedIn ?? false;
-                  final savedArticles = data?.savedArticles ?? _demoSavedArticles;
+                  final savedArticles =
+                      data?.savedArticles ?? _demoSavedArticles;
                   final marks = data?.marks ?? _demoMarks;
                   final int marksCount = data?.marksCount ?? _demoMarksCount;
-                  final String timeRead = isLoggedIn ? '0m' : '1h 24m';
+                  final int todaySeconds = data?.todaySeconds ?? 0;
+                  final String timeRead =
+                      isLoggedIn ? _formatReadTime(todaySeconds) : '1h 24m';
 
                   return SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -258,17 +302,12 @@ class _ArchivePageState extends State<ArchivePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 6),
-                        Text(
-                          'Archive',
-                          style: logoStyle(
-                            size: 32,
-                            weight: FontWeight.w500,
-                            letterSpacingEm: 0.0,
-                            color: AppColors.ink,
-                          ),
-                        ),
+                        const PageTitleHeader(title: 'Archive'),
                         const SizedBox(height: 18),
-                        _ProfileHeader(avatarUrl: _avatarUrl, userName: userName),
+                        _ProfileHeader(
+                          avatarUrl: _avatarUrl,
+                          userName: userName,
+                        ),
                         const SizedBox(height: 24),
                         SectionHeader(
                           title: 'Saved articles',
@@ -294,8 +333,16 @@ class _ArchivePageState extends State<ArchivePage> {
                           _SurfaceCard(
                             child: Column(
                               children: [
-                                for (int i = 0; i < savedArticles.length; i++) ...[
-                                  if (i > 0) const Divider(color: AppColors.border, height: 1),
+                                for (
+                                  int i = 0;
+                                  i < savedArticles.length;
+                                  i++
+                                ) ...[
+                                  if (i > 0)
+                                    const Divider(
+                                      color: AppColors.border,
+                                      height: 1,
+                                    ),
                                   _SavedTile(item: savedArticles[i]),
                                 ],
                               ],
@@ -311,20 +358,35 @@ class _ArchivePageState extends State<ArchivePage> {
                               child: Row(
                                 children: [
                                   Expanded(
-                                    child: _StatItem(
-                                      label: 'Time read',
-                                      value: timeRead,
-                                      icon: Icons.schedule,
+                                    child: InkWell(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const _WeeklyReadingPage(),
+                                          ),
+                                        );
+                                      },
+                                      child: _StatItem(
+                                        label: 'Time read',
+                                        value: timeRead,
+                                        icon: Icons.schedule,
+                                      ),
                                     ),
                                   ),
-                                  const VerticalDivider(color: AppColors.border, width: 1),
+                                  const VerticalDivider(
+                                    color: AppColors.border,
+                                    width: 1,
+                                  ),
                                   Expanded(
                                     child: InkWell(
                                       onTap: () {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (_) => _MarksPage(items: marks),
+                                            builder: (_) =>
+                                                _MarksPage(items: marks),
                                           ),
                                         );
                                       },
@@ -437,15 +499,16 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
                   if (_tags.isEmpty)
                     const Text(
                       '아직 취향을 설정하지 않았어요.',
-                      style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.textMuted,
+                      ),
                     )
                   else
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: [
-                        for (final tag in _tags) _TasteTag(tag),
-                      ],
+                      children: [for (final tag in _tags) _TasteTag(tag)],
                     ),
                   const SizedBox(height: 14),
                   FilledButton(
@@ -673,16 +736,20 @@ class _SettingsPageState extends State<_SettingsPage> {
                       children: [
                         _SwitchTile(
                           title: 'Push notifications',
-                          subtitle: 'Get notified for new issues and saved reading reminders.',
+                          subtitle:
+                              'Get notified for new issues and saved reading reminders.',
                           value: _notifications,
-                          onChanged: (value) => setState(() => _notifications = value),
+                          onChanged: (value) =>
+                              setState(() => _notifications = value),
                         ),
                         const Divider(color: AppColors.border, height: 1),
                         _SwitchTile(
                           title: 'Reading reminders',
-                          subtitle: 'Receive gentle nudges to continue where you left off.',
+                          subtitle:
+                              'Receive gentle nudges to continue where you left off.',
                           value: _readingReminder,
-                          onChanged: (value) => setState(() => _readingReminder = value),
+                          onChanged: (value) =>
+                              setState(() => _readingReminder = value),
                         ),
                         const Divider(color: AppColors.border, height: 1),
                         _SliderTile(
@@ -699,16 +766,20 @@ class _SettingsPageState extends State<_SettingsPage> {
                       children: [
                         _SwitchTile(
                           title: 'Auto-save marks to archive',
-                          subtitle: 'Store highlighted lines and notes in your archive automatically.',
+                          subtitle:
+                              'Store highlighted lines and notes in your archive automatically.',
                           value: _autoSaveMarks,
-                          onChanged: (value) => setState(() => _autoSaveMarks = value),
+                          onChanged: (value) =>
+                              setState(() => _autoSaveMarks = value),
                         ),
                         const Divider(color: AppColors.border, height: 1),
                         _SwitchTile(
                           title: 'Private highlights',
-                          subtitle: 'Keep saved highlights visible only to you.',
+                          subtitle:
+                              'Keep saved highlights visible only to you.',
                           value: _privateHighlights,
-                          onChanged: (value) => setState(() => _privateHighlights = value),
+                          onChanged: (value) =>
+                              setState(() => _privateHighlights = value),
                         ),
                       ],
                     ),
@@ -718,9 +789,11 @@ class _SettingsPageState extends State<_SettingsPage> {
                     title: 'Downloads',
                     child: _SwitchTile(
                       title: 'Download on Wi-Fi only',
-                      subtitle: 'Preserve mobile data when saving issues offline.',
+                      subtitle:
+                          'Preserve mobile data when saving issues offline.',
                       value: _downloadWifiOnly,
-                      onChanged: (value) => setState(() => _downloadWifiOnly = value),
+                      onChanged: (value) =>
+                          setState(() => _downloadWifiOnly = value),
                     ),
                   ),
                 ],
@@ -890,9 +963,12 @@ class _SavedArticlesPage extends StatelessWidget {
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                       itemCount: items.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
                       itemBuilder: (context, index) {
-                        return _SurfaceCard(child: _SavedTile(item: items[index]));
+                        return _SurfaceCard(
+                          child: _SavedTile(item: items[index]),
+                        );
                       },
                     ),
             ),
@@ -927,7 +1003,8 @@ class _MarksPage extends StatelessWidget {
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                       itemCount: items.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         final item = items[index];
                         return _SurfaceCard(
@@ -947,7 +1024,8 @@ class _MarksPage extends StatelessWidget {
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         item.quote,
@@ -990,6 +1068,155 @@ class _MarksPage extends StatelessWidget {
   }
 }
 
+/// "Time read" 카드를 탭하면 뜨는 최근 7일(오늘 포함) 읽기 통계 페이지.
+/// 비로그인 → 빈 상태 (My탭 카드는 이미 데모 문구를 보여주고 있어 여기까지
+/// 들어올 일은 드물지만, 방어적으로 빈 리스트를 반환한다).
+class _WeeklyReadingPage extends StatefulWidget {
+  const _WeeklyReadingPage();
+
+  @override
+  State<_WeeklyReadingPage> createState() => _WeeklyReadingPageState();
+}
+
+class _WeeklyReadingPageState extends State<_WeeklyReadingPage> {
+  late final Future<List<ReadingStatRecord>> _future = _load();
+
+  static Future<List<ReadingStatRecord>> _load() async {
+    if (AuthService().currentUser == null) return const [];
+    try {
+      return await ReadingStatsService().fetchWeeklyStats();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.screen,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const LogzineTopBar(showBack: true, showBell: false),
+            Expanded(
+              child: FutureBuilder<List<ReadingStatRecord>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: AppColors.forest),
+                    );
+                  }
+                  final records = snapshot.data!;
+                  if (records.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
+                      child: _EmptyStateCard(
+                        message: '아직 읽은 기록이 없어요.\n리더에서 글을 읽으면 여기에 쌓여요.',
+                      ),
+                    );
+                  }
+
+                  final int totalSeconds =
+                      records.fold(0, (total, r) => total + r.secondsRead);
+                  final int maxSeconds = records
+                      .map((r) => r.secondsRead)
+                      .fold(1, (a, b) => b > a ? b : a);
+
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                    children: [
+                      Text(
+                        'This week',
+                        style: logoStyle(
+                          size: 28,
+                          weight: FontWeight.w500,
+                          letterSpacingEm: 0.0,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Total ${_formatReadTime(totalSeconds)}',
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _SurfaceCard(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              for (int i = 0; i < records.length; i++) ...[
+                                if (i > 0) const SizedBox(height: 14),
+                                _WeeklyBarRow(
+                                  record: records[i],
+                                  maxSeconds: maxSeconds,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WeeklyBarRow extends StatelessWidget {
+  const _WeeklyBarRow({required this.record, required this.maxSeconds});
+
+  final ReadingStatRecord record;
+  final int maxSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final double ratio =
+        maxSeconds == 0 ? 0 : record.secondsRead / maxSeconds;
+    return Row(
+      children: [
+        SizedBox(
+          width: 36,
+          child: Text(
+            _weekdayLabelFor(record.date),
+            style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: ratio.clamp(0.0, 1.0),
+              minHeight: 10,
+              backgroundColor: const Color(0xFFEFEBE0),
+              valueColor: const AlwaysStoppedAnimation(AppColors.forest),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 54,
+          child: Text(
+            _formatReadTime(record.secondsRead),
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _TasteTag extends StatelessWidget {
   const _TasteTag(this.label);
 
@@ -1006,10 +1233,7 @@ class _TasteTag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontSize: 12.5,
-          color: AppColors.ink,
-        ),
+        style: const TextStyle(fontSize: 12.5, color: AppColors.ink),
       ),
     );
   }
