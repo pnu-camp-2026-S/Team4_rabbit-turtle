@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
-import '../widgets/logzine_logo.dart';
+import '../widgets/logzine_bookmark.dart';
 
 /// 온보딩 첫 화면 — 사진 없이 로고와 카피만 남긴 미니멀 웰컴.
 /// 스플래시의 로고가 Hero로 이어져 제자리를 찾아온다.
@@ -20,11 +20,11 @@ class LoginWelcomePage extends StatelessWidget {
             children: [
               const Spacer(flex: 5),
 
-              // 로고 — 스플래시에서 부드럽게 이어짐
+              // 로고 — 스플래시에서 리본이 날아와 자리잡는다 (Hero)
               const Center(
                 child: Hero(
                   tag: 'logzine-splash-logo',
-                  child: LogzineLogo(height: 58),
+                  child: LogzineLockup(fontSize: 34),
                 ),
               ),
               const SizedBox(height: 26),
