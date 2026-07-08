@@ -3,13 +3,13 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:http/http.dart' as http;
+
+import 'gemini_proxy_service.dart';
 
 /// "이번 주 나의 표지" 커버 아트 — Gemini 이미지 생성.
 /// 주 1회(취향이 같으면) 생성해 로컬 캐시하고,
 /// 쿼터 초과/실패 시 null을 돌려줘 호출부가 타이포그래피 표지로 폴백한다.
 class CoverArtService {
-  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
   static const String _model = 'gemini-2.5-flash-image';
 
   static Uint8List? _memoryCache;
@@ -66,8 +66,6 @@ RULES (follow all):
       }
     }
 
-    if (_apiKey.isEmpty) return null;
-
     // 최근 실패(쿼터 소진 등) 후 쿨다운 동안은 재시도하지 않음
     if (_lastFailAt != null &&
         DateTime.now().difference(_lastFailAt!) < _failCooldown) {
@@ -75,29 +73,22 @@ RULES (follow all):
     }
 
     try {
-      final response = await http
-          .post(
-            Uri.parse(
-              'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent',
-            ),
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': _apiKey,
-            },
-            body: jsonEncode({
-              'contents': [
-                {
-                  'parts': [
-                    {'text': _coverPrompt(taste)},
-                  ],
-                },
+      final response = await GeminiProxyService.generateContent(
+        model: _model,
+        timeout: const Duration(seconds: 50),
+        body: {
+          'contents': [
+            {
+              'parts': [
+                {'text': _coverPrompt(taste)},
               ],
-              'generationConfig': {
-                'responseModalities': ['TEXT', 'IMAGE'],
-              },
-            }),
-          )
-          .timeout(const Duration(seconds: 45));
+            },
+          ],
+          'generationConfig': {
+            'responseModalities': ['TEXT', 'IMAGE'],
+          },
+        },
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         _lastFailAt = DateTime.now(); // 쿼터 소진(429) 등 — 쿨다운 시작
         return null;

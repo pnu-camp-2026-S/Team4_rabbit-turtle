@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
+import '../services/gemini_proxy_service.dart';
+
 enum TasteKeywordType {
   object,
   placeType,
@@ -132,7 +134,6 @@ class TasteProfileDraft {
 class PhotoTasteAnalyzer {
   const PhotoTasteAnalyzer._();
 
-  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
   static const String _model = String.fromEnvironment(
     'GEMINI_MODEL',
     defaultValue: 'gemini-2.5-flash',
@@ -145,12 +146,6 @@ class PhotoTasteAnalyzer {
     if (photos.isEmpty) {
       throw const TasteAnalysisException('분석할 사진을 먼저 추가해주세요.');
     }
-    if (_apiKey.isEmpty) {
-      throw const TasteAnalysisException(
-        'GEMINI_API_KEY가 없습니다. 실행할 때 --dart-define=GEMINI_API_KEY=... 를 추가해주세요.',
-      );
-    }
-
     http.Response? lastResponse;
     Object? lastError;
 
@@ -213,43 +208,36 @@ class PhotoTasteAnalyzer {
     String model,
     List<TastePhoto> photos,
   ) {
-    return http
-        .post(
-          Uri.parse(
-            'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
-          ),
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': _apiKey,
-          },
-          body: jsonEncode({
-            'contents': [
+    return GeminiProxyService.generateContent(
+      model: model,
+      timeout: const Duration(seconds: 30),
+      body: {
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
               {
-                'role': 'user',
-                'parts': [
-                  {
-                    'text':
-                        '$_prompt\n\nReturn only valid JSON that matches this schema:\n${jsonEncode(_schema)}',
-                  },
-                  for (final photo in photos.take(_maxPhotosPerAnalysis))
-                    {
-                      'inlineData': {
-                        'mimeType': photo.mimeType,
-                        'data': base64Encode(photo.bytes),
-                      },
-                    },
-                ],
+                'text':
+                    '$_prompt\n\nReturn only valid JSON that matches this schema:\n${jsonEncode(_schema)}',
               },
+              for (final photo in photos.take(_maxPhotosPerAnalysis))
+                {
+                  'inlineData': {
+                    'mimeType': photo.mimeType,
+                    'data': base64Encode(photo.bytes),
+                  },
+                },
             ],
-            'generationConfig': {
-              'responseMimeType': 'application/json',
-              'temperature': 0.2,
-              'topP': 0.8,
-              'maxOutputTokens': 2048,
-            },
-          }),
-        )
-        .timeout(const Duration(seconds: 25));
+          },
+        ],
+        'generationConfig': {
+          'responseMimeType': 'application/json',
+          'temperature': 0.2,
+          'topP': 0.8,
+          'maxOutputTokens': 2048,
+        },
+      },
+    );
   }
 
   static TasteAnalysisResult _resultFromResponse(
@@ -413,10 +401,6 @@ class PhotoTasteAnalyzer {
     final trimmedFeedback = feedback.trim();
     if (trimmedFeedback.isEmpty) return baseProfile;
 
-    if (_apiKey.isEmpty) {
-      throw const TasteAnalysisException('줄글 분석을 위한 GEMINI_API_KEY가 없습니다.');
-    }
-
     final aiKeywords = [for (final keyword in analysis.keywords) keyword.label];
     final selectedKeywords = [
       for (final keyword in analysis.keywords)
@@ -491,36 +475,29 @@ class PhotoTasteAnalyzer {
       'allowed_ui_keywords': _allowedUiKeywords.toList(),
     };
 
-    return http
-        .post(
-          Uri.parse(
-            'https://generativelanguage.googleapis.com/v1beta/models/$_fallbackModel:generateContent',
-          ),
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': _apiKey,
-          },
-          body: jsonEncode({
-            'contents': [
+    return GeminiProxyService.generateContent(
+      model: _fallbackModel,
+      timeout: const Duration(seconds: 15),
+      body: {
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
               {
-                'role': 'user',
-                'parts': [
-                  {
-                    'text':
-                        '$_refinerPrompt\n\nInput JSON:\n${jsonEncode(input)}\n\nReturn only valid JSON that matches this schema:\n${jsonEncode(_refinerSchema)}',
-                  },
-                ],
+                'text':
+                    '$_refinerPrompt\n\nInput JSON:\n${jsonEncode(input)}\n\nReturn only valid JSON that matches this schema:\n${jsonEncode(_refinerSchema)}',
               },
             ],
-            'generationConfig': {
-              'responseMimeType': 'application/json',
-              'temperature': 0.1,
-              'topP': 0.8,
-              'maxOutputTokens': 1200,
-            },
-          }),
-        )
-        .timeout(const Duration(seconds: 12));
+          },
+        ],
+        'generationConfig': {
+          'responseMimeType': 'application/json',
+          'temperature': 0.1,
+          'topP': 0.8,
+          'maxOutputTokens': 1200,
+        },
+      },
+    );
   }
 
   static List<TasteKeyword> _refinedKeywordsFromJson(
@@ -1118,7 +1095,7 @@ class PhotoTasteAnalyzer {
           return 'Gemini 분석 요청 형식이 맞지 않아요. 모델명과 이미지 형식을 확인해주세요.';
         }
         if (response.statusCode == 401 || response.statusCode == 403) {
-          return 'Gemini API 키가 유효하지 않거나 권한이 없어요. 저장된 GEMINI_API_KEY를 확인해주세요.';
+          return 'Gemini API 권한이 없어요. 서버 함수의 Secret과 권한을 확인해주세요.';
         }
         if (message is String && message.isNotEmpty) {
           return 'Gemini 분석 요청 실패 (${response.statusCode}): $message';

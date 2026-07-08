@@ -161,7 +161,8 @@ flutter run --no-enable-impeller
 ```powershell
 flutter run --dart-define-from-file=env.json
 # 안드로이드 에뮬레이터는 --no-enable-impeller 추가
-# (env.json 없이 일회성 실행: --dart-define=GEMINI_API_KEY=키 도 가능)
+# Current shared setup: use GEMINI_PROXY_URL instead of client-side Gemini keys.
+# See ../docs/AI_PROXY_SETUP.md for Cloudflare Worker setup and teammate run commands.
 ```
 
 - ⚠️ **키를 코드/저장소에 절대 커밋하지 말 것** — env.json/실행 주입만 허용
