@@ -43,13 +43,14 @@ class OnboardingTopBar extends StatelessWidget {
         const Spacer(),
         if (!editMode)
           TextButton(
-            onPressed: onSkip ??
+            onPressed:
+                onSkip ??
                 () => Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/main',
-                      (route) => false,
-                      arguments: 1,
-                    ),
+                  context,
+                  '/main',
+                  (route) => false,
+                  arguments: 0, // 온보딩 완료 → Stand(홈) 탭
+                ),
             style: TextButton.styleFrom(
               foregroundColor: AppColors.textSecondary,
               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -93,10 +94,7 @@ class OnboardingHeader extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           subtitle,
-          style: const TextStyle(
-            fontSize: 14,
-            color: AppColors.textSecondary,
-          ),
+          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
         ),
       ],
     );
@@ -129,7 +127,7 @@ class NetworkPhoto extends StatelessWidget {
   }
 }
 
-/// 선택형 태그 칩 — 선택 시 딥그린 채움, 미선택 시 흰색 아웃라인.
+/// 선택형 태그 칩 — 선택 시 흰 배경 유지 + 딥그린 테두리.
 class TasteChip extends StatelessWidget {
   const TasteChip({
     super.key,
@@ -151,18 +149,19 @@ class TasteChip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppColors.forest : Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: selected ? AppColors.forest : AppColors.border,
+            width: selected ? 1.4 : 1,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 13.5,
-            fontWeight: FontWeight.w500,
-            color: selected ? Colors.white : AppColors.ink,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            color: selected ? AppColors.forest : AppColors.ink,
           ),
         ),
       ),
@@ -189,13 +188,8 @@ class OnboardingPrimaryButton extends StatelessWidget {
         backgroundColor: AppColors.forest,
         foregroundColor: Colors.white,
         minimumSize: const Size.fromHeight(54),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
       ),
       child: Text(label),
     );

@@ -35,6 +35,37 @@ class MarkRecord {
       );
 }
 
+/// users/{uid}/progress 문서 1건. 스키마: DB_SCHEMA.md § users/{uid}/progress
+class ProgressRecord {
+  const ProgressRecord({
+    required this.articleId,
+    required this.magazineId,
+    required this.percent,
+    required this.lastPage,
+    this.updatedAt,
+  });
+
+  /// 문서 ID이자 대상 아티클 ID.
+  final String articleId;
+  final String magazineId;
+  final int percent;
+  final int lastPage;
+  final DateTime? updatedAt;
+
+  factory ProgressRecord.fromDoc(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    return ProgressRecord(
+      articleId: doc.id,
+      magazineId: data['magazineId'] as String? ?? '',
+      percent: (data['percent'] as num?)?.toInt() ?? 0,
+      lastPage: (data['lastPage'] as num?)?.toInt() ?? 0,
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+    );
+  }
+}
+
 /// users/{uid}/marks·progress 접근 서비스.
 /// 비로그인 상태에서는 모든 호출이 조용히 스킵된다 (Browse without login 경로).
 class MarkService {
@@ -104,6 +135,20 @@ class MarkService {
     return snap.docs.map((d) => MarkRecord.fromMap(d.data())).toList();
   }
 
+  /// 마크(하이라이트·밑줄·메모) 총개수 — count() 집계로 문서 본문은 읽지
+  /// 않는다. 비로그인 시 0.
+  Future<int> fetchMarksCount() async {
+    final uid = _uid;
+    if (uid == null) return 0;
+    final agg = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('marks')
+        .count()
+        .get();
+    return agg.count ?? 0;
+  }
+
   /// 읽기 진행률 저장. 스키마: users/{uid}/progress/{articleId}
   Future<void> saveProgress({
     required String articleId,
@@ -124,6 +169,21 @@ class MarkService {
       'lastPage': lastPage,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// 읽기 진행률 목록 (updatedAt 내림차순). "이어 읽기" 선반 등에서 사용.
+  /// 비로그인 시 빈 리스트.
+  Future<List<ProgressRecord>> fetchProgressList({int limit = 10}) async {
+    final uid = _uid;
+    if (uid == null) return const [];
+    final snap = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('progress')
+        .orderBy('updatedAt', descending: true)
+        .limit(limit)
+        .get();
+    return snap.docs.map(ProgressRecord.fromDoc).toList();
   }
 
   /// 저장된 마지막 페이지 (없으면 null)

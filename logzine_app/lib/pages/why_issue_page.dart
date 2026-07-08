@@ -186,8 +186,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                                   children: [
                                     Expanded(
                                       child: FilledButton(
-                                        onPressed: () =>
-                                            Navigator.pushNamed(
+                                        onPressed: () => Navigator.pushNamed(
                                           context,
                                           '/reader',
                                           arguments: ReaderArgs(
@@ -202,15 +201,16 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                                         style: FilledButton.styleFrom(
                                           backgroundColor: AppColors.forest,
                                           foregroundColor: Colors.white,
-                                          minimumSize:
-                                              const Size.fromHeight(44),
-                                          padding:
-                                              const EdgeInsets.symmetric(
+                                          minimumSize: const Size.fromHeight(
+                                            44,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
                                             horizontal: 12,
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                           textStyle: const TextStyle(
                                             fontSize: 13.5,
@@ -230,8 +230,9 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                                           color: AppColors.border,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                       ),
                                       child: const Icon(
@@ -251,8 +252,10 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     const SizedBox(height: 24),
 
                     Text(
-                      'RECOMMENDED BECAUSE',
-                      style: eyebrowStyle(color: AppColors.ink),
+                      'Recommended Because',
+                      style: eyebrowStyle(
+                        color: AppColors.ink,
+                      ).copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
                     IntrinsicHeight(
@@ -265,9 +268,9 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                               title: 'Taste match',
                               // 실제 일치 태그 + 일치율 — 없으면 새로운 발견으로 안내
                               subtitle: _matched.isEmpty
-                                  ? 'New territory\nfor you'
+                                  ? '당신을 위한\n새로운 발견'
                                   : '${_matched.take(2).join(', ')}\n'
-                                      '${RecommendationService.matchPercent(_taste, _magazine)}% match',
+                                        '${RecommendationService.matchPercent(_taste, _magazine)}% 일치',
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -275,7 +278,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                             child: _ReasonCard(
                               icon: Icons.menu_book_outlined,
                               title: 'Reading style',
-                              subtitle: 'Visual essays,\nShort issues',
+                              subtitle: '비주얼 에세이,\n짧은 호흡의 글',
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -283,7 +286,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                             child: _ReasonCard(
                               icon: Icons.refresh,
                               title: 'Updated from activity',
-                              subtitle: 'Recently\nrefined taste',
+                              subtitle: '최근 다듬은\n취향 반영',
                             ),
                           ),
                         ],
@@ -326,10 +329,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                           SizedBox(
                             width: 64,
                             height: 64,
-                            child: NetworkPhoto(
-                              url: kMoodPhotos[3],
-                              radius: 8,
-                            ),
+                            child: NetworkPhoto(url: kMoodPhotos[3], radius: 8),
                           ),
                         ],
                       ),
@@ -398,9 +398,10 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                       runSpacing: 10,
                       children: [
                         // 이 매거진의 태그 — 내 취향과 일치하면 선택 상태로 강조
-                        for (final tag in _magazine.tags.isEmpty
-                            ? const ['Interior', 'Wood', 'Light', 'Objects']
-                            : _magazine.tags)
+                        for (final tag
+                            in _magazine.tags.isEmpty
+                                ? const ['Interior', 'Wood', 'Light', 'Objects']
+                                : _magazine.tags)
                           TasteChip(
                             label: tag,
                             selected: _matched.contains(tag),
@@ -419,9 +420,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                             await UserService().excludeMagazine(_magazine.id);
                           }
                           messenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('이 매거진을 추천에서 제외했어요'),
-                            ),
+                            const SnackBar(content: Text('이 매거진을 추천에서 제외했어요')),
                           );
                           navigator.pop();
                         } catch (_) {
@@ -499,7 +498,7 @@ class _ReasonCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 11.5,
               height: 1.35,
-              color: AppColors.textSecondary,
+              color: AppColors.ink,
             ),
           ),
         ],
@@ -546,7 +545,9 @@ class _ContentsRow extends StatelessWidget {
           Text(
             'p.$page',
             style: const TextStyle(
-                fontSize: 11.5, color: AppColors.textSecondary),
+              fontSize: 11.5,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),

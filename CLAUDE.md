@@ -28,6 +28,7 @@
 | 화면/위젯 만들기·수정 (UI 작업 전부) | `.agents/skills/logzine-ui/SKILL.md` |
 | 브랜치·커밋·PR (git 작업 전부) | `.agents/skills/logzine-workflow/SKILL.md` |
 | 앱 실행·에뮬레이터 문제 | `.agents/skills/logzine-run/SKILL.md` |
+| MY COVER 표지 생성 규칙 수정 | `.agents/skills/logzine-cover/SKILL.md` |
 
 ## 빠른 실행
 

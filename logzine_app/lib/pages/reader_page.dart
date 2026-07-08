@@ -8,6 +8,7 @@ import '../widgets/logzine_logo.dart';
 import '../widgets/onboarding_widgets.dart';
 
 import '../services/magazine_service.dart';
+import '../services/article_text_size_service.dart';
 import '../services/mark_service.dart';
 import '../services/saved_service.dart';
 
@@ -464,7 +465,14 @@ class _ReaderPageState extends State<ReaderPage> {
         child: Column(
           children: [
             _buildTopBar(),
-            Expanded(child: _buildArticle()),
+            Expanded(
+              child: ValueListenableBuilder<int>(
+                valueListenable: ArticleTextSizeService.step,
+                builder: (context, textSizeStep, _) {
+                  return _buildArticle(textSizeStep: textSizeStep);
+                },
+              ),
+            ),
             if (_highlightMode) _buildHighlightPanel() else _buildActionBar(),
           ],
         ),
@@ -506,7 +514,7 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
-  Widget _buildArticle() {
+  Widget _buildArticle({required int textSizeStep}) {
     return SingleChildScrollView(
       controller: _scroll,
       child: Column(
@@ -588,7 +596,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
                 // 본문 — 문단 수에 맞춰 전부 렌더 (첫 문단 뒤에 에디토리얼 이미지)
                 for (int p = 0; p < _paragraphs.length; p++) ...[
-                  _buildParagraph(p),
+                  _buildParagraph(p, textSizeStep),
                   if (p == 0) ...[
                     const SizedBox(height: 20),
                     SizedBox(
@@ -618,7 +626,7 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
-  Widget _buildParagraph(int p) {
+  Widget _buildParagraph(int p, int textSizeStep) {
     return Text.rich(
       TextSpan(
         children: [
@@ -632,8 +640,8 @@ class _ReaderPageState extends State<ReaderPage> {
           ],
         ],
       ),
-      style: const TextStyle(
-        fontSize: 15,
+      style: TextStyle(
+        fontSize: ArticleTextSizeService.fontSizeForStep(textSizeStep),
         height: 1.65,
         color: AppColors.ink,
       ),
