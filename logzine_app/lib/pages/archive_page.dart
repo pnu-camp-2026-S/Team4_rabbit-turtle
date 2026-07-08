@@ -1,11 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-<<<<<<< HEAD
 import '../models/article.dart';
-=======
-import '../models/magazine.dart';
->>>>>>> origin/main
 import '../services/article_text_size_service.dart';
 import '../services/auth_service.dart';
 import '../services/magazine_service.dart';
@@ -19,7 +15,6 @@ import '../widgets/onboarding_widgets.dart';
 typedef _SavedArticleItem = ({String title, String publisher, String date, String imageUrl});
 typedef _MarkItem = ({String quote, String source, String note, Color color});
 
-<<<<<<< HEAD
 /// Archive 화면 데이터 묶음. 폴백 정책(library_page와 동일):
 /// 비로그인 → 데모 유지. 로그인 → 항상 실데이터, 빈 값/실패도 데모가 아닌
 /// 빈 상태(0·[])로 — 로그인 사용자에게 남의 데모 데이터를 보여주지 않는다.
@@ -37,8 +32,6 @@ class _ArchiveData {
   final int marksCount;
 }
 
-=======
->>>>>>> origin/main
 class ArchivePage extends StatefulWidget {
   const ArchivePage({super.key});
 
@@ -50,7 +43,6 @@ class _ArchivePageState extends State<ArchivePage> {
   static const String _avatarUrl =
       'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=400&q=80';
 
-<<<<<<< HEAD
   /// [폴백] 비로그인일 때만 노출하는 데모 저장 글.
   static const List<_SavedArticleItem> _demoSavedArticles = [
     (
@@ -90,105 +82,18 @@ class _ArchivePageState extends State<ArchivePage> {
       color: Color(0xFFC98B9B),
     ),
   ];
-=======
-  /// 리더에서 Save한 실제 목록 (users/{uid}/saved).
-  /// 탭에 돌아올 때마다 최신을 보도록 build에서 갱신된다.
-  Future<List<_SavedArticleItem>> _savedFuture = _loadSaved();
-
-  /// 리더에서 남긴 실제 하이라이트/메모 (users/{uid}/marks)
-  Future<List<_MarkItem>> _marksFuture = _loadMarks();
-
-  /// 메인 셸 탭 전환 등으로 다시 보일 때 최신 데이터로 갱신.
-  @override
-  void didUpdateWidget(covariant ArchivePage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _savedFuture = _loadSaved();
-    _marksFuture = _loadMarks();
-  }
-
-  static const List<String> _monthsShort = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-
-  static String _fmtDate(DateTime? d) =>
-      d == null ? '' : '${_monthsShort[d.month - 1]} ${d.day}, ${d.year}';
-
-  static Future<List<_SavedArticleItem>> _loadSaved() async {
-    try {
-      final docs = await SavedService().fetchSaved(limit: 20);
-      return [
-        for (final d in docs)
-          (
-            title: d.data()['articleTitle'] as String? ?? '',
-            publisher: d.data()['magazineTitle'] as String? ?? '',
-            date: _fmtDate((d.data()['savedAt'] as Timestamp?)?.toDate()),
-            imageUrl: d.data()['coverUrl'] as String? ?? '',
-          ),
-      ];
-    } catch (_) {
-      return const []; // 비로그인/오프라인 — 빈 상태 표시
-    }
-  }
-
-  static Future<List<_MarkItem>> _loadMarks() async {
-    try {
-      final marks = await MarkService().fetchRecentMarks(limit: 20);
-      if (marks.isEmpty) return const [];
-
-      List<Magazine> mags = const [];
-      try {
-        mags = await MagazineService().fetchMagazines();
-      } catch (_) {}
-      final titleOf = {for (final m in mags) m.id: m.title};
-
-      // 같은 아티클의 본문은 한 번만 조회
-      final paraCache = <String, List<List<String>>?>{};
-      final items = <_MarkItem>[];
-      for (final r in marks) {
-        final key = '${r.magazineId}/${r.articleId}';
-        if (!paraCache.containsKey(key)) {
-          paraCache[key] = await MagazineService().fetchArticleParagraphs(
-            magazineId: r.magazineId,
-            articleId: r.articleId,
-          );
-        }
-        final paras = paraCache[key];
-        String quote = '';
-        if (paras != null &&
-            r.paragraphIdx >= 0 &&
-            r.paragraphIdx < paras.length) {
-          final segs = paras[r.paragraphIdx];
-          if (r.segmentIdx >= 0 && r.segmentIdx < segs.length) {
-            quote = segs[r.segmentIdx];
-          }
-        }
-        if (quote.isEmpty) continue;
-        items.add((
-          quote: quote,
-          source: titleOf[r.magazineId] ?? 'LOGZINE',
-          note: r.memoText ?? '',
-          color: _markColor(r.color, r.type),
-        ));
-      }
-      return items;
-    } catch (_) {
-      return const [];
-    }
-  }
-
-  static Color _markColor(String? hex, String type) {
-    if (type == 'underline' || hex == null || hex.isEmpty) return AppColors.ink;
-    final h = hex.replaceAll('#', '');
-    final v = int.tryParse(h.length == 6 ? 'FF$h' : h, radix: 16);
-    return v == null ? AppColors.ink : Color(v);
-  }
->>>>>>> origin/main
 
   /// [폴백] 비로그인일 때만 노출하는 데모 마크 개수.
   static const int _demoMarksCount = 12;
 
-  late final Future<_ArchiveData> _archiveFuture = _loadArchive();
+  Future<_ArchiveData> _archiveFuture = _loadArchive();
+
+  /// 메인 셸 탭 전환 등으로 다시 보일 때 최신 데이터로 갱신 (#archive-saved-real 방식 채택)
+  @override
+  void didUpdateWidget(covariant ArchivePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _archiveFuture = _loadArchive();
+  }
 
   static Future<_ArchiveData> _loadArchive() async {
     final bool isLoggedIn = AuthService().currentUser != null;
@@ -326,7 +231,6 @@ class _ArchivePageState extends State<ArchivePage> {
               },
             ),
             Expanded(
-<<<<<<< HEAD
               child: FutureBuilder<_ArchiveData>(
                 future: _archiveFuture,
                 builder: (context, snapshot) {
@@ -428,139 +332,6 @@ class _ArchivePageState extends State<ArchivePage> {
                         ),
                         const SizedBox(height: 24),
                       ],
-=======
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 6),
-                    Text(
-                      'Archive',
-                      style: logoStyle(
-                        size: 32,
-                        weight: FontWeight.w500,
-                        letterSpacingEm: 0.0,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _ProfileHeader(avatarUrl: _avatarUrl, userName: userName),
-                    const SizedBox(height: 24),
-                    // 리더에서 Save한 실제 목록
-                    FutureBuilder<List<_SavedArticleItem>>(
-                      future: _savedFuture,
-                      builder: (context, snapshot) {
-                        final items =
-                            snapshot.data ?? const <_SavedArticleItem>[];
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SectionHeader(
-                              title: 'Saved articles',
-                              onViewAll: items.isEmpty
-                                  ? null
-                                  : () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => _SavedArticlesPage(
-                                            items: items,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                            ),
-                            const SizedBox(height: 10),
-                            _SurfaceCard(
-                              child: items.isEmpty
-                                  ? const Padding(
-                                      padding:
-                                          EdgeInsets.symmetric(vertical: 26),
-                                      child: Center(
-                                        child: Text(
-                                          '아직 저장한 글이 없어요\n리더에서 Save를 눌러 보관해 보세요',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontSize: 12.5,
-                                            height: 1.6,
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  : Column(
-                                      children: [
-                                        for (int i = 0;
-                                            i < (items.length > 3
-                                                ? 3
-                                                : items.length);
-                                            i++) ...[
-                                          if (i > 0)
-                                            const Divider(
-                                              color: AppColors.border,
-                                              height: 1,
-                                            ),
-                                          _SavedTile(item: items[i]),
-                                        ],
-                                      ],
-                                    ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 22),
-                    const SectionHeader(title: 'This week'),
-                    const SizedBox(height: 10),
-                    // 실제 마크(하이라이트/메모) 통계와 목록
-                    FutureBuilder<List<_MarkItem>>(
-                      future: _marksFuture,
-                      builder: (context, snapshot) {
-                        final marks = snapshot.data ?? const <_MarkItem>[];
-                        return _SurfaceCard(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: IntrinsicHeight(
-                              child: Row(
-                                children: [
-                                  const Expanded(
-                                    child: _StatItem(
-                                      label: 'Time read',
-                                      value: '1h 24m',
-                                      icon: Icons.schedule,
-                                    ),
-                                  ),
-                                  const VerticalDivider(
-                                      color: AppColors.border, width: 1),
-                                  Expanded(
-                                    child: InkWell(
-                                      onTap: marks.isEmpty
-                                          ? null
-                                          : () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      _MarksPage(items: marks),
-                                                ),
-                                              );
-                                            },
-                                      child: _StatItem(
-                                        label: 'Marks',
-                                        value: '${marks.length}',
-                                        icon: Icons.edit_outlined,
-                                        highlight: true,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
->>>>>>> origin/main
                     ),
                   );
                 },
