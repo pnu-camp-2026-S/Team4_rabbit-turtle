@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../models/magazine.dart';
+import '../models/article.dart';
 import '../services/article_text_size_service.dart';
 import '../services/auth_service.dart';
 import '../services/magazine_service.dart';
@@ -15,6 +15,23 @@ import '../widgets/onboarding_widgets.dart';
 typedef _SavedArticleItem = ({String title, String publisher, String date, String imageUrl});
 typedef _MarkItem = ({String quote, String source, String note, Color color});
 
+/// Archive 화면 데이터 묶음. 폴백 정책(library_page와 동일):
+/// 비로그인 → 데모 유지. 로그인 → 항상 실데이터, 빈 값/실패도 데모가 아닌
+/// 빈 상태(0·[])로 — 로그인 사용자에게 남의 데모 데이터를 보여주지 않는다.
+class _ArchiveData {
+  const _ArchiveData({
+    required this.isLoggedIn,
+    required this.savedArticles,
+    required this.marks,
+    required this.marksCount,
+  });
+
+  final bool isLoggedIn;
+  final List<_SavedArticleItem> savedArticles;
+  final List<_MarkItem> marks;
+  final int marksCount;
+}
+
 class ArchivePage extends StatefulWidget {
   const ArchivePage({super.key});
 
@@ -26,97 +43,170 @@ class _ArchivePageState extends State<ArchivePage> {
   static const String _avatarUrl =
       'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=400&q=80';
 
-  /// 리더에서 Save한 실제 목록 (users/{uid}/saved).
-  /// 탭에 돌아올 때마다 최신을 보도록 build에서 갱신된다.
-  Future<List<_SavedArticleItem>> _savedFuture = _loadSaved();
+  /// [폴백] 비로그인일 때만 노출하는 데모 저장 글.
+  static const List<_SavedArticleItem> _demoSavedArticles = [
+    (
+      title: 'The beauty of empty space',
+      publisher: 'Openhouse',
+      date: 'May 20, 2024',
+      imageUrl:
+          'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
+    ),
+    (
+      title: 'A table, a chair, and the light',
+      publisher: 'ARK Journal',
+      date: 'May 18, 2024',
+      imageUrl:
+          'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=400&q=80',
+    ),
+  ];
 
-  /// 리더에서 남긴 실제 하이라이트/메모 (users/{uid}/marks)
-  Future<List<_MarkItem>> _marksFuture = _loadMarks();
+  /// [폴백] 비로그인일 때만 노출하는 데모 문장 보관함.
+  static const List<_MarkItem> _demoMarks = [
+    (
+      quote: 'When light, texture, and proportion align, the quiet becomes a language.',
+      source: 'Quiet Materials · p.4',
+      note: '좋아하는 공간감 표현',
+      color: Color(0xFFE9C46A),
+    ),
+    (
+      quote: 'Objects matter most when they become part of a daily ritual.',
+      source: 'ROOM NOTE · p.12',
+      note: '마이페이지 문장 보관함에 넣고 싶은 문장',
+      color: Color(0xFFA3C9A8),
+    ),
+    (
+      quote: 'A soft room is often made by restraint, not by abundance.',
+      source: 'Openhouse · p.7',
+      note: '취향 키워드와 연결됨',
+      color: Color(0xFFC98B9B),
+    ),
+  ];
 
-  /// 메인 셸 탭 전환 등으로 다시 보일 때 최신 데이터로 갱신.
+  /// [폴백] 비로그인일 때만 노출하는 데모 마크 개수.
+  static const int _demoMarksCount = 12;
+
+  Future<_ArchiveData> _archiveFuture = _loadArchive();
+
+  /// 메인 셸 탭 전환 등으로 다시 보일 때 최신 데이터로 갱신 (#archive-saved-real 방식 채택)
   @override
   void didUpdateWidget(covariant ArchivePage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _savedFuture = _loadSaved();
-    _marksFuture = _loadMarks();
+    _archiveFuture = _loadArchive();
   }
 
-  static const List<String> _monthsShort = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
+  static Future<_ArchiveData> _loadArchive() async {
+    final bool isLoggedIn = AuthService().currentUser != null;
+    if (!isLoggedIn) {
+      return const _ArchiveData(
+        isLoggedIn: false,
+        savedArticles: _demoSavedArticles,
+        marks: _demoMarks,
+        marksCount: _demoMarksCount,
+      );
+    }
 
-  static String _fmtDate(DateTime? d) =>
-      d == null ? '' : '${_monthsShort[d.month - 1]} ${d.day}, ${d.year}';
-
-  static Future<List<_SavedArticleItem>> _loadSaved() async {
+    List<_SavedArticleItem> savedArticles = const [];
     try {
       final docs = await SavedService().fetchSaved(limit: 20);
-      return [
-        for (final d in docs)
-          (
-            title: d.data()['articleTitle'] as String? ?? '',
-            publisher: d.data()['magazineTitle'] as String? ?? '',
-            date: _fmtDate((d.data()['savedAt'] as Timestamp?)?.toDate()),
-            imageUrl: d.data()['coverUrl'] as String? ?? '',
-          ),
-      ];
+      savedArticles = [for (final doc in docs) _savedItemFromDoc(doc)];
     } catch (_) {
-      return const []; // 비로그인/오프라인 — 빈 상태 표시
+      savedArticles = const [];
     }
-  }
 
-  static Future<List<_MarkItem>> _loadMarks() async {
+    int marksCount = 0;
     try {
-      final marks = await MarkService().fetchRecentMarks(limit: 20);
-      if (marks.isEmpty) return const [];
-
-      List<Magazine> mags = const [];
-      try {
-        mags = await MagazineService().fetchMagazines();
-      } catch (_) {}
-      final titleOf = {for (final m in mags) m.id: m.title};
-
-      // 같은 아티클의 본문은 한 번만 조회
-      final paraCache = <String, List<List<String>>?>{};
-      final items = <_MarkItem>[];
-      for (final r in marks) {
-        final key = '${r.magazineId}/${r.articleId}';
-        if (!paraCache.containsKey(key)) {
-          paraCache[key] = await MagazineService().fetchArticleParagraphs(
-            magazineId: r.magazineId,
-            articleId: r.articleId,
-          );
-        }
-        final paras = paraCache[key];
-        String quote = '';
-        if (paras != null &&
-            r.paragraphIdx >= 0 &&
-            r.paragraphIdx < paras.length) {
-          final segs = paras[r.paragraphIdx];
-          if (r.segmentIdx >= 0 && r.segmentIdx < segs.length) {
-            quote = segs[r.segmentIdx];
-          }
-        }
-        if (quote.isEmpty) continue;
-        items.add((
-          quote: quote,
-          source: titleOf[r.magazineId] ?? 'LOGZINE',
-          note: r.memoText ?? '',
-          color: _markColor(r.color, r.type),
-        ));
-      }
-      return items;
+      marksCount = await MarkService().fetchMarksCount();
     } catch (_) {
-      return const [];
+      marksCount = 0;
     }
+
+    List<_MarkItem> marks = const [];
+    try {
+      final records = await MarkService().fetchRecentMarks(limit: 20);
+      marks = await _resolveMarks(records);
+    } catch (_) {
+      marks = const [];
+    }
+
+    return _ArchiveData(
+      isLoggedIn: true,
+      savedArticles: savedArticles,
+      marks: marks,
+      marksCount: marksCount,
+    );
   }
 
-  static Color _markColor(String? hex, String type) {
-    if (type == 'underline' || hex == null || hex.isEmpty) return AppColors.ink;
-    final h = hex.replaceAll('#', '');
-    final v = int.tryParse(h.length == 6 ? 'FF$h' : h, radix: 16);
-    return v == null ? AppColors.ink : Color(v);
+  static _SavedArticleItem _savedItemFromDoc(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    final Timestamp? savedAt = data['savedAt'] as Timestamp?;
+    return (
+      title: data['articleTitle'] as String? ?? '(제목 없음)',
+      publisher: data['magazineTitle'] as String? ?? '',
+      date: savedAt == null ? '' : _formatDate(savedAt.toDate()),
+      imageUrl: data['coverUrl'] as String? ?? '',
+    );
+  }
+
+  static String _formatDate(DateTime date) =>
+      '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+
+  /// 마크 레코드들을 인용문 카드로 해석. 같은 아티클을 참조하는 마크가
+  /// 여러 개여도 아티클 조회는 한 번만(캐시) 하도록 순차 처리한다.
+  /// 좌표가 가리키는 문장을 찾을 수 없으면(아티클 삭제 등) 그 마크는 건너뛴다.
+  static Future<List<_MarkItem>> _resolveMarks(List<MarkRecord> records) async {
+    final Map<String, Article?> articleCache = {};
+    final List<_MarkItem> items = [];
+
+    for (final record in records) {
+      final String key = '${record.magazineId}/${record.articleId}';
+      Article? article;
+      if (articleCache.containsKey(key)) {
+        article = articleCache[key];
+      } else {
+        try {
+          article = await MagazineService().fetchArticleById(
+            magazineId: record.magazineId,
+            articleId: record.articleId,
+          );
+        } catch (_) {
+          article = null;
+        }
+        articleCache[key] = article;
+      }
+      if (article == null) continue;
+      if (record.paragraphIdx < 0 || record.paragraphIdx >= article.paragraphs.length) {
+        continue;
+      }
+      final segments = article.paragraphs[record.paragraphIdx];
+      if (record.segmentIdx < 0 || record.segmentIdx >= segments.length) continue;
+
+      final String articleTitle = article.title.isNotEmpty ? article.title : '(제목 없음)';
+      final String note = (record.memoText != null && record.memoText!.isNotEmpty)
+          ? record.memoText!
+          : (record.type == 'underline' ? '밑줄 표시' : '하이라이트 표시');
+
+      items.add((
+        quote: segments[record.segmentIdx],
+        source: '$articleTitle · 문단 ${record.paragraphIdx + 1}',
+        note: note,
+        color: _colorFromHex(record.color),
+      ));
+    }
+    return items;
+  }
+
+  /// 하이라이트 팔레트 색 hex → Color. 파싱 실패/메모 타입 등 색이 없으면
+  /// 기존 하이라이트 팔레트의 기본색(노랑)으로 대체.
+  static Color _colorFromHex(String? hex) {
+    if (hex == null || hex.length < 7) return const Color(0xFFE9C46A);
+    try {
+      return Color(int.parse(hex.substring(1, 7), radix: 16) | 0xFF000000);
+    } catch (_) {
+      return const Color(0xFFE9C46A);
+    }
   }
 
   @override
@@ -141,126 +231,95 @@ class _ArchivePageState extends State<ArchivePage> {
               },
             ),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 6),
-                    Text(
-                      'Archive',
-                      style: logoStyle(
-                        size: 32,
-                        weight: FontWeight.w500,
-                        letterSpacingEm: 0.0,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _ProfileHeader(avatarUrl: _avatarUrl, userName: userName),
-                    const SizedBox(height: 24),
-                    // 리더에서 Save한 실제 목록
-                    FutureBuilder<List<_SavedArticleItem>>(
-                      future: _savedFuture,
-                      builder: (context, snapshot) {
-                        final items =
-                            snapshot.data ?? const <_SavedArticleItem>[];
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SectionHeader(
-                              title: 'Saved articles',
-                              onViewAll: items.isEmpty
-                                  ? null
-                                  : () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => _SavedArticlesPage(
-                                            items: items,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                            ),
-                            const SizedBox(height: 10),
-                            _SurfaceCard(
-                              child: items.isEmpty
-                                  ? const Padding(
-                                      padding:
-                                          EdgeInsets.symmetric(vertical: 26),
-                                      child: Center(
-                                        child: Text(
-                                          '아직 저장한 글이 없어요\n리더에서 Save를 눌러 보관해 보세요',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontSize: 12.5,
-                                            height: 1.6,
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
+              child: FutureBuilder<_ArchiveData>(
+                future: _archiveFuture,
+                builder: (context, snapshot) {
+                  final data = snapshot.data;
+                  final bool isLoggedIn = data?.isLoggedIn ?? false;
+                  final savedArticles = data?.savedArticles ?? _demoSavedArticles;
+                  final marks = data?.marks ?? _demoMarks;
+                  final int marksCount = data?.marksCount ?? _demoMarksCount;
+                  final String timeRead = isLoggedIn ? '0m' : '1h 24m';
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 6),
+                        Text(
+                          'Archive',
+                          style: logoStyle(
+                            size: 32,
+                            weight: FontWeight.w500,
+                            letterSpacingEm: 0.0,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        _ProfileHeader(avatarUrl: _avatarUrl, userName: userName),
+                        const SizedBox(height: 24),
+                        SectionHeader(
+                          title: 'Saved articles',
+                          onViewAll: savedArticles.isEmpty
+                              ? null
+                              : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => _SavedArticlesPage(
+                                        items: savedArticles,
                                       ),
-                                    )
-                                  : Column(
-                                      children: [
-                                        for (int i = 0;
-                                            i < (items.length > 3
-                                                ? 3
-                                                : items.length);
-                                            i++) ...[
-                                          if (i > 0)
-                                            const Divider(
-                                              color: AppColors.border,
-                                              height: 1,
-                                            ),
-                                          _SavedTile(item: items[i]),
-                                        ],
-                                      ],
                                     ),
+                                  );
+                                },
+                        ),
+                        const SizedBox(height: 10),
+                        if (savedArticles.isEmpty)
+                          const _EmptyStateCard(
+                            message: '아직 저장한 글이 없어요.\n리더에서 북마크를 눌러 저장해보세요.',
+                          )
+                        else
+                          _SurfaceCard(
+                            child: Column(
+                              children: [
+                                for (int i = 0; i < savedArticles.length; i++) ...[
+                                  if (i > 0) const Divider(color: AppColors.border, height: 1),
+                                  _SavedTile(item: savedArticles[i]),
+                                ],
+                              ],
                             ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 22),
-                    const SectionHeader(title: 'This week'),
-                    const SizedBox(height: 10),
-                    // 실제 마크(하이라이트/메모) 통계와 목록
-                    FutureBuilder<List<_MarkItem>>(
-                      future: _marksFuture,
-                      builder: (context, snapshot) {
-                        final marks = snapshot.data ?? const <_MarkItem>[];
-                        return _SurfaceCard(
+                          ),
+                        const SizedBox(height: 22),
+                        const SectionHeader(title: 'This week'),
+                        const SizedBox(height: 10),
+                        _SurfaceCard(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             child: IntrinsicHeight(
                               child: Row(
                                 children: [
-                                  const Expanded(
+                                  Expanded(
                                     child: _StatItem(
                                       label: 'Time read',
-                                      value: '1h 24m',
+                                      value: timeRead,
                                       icon: Icons.schedule,
                                     ),
                                   ),
-                                  const VerticalDivider(
-                                      color: AppColors.border, width: 1),
+                                  const VerticalDivider(color: AppColors.border, width: 1),
                                   Expanded(
                                     child: InkWell(
-                                      onTap: marks.isEmpty
-                                          ? null
-                                          : () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      _MarksPage(items: marks),
-                                                ),
-                                              );
-                                            },
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => _MarksPage(items: marks),
+                                          ),
+                                        );
+                                      },
                                       child: _StatItem(
                                         label: 'Marks',
-                                        value: '${marks.length}',
+                                        value: '$marksCount',
                                         icon: Icons.edit_outlined,
                                         highlight: true,
                                       ),
@@ -270,12 +329,12 @@ class _ArchivePageState extends State<ArchivePage> {
                               ),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                        const SizedBox(height: 24),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
@@ -312,9 +371,17 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
   }
 
   /// 온보딩에서 users/{uid}에 저장한 실제 취향 태그를 불러온다.
+  /// 비로그인 → 데모 태그 유지. 로그인 → 항상 실데이터(빈 값 포함 — 빈
+  /// 배열이면 build()에서 정직한 빈 상태 문구를 보여준다).
   Future<void> _loadTaste() async {
-    final tags = await UserService().fetchTasteTags();
-    if (!mounted || tags == null || tags.isEmpty) return;
+    final bool loggedIn = AuthService().currentUser != null;
+    if (!loggedIn) {
+      if (!mounted) return;
+      setState(() => _tags = _fallbackTags);
+      return;
+    }
+    final tags = await UserService().fetchTasteTags() ?? const [];
+    if (!mounted) return;
     setState(() => _tags = tags);
   }
 
@@ -356,13 +423,19 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final tag in _tags) _TasteTag(tag),
-                    ],
-                  ),
+                  if (_tags.isEmpty)
+                    const Text(
+                      '아직 취향을 설정하지 않았어요.',
+                      style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final tag in _tags) _TasteTag(tag),
+                      ],
+                    ),
                   const SizedBox(height: 14),
                   FilledButton(
                     onPressed: _openRefine,
@@ -385,6 +458,36 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 로그인 상태에서 실데이터가 비어 있을 때 보여주는 정직한 빈 상태 카드.
+/// saved_page.dart의 빈 상태 톤(흰 배경 카드 + textMuted)과 동일하게 맞춘다.
+class _EmptyStateCard extends StatelessWidget {
+  const _EmptyStateCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppColors.textMuted,
+          height: 1.6,
         ),
       ),
     );
@@ -766,14 +869,21 @@ class _SavedArticlesPage extends StatelessWidget {
           children: [
             const LogzineTopBar(showBack: true, showBell: false),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                itemCount: items.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  return _SurfaceCard(child: _SavedTile(item: items[index]));
-                },
-              ),
+              child: items.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
+                      child: _EmptyStateCard(
+                        message: '아직 저장한 글이 없어요.\n리더에서 북마크를 눌러 저장해보세요.',
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                      itemCount: items.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        return _SurfaceCard(child: _SavedTile(item: items[index]));
+                      },
+                    ),
             ),
           ],
         ),
@@ -796,64 +906,71 @@ class _MarksPage extends StatelessWidget {
           children: [
             const LogzineTopBar(showBack: true, showBell: false),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                itemCount: items.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  return _SurfaceCard(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 5,
-                            height: 72,
-                            decoration: BoxDecoration(
-                              color: item.color,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
+              child: items.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
+                      child: _EmptyStateCard(
+                        message: '아직 저장한 문장이 없어요.\n리더에서 하이라이트를 남겨보세요.',
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                      itemCount: items.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return _SurfaceCard(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  item.quote,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    height: 1.5,
-                                    color: AppColors.ink,
+                                Container(
+                                  width: 5,
+                                  height: 72,
+                                  decoration: BoxDecoration(
+                                    color: item.color,
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
                                 ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  item.source,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  item.note,
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    color: AppColors.body,
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.quote,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          height: 1.5,
+                                          color: AppColors.ink,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        item.source,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        item.note,
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          color: AppColors.body,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         ),
