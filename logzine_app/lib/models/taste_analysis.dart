@@ -298,7 +298,7 @@ class PhotoTasteAnalyzer {
   static TasteAnalysisResult _fallbackAnalysisResult(List<TastePhoto> photos) {
     return TasteAnalysisResult(
       photos: photos,
-      summary: '이미지 분석이 잠시 불안정해서 기본 관심사 후보를 먼저 준비했어요. 맞는 키워드만 남기고 자유롭게 수정해주세요.',
+      summary: 'AI 이미지 연결이 막혀 기본 관심사 후보를 먼저 준비했어요. 맞는 키워드만 남기고 자유롭게 수정해주세요.',
       keywords: [
         _keywordFromUiLabel('카페', confidence: 0.55, evidence: '기본 후보'),
         _keywordFromUiLabel('조용한 휴식', confidence: 0.55, evidence: '기본 후보'),
@@ -307,7 +307,7 @@ class PhotoTasteAnalyzer {
         _keywordFromUiLabel('디자인', confidence: 0.5, evidence: '기본 후보'),
         _keywordFromUiLabel('골목 탐방', confidence: 0.5, evidence: '기본 후보'),
       ],
-      recommendedQuestion: '분석이 불안정했어요. 지금 보이는 후보 중 맞는 것만 남겨주세요.',
+      recommendedQuestion: '지금 보이는 후보 중 맞는 것만 남겨주세요.',
       privacyNotes: const ['AI 분석 실패 시 기본 후보를 표시함'],
     );
   }
@@ -456,9 +456,72 @@ class PhotoTasteAnalyzer {
       );
     } catch (error) {
       debugPrint('[TasteKeywordRefiner] failed: $error');
-      if (error is TasteAnalysisException) rethrow;
-      throw const TasteAnalysisException('줄글 분석 중 오류가 발생했어요. 다시 시도해주세요.');
+      return _localRefinedProfile(
+        analysis: analysis,
+        baseProfile: baseProfile,
+        confirmedLabels: confirmedLabels,
+        feedback: trimmedFeedback,
+      );
     }
+  }
+
+  static TasteProfileDraft _localRefinedProfile({
+    required TasteAnalysisResult analysis,
+    required TasteProfileDraft baseProfile,
+    required Set<String> confirmedLabels,
+    required String feedback,
+  }) {
+    final excludedLabels = _feedbackRemovedLabels(feedback, analysis.keywords);
+    final positiveLabels = _feedbackPositiveLabels(feedback)
+        .where(
+          (label) => !excludedLabels.any(
+            (excludedLabel) => _labelsOverlap(label, excludedLabel),
+          ),
+        )
+        .toList();
+
+    final keywords = <TasteKeyword>[
+      for (final label in positiveLabels)
+        _keywordFromUiLabel(
+          label,
+          confidence: 0.96,
+          evidence: '줄글 피드백 로컬 보정',
+          status: TasteKeywordStatus.confirmed,
+        ),
+      for (final keyword in baseProfile.preferenceProfile)
+        if (!excludedLabels.any(
+              (label) => _labelsOverlap(label, keyword.label),
+            ) &&
+            !positiveLabels.any(
+              (label) => _labelsOverlap(label, keyword.label),
+            ))
+          keyword.copyWith(status: TasteKeywordStatus.confirmed),
+    ];
+
+    final cleaned = _sortFinalKeywords(
+      _cleanProfileKeywords(keywords, excludedLabels: excludedLabels),
+    );
+    final finalKeywords = cleaned.isEmpty
+        ? baseProfile.preferenceProfile
+        : cleaned;
+    final photoTags = analysis.keywords.map((keyword) {
+      return excludedLabels.any((label) => _labelsOverlap(label, keyword.label))
+          ? keyword.copyWith(status: TasteKeywordStatus.removed)
+          : keyword.copyWith(
+              status: confirmedLabels.contains(keyword.label)
+                  ? TasteKeywordStatus.confirmed
+                  : keyword.status,
+            );
+    }).toList();
+
+    return TasteProfileDraft(
+      photoTags: photoTags,
+      confirmedTags: finalKeywords,
+      preferenceProfile: finalKeywords,
+      summary: _profileSummary(finalKeywords),
+      photos: analysis.photos,
+      feedback: feedback,
+    );
   }
 
   static Future<http.Response> _requestKeywordRefinement({
@@ -603,10 +666,21 @@ class PhotoTasteAnalyzer {
     if (feedback.isEmpty) return const <String>{};
     final lower = feedback.toLowerCase();
     final removed = <String>{};
+    final compact = feedback.replaceAll(RegExp(r'\s+'), '');
+    final downweightsActive =
+        compact.contains('활동적인') &&
+        (compact.contains('보다는') || compact.contains('보다'));
     final negativeSubjects = _negativeSubjects(feedback);
     for (final keyword in keywords) {
       final label = keyword.label;
       final labelLower = label.toLowerCase();
+      if (downweightsActive &&
+          (keyword.type == TasteKeywordType.activity ||
+              keyword.category == 'SPORTS' ||
+              _uiKeywordCategories[label] == 'SPORTS')) {
+        removed.add(label);
+        continue;
+      }
       final mentionsLabel =
           lower.contains(labelLower) || feedback.contains(label);
       if (!mentionsLabel) continue;
@@ -656,6 +730,59 @@ class PhotoTasteAnalyzer {
       }
     }
     return subjects;
+  }
+
+  static List<String> _feedbackPositiveLabels(String feedback) {
+    if (feedback.trim().isEmpty) return const <String>[];
+
+    final labels = <String>[];
+    void addLabel(String value) {
+      final normalized = _normalizeFinalLabel(_normalizeEnglishKeyword(value));
+      if (normalized == null) return;
+      if (labels.any((label) => _labelsOverlap(label, normalized))) return;
+      labels.add(normalized);
+    }
+
+    for (final sentence in feedback.split(RegExp(r'[.!?。！？\n]+'))) {
+      final trimmed = sentence.trim();
+      if (trimmed.isEmpty) continue;
+      final compact = trimmed.replaceAll(RegExp(r'\s+'), '');
+      final hasNegative = RegExp(
+        r'(싫|별로|안좋|안\s*좋|관심\s*없|무서|두려|겁나|제외|빼|삭제|말고|not into|don.?t like|do not like|dislike|hate|exclude|remove)',
+        caseSensitive: false,
+      ).hasMatch(trimmed);
+      final hasPositive = RegExp(
+        r'(좋아|좋습니다|관심\s*있|선호|원해|하고\s*싶|즐겨|like|love|prefer|into)',
+        caseSensitive: false,
+      ).hasMatch(trimmed);
+
+      if (compact.contains('보다는') || compact.contains('보다')) {
+        final parts = trimmed.split(RegExp(r'보다는|보다\s+'));
+        if (parts.length > 1) addLabel(parts.last);
+        continue;
+      }
+      if (hasPositive && !hasNegative) {
+        addLabel(trimmed);
+        continue;
+      }
+
+      final directLabel = _taxonomyLabelFor(trimmed);
+      if (directLabel != null && !hasNegative) addLabel(directLabel);
+    }
+
+    final englishPatterns = [
+      RegExp(
+        r'\b(?:i\s+)?(?:also\s+)?(?:like|love|prefer|am into|want)\s+([a-zA-Z][a-zA-Z\s/&-]{1,28})',
+        caseSensitive: false,
+      ),
+    ];
+    for (final pattern in englishPatterns) {
+      for (final match in pattern.allMatches(feedback)) {
+        addLabel(match.group(1) ?? '');
+      }
+    }
+
+    return labels.take(6).toList();
   }
 
   static List<TasteKeyword> _cleanProfileKeywords(
@@ -1081,14 +1208,21 @@ class PhotoTasteAnalyzer {
       final error = decoded['error'];
       if (error is Map<String, dynamic>) {
         final message = error['message'];
-        final status = error['status'];
+        final status = (error['status'] as String? ?? '').toUpperCase();
+        final messageText = message is String ? message : '';
+        if (status == 'MISSING_PROXY_URL') {
+          return 'Gemini 프록시 주소가 앱에 전달되지 않았어요. env.json 또는 --dart-define-from-file 설정을 확인해주세요.';
+        }
+        if (status == 'FAILED_PRECONDITION' &&
+            messageText.toLowerCase().contains('location')) {
+          return 'Gemini API가 현재 프록시 실행 지역을 지원하지 않아요. 프록시 위치나 AI 제공자를 바꿔야 합니다.';
+        }
         if (status == 'RESOURCE_EXHAUSTED' || response.statusCode == 429) {
           return 'Gemini API 할당량 또는 요청 한도에 걸렸어요. Google AI Studio/Google Cloud에서 quota와 billing 상태를 확인한 뒤 다시 시도해주세요.';
         }
         if (status == 'UNAVAILABLE' ||
             response.statusCode == 503 ||
-            (message is String &&
-                message.toLowerCase().contains('high demand'))) {
+            messageText.toLowerCase().contains('high demand')) {
           return 'Gemini 서버가 일시적으로 혼잡해요. 자동 재시도를 했지만 실패했습니다. 잠시 뒤 다시 분석해주세요.';
         }
         if (response.statusCode == 400) {
@@ -1097,8 +1231,8 @@ class PhotoTasteAnalyzer {
         if (response.statusCode == 401 || response.statusCode == 403) {
           return 'Gemini API 권한이 없어요. 서버 함수의 Secret과 권한을 확인해주세요.';
         }
-        if (message is String && message.isNotEmpty) {
-          return 'Gemini 분석 요청 실패 (${response.statusCode}): $message';
+        if (messageText.isNotEmpty) {
+          return 'Gemini 분석 요청 실패 (${response.statusCode}): $messageText';
         }
       }
     } catch (_) {
