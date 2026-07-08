@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/magazine.dart';
-import '../services/auth_service.dart';
 import '../services/curator_service.dart';
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
@@ -157,22 +156,6 @@ class _HomePageState extends State<HomePage> {
     return '${diff.inDays} d ago';
   }
 
-  String get _greeting {
-    final int hour = DateTime.now().hour;
-
-    final String salutation;
-    if (hour >= 5 && hour < 12) {
-      salutation = 'Good Morning';
-    } else if (hour >= 12 && hour < 18) {
-      salutation = 'Good Afternoon';
-    } else {
-      salutation = 'Good Evening';
-    }
-
-    final String? userName = AuthService().currentUserName;
-    return userName == null ? salutation : '$salutation, $userName';
-  }
-
   /// 오늘의 지면 날짜줄 — WEDNESDAY · JULY 8
   String get _dateLine {
     const weekdays = [
@@ -251,29 +234,20 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               const LogzineTopBar(
                 showBell: false,
                 showSettings: false,
                 showDivider: true,
+                logoHeight: 44,
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     // ── 오늘의 지면(Front Page) 헤더 ──
-                    Text(
-                      _greeting,
-                      style: logoStyle(
-                        size: 19,
-                        weight: FontWeight.w500,
-                        letterSpacingEm: 0.02,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
                     Text(_dateLine, style: eyebrowStyle()),
                     const SizedBox(height: 12),
                     // AI 큐레이터의 한 줄 — 보일 듯 말 듯, 조용하게

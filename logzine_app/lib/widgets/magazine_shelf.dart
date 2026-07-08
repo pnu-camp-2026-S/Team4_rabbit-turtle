@@ -32,7 +32,6 @@ class _MagazineShelfState extends State<MagazineShelf> {
     viewportFraction: 0.52,
     initialPage: widget.initialPage,
   );
-  late bool _todaysPickVisible = widget.showTodaysPick;
 
   @override
   void dispose() {
@@ -92,14 +91,6 @@ class _MagazineShelfState extends State<MagazineShelf> {
                       _controller.position.haveDimensions) {
                     page = _controller.page!;
                   }
-                  if (_todaysPickVisible &&
-                      (page - widget.initialPage).abs() > 0.55) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        setState(() => _todaysPickVisible = false);
-                      }
-                    });
-                  }
                   final double delta =
                       (index - page).clamp(-1.0, 1.0).toDouble();
                   final double t = delta.abs();
@@ -141,9 +132,12 @@ class _MagazineShelfState extends State<MagazineShelf> {
                                 _PhysicalMagazine(
                                   magazine: widget.magazines[index],
                                 ),
-                                if (_todaysPickVisible &&
+                                // 오늘의 픽 배지 — 중앙 픽에 있을 때만 표시.
+                                // 스와이프로 벗어나면 사라지고, 다시 중앙으로
+                                // 돌아오면 실시간으로 다시 나타난다.
+                                if (widget.showTodaysPick &&
                                     index == widget.initialPage &&
-                                    isCenter)
+                                    (page - widget.initialPage).abs() < 0.5)
                                   const _TodaysPickBadge(),
                               ],
                             ),
