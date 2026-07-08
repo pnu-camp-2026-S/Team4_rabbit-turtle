@@ -155,7 +155,11 @@ class _Sheet extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: Container(
-              color: dark ? const Color(0xFF232325) : AppColors.screen,
+              decoration: BoxDecoration(
+                color: dark ? AppColors.ink : AppColors.screen,
+                // 잉크 배경 위 잉크 지면 — 얇은 흰 테두리로 낱장을 분리
+                border: dark ? Border.all(color: Colors.white24) : null,
+              ),
               child: child,
             ),
           ),
