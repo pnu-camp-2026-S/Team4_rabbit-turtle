@@ -199,7 +199,11 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 4),
-              const LogzineTopBar(showBell: false, showSettings: false),
+              const LogzineTopBar(
+                showBell: false,
+                showSettings: false,
+                showDivider: true,
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
