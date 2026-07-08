@@ -7,6 +7,8 @@ class Magazine {
     required this.issue,
     required this.coverUrl,
     this.tags = const <String>[],
+    this.publisherId = '',
+    this.publisherName = '',
   });
 
   /// Firestore 문서 ID. 데모 상수(kMagazines)는 빈 문자열.
@@ -19,6 +21,12 @@ class Magazine {
   /// 취향 매칭용 태그 — 취향 픽커(taste_picker_page) 어휘와 동일해야
   /// 사용자 tasteTags와 교집합 추천이 성립한다.
   final List<String> tags;
+
+  /// 발행사 매핑 (스키마 v5). id는 library_page.dart의 _publishers 슬러그와
+  /// 동일. 데모 상수(kMagazines)는 빈 문자열 — 실데이터는
+  /// MagazineService.syncPublishers() 마이그레이션 이후 채워진다.
+  final String publisherId;
+  final String publisherName;
 }
 
 /// 데모용 매거진 카탈로그.

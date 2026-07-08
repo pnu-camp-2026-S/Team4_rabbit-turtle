@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import '../models/article.dart';
 import '../models/article_seeds.dart';
 import '../models/magazine.dart';
+import '../models/publisher_seeds.dart';
 
 /// 매거진 데이터 접근 서비스.
 /// 화면은 Firestore를 직접 만지지 말고 이 클래스만 사용할 것.
@@ -20,16 +21,42 @@ class MagazineService {
     return snapshot.docs.map(_fromDoc).toList();
   }
 
-  Magazine _fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data();
+  Magazine _fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
+      _fromData(doc.id, doc.data());
+
+  Magazine _fromData(String id, Map<String, dynamic> data) {
     return Magazine(
-      id: doc.id,
+      id: id,
       title: data['title'] as String? ?? '',
       tagline: data['tagline'] as String? ?? '',
       issue: data['issue'] as String? ?? '',
       coverUrl: data['coverUrl'] as String? ?? '',
       tags: List<String>.from(data['tags'] as List<dynamic>? ?? const []),
+      publisherId: data['publisherId'] as String? ?? '',
+      publisherName: data['publisherName'] as String? ?? '',
     );
+  }
+
+  /// 발행사(publisherId)에 매핑된 매거진 목록 — 발행사 상세 페이지의
+  /// "Latest from this publisher"용. 단일 등치(where) 조건만 사용해 복합
+  /// 색인 없이 동작하도록, title 기준 정렬은 클라이언트에서 처리한다.
+  Future<List<Magazine>> fetchMagazinesByPublisher(String publisherId) async {
+    final snapshot = await _db
+        .collection('magazines')
+        .where('publisherId', isEqualTo: publisherId)
+        .get();
+    final magazines = snapshot.docs.map(_fromDoc).toList();
+    magazines.sort((a, b) => a.title.compareTo(b.title));
+    return magazines;
+  }
+
+  /// 매거진 단건 조회 (id로) — 리더가 발행사 정보 등 매거진 메타를 확인할 때 사용.
+  /// 문서 없으면 null.
+  Future<Magazine?> fetchMagazineById(String magazineId) async {
+    final doc = await _db.collection('magazines').doc(magazineId).get();
+    final data = doc.data();
+    if (data == null) return null;
+    return _fromData(doc.id, data);
   }
 
   /// [시드] kMagazines 데모 데이터를 Firestore에 1회 입력.
@@ -160,6 +187,50 @@ class MagazineService {
       }
     } catch (e) {
       debugPrint('MagazineService.syncArticles 실패: $e');
+    }
+  }
+
+  /// [마이그레이션 v5] 매거진↔발행사 매핑 — kPublisherByMagazineTitle(title
+  /// 기준)로 기존 magazines 문서에 publisherId/publisherName을 채운다.
+  /// 이미 publisherId가 있는 문서는 건너뛰므로 여러 번 실행해도 안전(멱등)하다.
+  /// 매핑표에 없는 title은 debugPrint로 보고하고 건너뛴다(임의 매핑 금지).
+  /// rules상 쓰기 금지면 조용히 건너뜀 (syncCatalog와 동일 패턴).
+  Future<void> syncPublishers() async {
+    try {
+      final snapshot = await _db.collection('magazines').get();
+      final batch = _db.batch();
+      var writes = 0;
+      final List<String> unmatchedTitles = [];
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final String existingPublisherId = data['publisherId'] as String? ?? '';
+        if (existingPublisherId.isNotEmpty) continue;
+
+        final String title = data['title'] as String? ?? '';
+        final PublisherMapping? mapping = kPublisherByMagazineTitle[title];
+        if (mapping == null) {
+          unmatchedTitles.add(title.isEmpty ? '(제목 없음: ${doc.id})' : title);
+          continue;
+        }
+        batch.update(doc.reference, {
+          'publisherId': mapping.id,
+          'publisherName': mapping.name,
+        });
+        writes++;
+      }
+
+      if (writes > 0) {
+        await batch.commit();
+        debugPrint('MagazineService.syncPublishers: $writes개 문서에 발행사 매핑');
+      }
+      if (unmatchedTitles.isNotEmpty) {
+        debugPrint(
+          'MagazineService.syncPublishers: 매핑표에 없는 title ${unmatchedTitles.length}건 → $unmatchedTitles',
+        );
+      }
+    } catch (e) {
+      debugPrint('MagazineService.syncPublishers 실패: $e');
     }
   }
 
