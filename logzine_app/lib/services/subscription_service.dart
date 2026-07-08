@@ -10,7 +10,11 @@ class SubscriptionService {
   String? get _uid => _auth.currentUser?.uid;
 
   DocumentReference<Map<String, dynamic>> _ref(String uid, String magazineId) =>
-      _db.collection('users').doc(uid).collection('subscriptions').doc(magazineId);
+      _db
+          .collection('users')
+          .doc(uid)
+          .collection('subscriptions')
+          .doc(magazineId);
 
   /// 구독 (문서 ID: magazineId)
   Future<void> subscribe({

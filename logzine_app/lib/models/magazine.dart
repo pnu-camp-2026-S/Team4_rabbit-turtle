@@ -16,8 +16,7 @@ class Magazine {
   final String issue;
   final String coverUrl;
 
-  /// 취향 매칭용 태그 — 취향 픽커(taste_picker_page) 어휘와 동일해야
-  /// 사용자 tasteTags와 교집합 추천이 성립한다.
+  /// 취향 매칭용 태그. docs/ui_keyword_vocabulary.md의 UI 키워드만 사용한다.
   final List<String> tags;
 }
 
@@ -29,7 +28,8 @@ const List<Magazine> kMagazines = [
     title: 'CEREAL',
     tagline: 'Focus on the essentials',
     issue: 'Vol. 34',
-    coverUrl: 'https://images.unsplash.com/photo-1519710164239-da123dc03ef4'
+    coverUrl:
+        'https://images.unsplash.com/photo-1519710164239-da123dc03ef4'
         '?auto=format&fit=crop&w=600&q=80',
     tags: ['미니멀', '도시 여행', '사진'],
   ),
@@ -37,15 +37,17 @@ const List<Magazine> kMagazines = [
     title: 'KINFOLK',
     tagline: 'Soft light, slow living',
     issue: 'Vol. 45',
-    coverUrl: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267'
+    coverUrl:
+        'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267'
         '?auto=format&fit=crop&w=600&q=80',
-    tags: ['인테리어', '집밥', '산책'],
+    tags: ['인테리어', '홈라이프', '골목 탐방'],
   ),
   Magazine(
     title: 'ROOM NOTE',
     tagline: 'A quiet life with things that last',
     issue: 'Issue 28',
-    coverUrl: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e'
+    coverUrl:
+        'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e'
         '?auto=format&fit=crop&w=600&q=80',
     tags: ['인테리어', '가구', '공예'],
   ),
@@ -53,7 +55,8 @@ const List<Magazine> kMagazines = [
     title: 'ARK JOURNAL',
     tagline: 'Architecture in everyday life',
     issue: 'Issue 16',
-    coverUrl: 'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6'
+    coverUrl:
+        'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6'
         '?auto=format&fit=crop&w=600&q=80',
     tags: ['디자인', '인테리어', '전시 공간'],
   ),
@@ -61,15 +64,17 @@ const List<Magazine> kMagazines = [
     title: 'apartamento',
     tagline: 'Life in small spaces',
     issue: 'Issue 33',
-    coverUrl: 'https://images.unsplash.com/photo-1484154218962-a197022b5858'
+    coverUrl:
+        'https://images.unsplash.com/photo-1484154218962-a197022b5858'
         '?auto=format&fit=crop&w=600&q=80',
-    tags: ['인테리어', '빈티지', '집밥'],
+    tags: ['인테리어', '빈티지', '홈라이프'],
   ),
   Magazine(
     title: 'Drift',
     tagline: 'Coffee, one city at a time',
     issue: 'Vol. 12',
-    coverUrl: 'https://images.unsplash.com/photo-1504754524776-8f4f37790ca0'
+    coverUrl:
+        'https://images.unsplash.com/photo-1504754524776-8f4f37790ca0'
         '?auto=format&fit=crop&w=600&q=80',
     tags: ['카페', '도시 여행', '로컬 맛집'],
   ),
@@ -77,15 +82,17 @@ const List<Magazine> kMagazines = [
     title: 'The Gourmand',
     tagline: 'Food, art, and everything between',
     issue: 'Issue 21',
-    coverUrl: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411'
+    coverUrl:
+        'https://images.unsplash.com/photo-1485955900006-10f4d324d411'
         '?auto=format&fit=crop&w=600&q=80',
-    tags: ['디저트', '파인다이닝', '현대미술'],
+    tags: ['디저트', '미식 여행', '현대미술'],
   ),
   Magazine(
     title: 'Fantastic Man',
     tagline: 'Style for the quietly confident',
     issue: 'Issue 38',
-    coverUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b'
+    coverUrl:
+        'https://images.unsplash.com/photo-1483985988355-763728e1935b'
         '?auto=format&fit=crop&w=600&q=80',
     tags: ['데일리룩', '디자이너 브랜드', '미니멀'],
   ),
@@ -93,7 +100,8 @@ const List<Magazine> kMagazines = [
     title: 'Wax Poetics',
     tagline: 'Records worth returning to',
     issue: 'Issue 72',
-    coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745'
+    coverUrl:
+        'https://images.unsplash.com/photo-1470225620780-dba8ba36b745'
         '?auto=format&fit=crop&w=600&q=80',
     tags: ['바이닐', '재즈', '인디'],
   ),
@@ -101,15 +109,17 @@ const List<Magazine> kMagazines = [
     title: 'Openhouse',
     tagline: 'Homes and the people who open them',
     issue: 'Issue 19',
-    coverUrl: 'https://images.unsplash.com/photo-1503602642458-232111445657'
+    coverUrl:
+        'https://images.unsplash.com/photo-1503602642458-232111445657'
         '?auto=format&fit=crop&w=600&q=80',
-    tags: ['전시 공간', '동네 가게', '작업실'],
+    tags: ['전시 공간', '로컬 탐방', '작업 루틴'],
   ),
   Magazine(
     title: 'Frieze',
     tagline: 'Contemporary art and culture',
     issue: 'Issue 240',
-    coverUrl: 'https://images.unsplash.com/photo-1531913764164-f85c52e6e654'
+    coverUrl:
+        'https://images.unsplash.com/photo-1531913764164-f85c52e6e654'
         '?auto=format&fit=crop&w=600&q=80',
     tags: ['전시', '현대미술', '디자인'],
   ),
@@ -117,8 +127,9 @@ const List<Magazine> kMagazines = [
     title: 'SUITCASE',
     tagline: 'Travel slowly, stay curious',
     issue: 'Vol. 27',
-    coverUrl: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828'
+    coverUrl:
+        'https://images.unsplash.com/photo-1488646953014-85cb44e25828'
         '?auto=format&fit=crop&w=600&q=80',
-    tags: ['도시 여행', '숙소', '주말 여행'],
+    tags: ['도시 여행', '숙소', '골목 탐방'],
   ),
 ];

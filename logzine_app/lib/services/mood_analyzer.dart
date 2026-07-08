@@ -23,7 +23,8 @@ class GeminiMoodAnalyzer implements MoodAnalyzer {
   /// (구버전 고정 모델은 무료 쿼터가 0인 경우가 있음 — 2.0-flash가 그랬다)
   static const String _model = 'gemini-flash-latest';
 
-  static final String _prompt = '''
+  static final String _prompt =
+      '''
 You are the taste analyzer for LOGZINE, a quiet editorial magazine app.
 Look at the attached mood photos (interiors, objects, scenes the user loves)
 and return ONLY a JSON object with this exact shape:
@@ -31,13 +32,8 @@ and return ONLY a JSON object with this exact shape:
 {
   "tags": [...],       // choose ONLY the 3-6 tags that BEST match, from
                        // this fixed vocabulary (be selective, not greedy):
-                       // Mood: ${kMoodVocab['Mood']!.join(', ')}
-                       // Space: ${kMoodVocab['Space']!.join(', ')}
-                       // Style: ${kMoodVocab['Style']!.join(', ')}
-  "suggested": [...],  // 4-6 short free-form keywords that capture what you
-                       // actually SEE in these specific photos, in English,
-                       // Title case, specific (e.g. "Rattan chair",
-                       // "Morning light", "Stacked books" — not generic)
+                       // ${kMoodVocab.entries.map((entry) => '${entry.key}: ${entry.value.join(', ')}').join('\n                       // ')}
+  "suggested": [...],  // 0-4 weaker UI keywords from the same fixed vocabulary
   "summary": "..."     // one calm, editorial English sentence describing
                        // the user's taste, max 12 words
 }
@@ -88,8 +84,10 @@ Only include a tag if you are confident it matches. Return valid JSON only.
       }
 
       // 모든 텍스트 파트를 합치고(사고 파트 제외), JSON 본문만 안전하게 추출
-      final List responseParts = (jsonDecode(res.body)
-          as Map<String, dynamic>)['candidates'][0]['content']['parts'] as List;
+      final List responseParts =
+          (jsonDecode(res.body)
+                  as Map<String, dynamic>)['candidates'][0]['content']['parts']
+              as List;
       final String text = responseParts
           .where((p) => p['thought'] != true && p['text'] != null)
           .map((p) => p['text'] as String)
@@ -104,11 +102,11 @@ Only include a tag if you are confident it matches. Return valid JSON only.
           .cast<String>()
           .where(kAllMoodTags.contains)
           .toSet();
-      final List<String> suggested =
-          ((data['suggested'] as List?) ?? const [])
-              .cast<String>()
-              .take(6)
-              .toList();
+      final List<String> suggested = ((data['suggested'] as List?) ?? const [])
+          .cast<String>()
+          .where(kAllMoodTags.contains)
+          .take(6)
+          .toList();
       final String summary = (data['summary'] as String?)?.trim() ?? '';
 
       if (tags.isEmpty && suggested.isEmpty) return null;
@@ -122,6 +120,6 @@ Only include a tag if you are confident it matches. Return valid JSON only.
   /// PNG 매직 넘버로 간단히 판별, 그 외에는 JPEG로 취급.
   String _mimeOf(Uint8List bytes) =>
       bytes.length > 4 && bytes[0] == 0x89 && bytes[1] == 0x50
-          ? 'image/png'
-          : 'image/jpeg';
+      ? 'image/png'
+      : 'image/jpeg';
 }

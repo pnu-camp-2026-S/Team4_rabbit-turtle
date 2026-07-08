@@ -142,6 +142,11 @@ class _DiscoverPageState extends State<DiscoverPage> {
                         color: AppColors.ink,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    // 오늘의 키워드 = 카탈로그에서 가장 흔한 태그 (실데이터)
+                    KeywordChip(
+                      keyword: popularTags.isEmpty ? '사진' : popularTags.first,
+                    ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: _searchController,

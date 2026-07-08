@@ -4,8 +4,7 @@ import 'package:logzine_app/main.dart';
 import 'package:logzine_app/widgets/logzine_bookmark.dart';
 
 void main() {
-  testWidgets('스플래시(북마크 리본)로 시작해 웰컴 화면으로 넘어간다',
-      (WidgetTester tester) async {
+  testWidgets('스플래시(북마크 리본)로 시작해 웰컴 화면으로 넘어간다', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
 
     // 스플래시: 북마크 리본 로고가 중앙에

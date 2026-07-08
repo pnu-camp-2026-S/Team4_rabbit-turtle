@@ -32,11 +32,11 @@ class LogzineLockup extends StatelessWidget {
   static double gapOf(double fs) => fs * 0.34;
   static double ribbonHeightOf(double fs) => fs * 1.5;
   static TextStyle wordStyleOf(double fs) => logoStyle(
-        size: fs,
-        weight: FontWeight.w500,
-        letterSpacingEm: 0.14,
-        color: AppColors.ink,
-      ).copyWith(decoration: TextDecoration.none);
+    size: fs,
+    weight: FontWeight.w500,
+    letterSpacingEm: 0.14,
+    color: AppColors.ink,
+  ).copyWith(decoration: TextDecoration.none);
 
   @override
   Widget build(BuildContext context) {
@@ -78,11 +78,17 @@ class _BookmarkPainter extends CustomPainter {
     final Path white = Path()
       ..moveTo(wl, wbot)
       ..lineTo(wl, wtop + wcr)
-      ..arcToPoint(Offset(wl + wcr, wtop),
-          radius: Radius.circular(wcr), clockwise: true)
+      ..arcToPoint(
+        Offset(wl + wcr, wtop),
+        radius: Radius.circular(wcr),
+        clockwise: true,
+      )
       ..lineTo(wr - wcr, wtop)
-      ..arcToPoint(Offset(wr, wtop + wcr),
-          radius: Radius.circular(wcr), clockwise: true)
+      ..arcToPoint(
+        Offset(wr, wtop + wcr),
+        radius: Radius.circular(wcr),
+        clockwise: true,
+      )
       ..lineTo(wr, wbot)
       ..lineTo((wl + wr) / 2, wnotch)
       ..close();
@@ -97,11 +103,17 @@ class _BookmarkPainter extends CustomPainter {
     final Path green = Path()
       ..moveTo(gl, gbot)
       ..lineTo(gl, gtop + gcr)
-      ..arcToPoint(Offset(gl + gcr, gtop),
-          radius: Radius.circular(gcr), clockwise: true)
+      ..arcToPoint(
+        Offset(gl + gcr, gtop),
+        radius: Radius.circular(gcr),
+        clockwise: true,
+      )
       ..lineTo(gr - gcr, gtop)
-      ..arcToPoint(Offset(gr, gtop + gcr),
-          radius: Radius.circular(gcr), clockwise: true)
+      ..arcToPoint(
+        Offset(gr, gtop + gcr),
+        radius: Radius.circular(gcr),
+        clockwise: true,
+      )
       ..lineTo(gr, gbot)
       ..lineTo((gl + gr) / 2, gnotch)
       ..close();

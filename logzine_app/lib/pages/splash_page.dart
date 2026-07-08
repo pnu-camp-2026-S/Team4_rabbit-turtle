@@ -46,9 +46,12 @@ class _SplashPageState extends State<SplashPage>
             const LoginWelcomePage(),
         transitionsBuilder: (context, animation, secondary, child) =>
             FadeTransition(
-          opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-          child: child,
-        ),
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeInOut,
+              ),
+              child: child,
+            ),
       ),
     );
   }
@@ -78,10 +81,12 @@ class _SplashPageState extends State<SplashPage>
           builder: (context, _) {
             final double t = _controller.value;
             final double markIn = Curves.easeOut.transform(_seg(t, 0.0, 0.24));
-            final double settle =
-                Curves.easeOutCubic.transform(_seg(t, 0.18, 0.66));
-            final double lettersIn =
-                Curves.easeOut.transform(_seg(t, 0.62, 0.96));
+            final double settle = Curves.easeOutCubic.transform(
+              _seg(t, 0.18, 0.66),
+            );
+            final double lettersIn = Curves.easeOut.transform(
+              _seg(t, 0.62, 0.96),
+            );
 
             final double markScale = lerpDouble(_bigScale, 1.0, settle)!;
             final double markDy = startDy * (1 - settle);

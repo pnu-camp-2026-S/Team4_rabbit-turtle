@@ -25,8 +25,10 @@ class PublisherService {
 
   String? get _uid => _auth.currentUser?.uid;
 
-  DocumentReference<Map<String, dynamic>> _followRef(String uid, String publisherId) =>
-      _db.collection('users').doc(uid).collection('follows').doc(publisherId);
+  DocumentReference<Map<String, dynamic>> _followRef(
+    String uid,
+    String publisherId,
+  ) => _db.collection('users').doc(uid).collection('follows').doc(publisherId);
 
   /// 발행사 전체 목록 (목록 순서대로)
   Future<List<Publisher>> fetchPublishers() async {
