@@ -6,6 +6,7 @@ import '../services/recommendation_service.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/logzine_bookmark.dart';
 import '../widgets/onboarding_widgets.dart';
 
 /// 검색 화면 데이터 — 매거진 전체 + 사용자 취향(일치 태그 강조용).
@@ -139,16 +140,29 @@ class _DiscoverPageState extends State<DiscoverPage> {
                       controller: _searchController,
                       focusNode: _searchFocus,
                       decoration: InputDecoration(
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          size: 18,
-                          color: AppColors.textMuted,
+                        // 돋보기 대신 브랜드 북마크 리본 로고
+                        prefixIcon: const Padding(
+                          padding: EdgeInsets.only(left: 14, right: 10),
+                          child: LogzineBookmark(height: 20),
                         ),
+                        prefixIconConstraints:
+                            const BoxConstraints(minWidth: 0, minHeight: 0),
                         // 포커스 전에는 오늘의 키워드를 연하게 안내, 탭하면 사라짐
                         hintText: _searchFocus.hasFocus
                             ? '매거진, 키워드, 발행사 검색...'
                             : "Today's keyword · "
                                   '${popularTags.isEmpty ? 'Light' : popularTags.first}',
+                        // 테두리를 딥그린(forest)으로
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: AppColors.forest, width: 1.2),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: AppColors.forest, width: 1.6),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -161,6 +175,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
                         for (final name in quickNames)
                           _OutlineChip(
                             label: name,
+                            // 탭해서 검색어로 채워진 매거진은 선택된 것으로 표시
+                            selected: _query == name,
                             onTap: () => _searchController.text = name,
                           ),
                       ],
