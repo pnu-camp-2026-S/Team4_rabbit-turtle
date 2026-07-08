@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/magazine.dart';
+import '../models/reader_args.dart';
 import '../services/auth_service.dart';
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
@@ -29,6 +30,8 @@ typedef _PublisherItem = ({
   String description,
 });
 typedef _SavedArticleItem = ({
+  String articleId,
+  String magazineId,
   String title,
   String publisher,
   String date,
@@ -50,6 +53,7 @@ class _LibraryData {
     required this.savedCount,
     required this.followsCount,
     required this.followedPublishers,
+    required this.isLoggedIn,
   });
 
   final List<Magazine> magazines;
@@ -58,6 +62,7 @@ class _LibraryData {
   final int savedCount;
   final int followsCount;
   final List<_PublisherItem> followedPublishers;
+  final bool isLoggedIn;
 }
 
 class _LibraryPageState extends State<LibraryPage> {
@@ -102,6 +107,8 @@ class _LibraryPageState extends State<LibraryPage> {
   /// Library의 Saved articles 탭에는 실제 저장 데이터만 보여준다.
   static const List<_SavedArticleItem> _demoSavedArticles = [
     (
+      articleId: '',
+      magazineId: '',
       title: 'The beauty of empty space',
       publisher: 'Openhouse',
       date: 'May 20, 2024',
@@ -109,6 +116,8 @@ class _LibraryPageState extends State<LibraryPage> {
           'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
     ),
     (
+      articleId: '',
+      magazineId: '',
       title: 'A table, a chair, and the light',
       publisher: 'ARK Journal',
       date: 'May 18, 2024',
@@ -157,7 +166,9 @@ class _LibraryPageState extends State<LibraryPage> {
 
   void _refreshLibrary() {
     if (!mounted) return;
-    setState(() => _libraryFuture = _loadLibrary());
+    setState(() {
+      _libraryFuture = _loadLibrary();
+    });
   }
 
   static Future<_LibraryData> _loadLibrary() async {
@@ -178,14 +189,11 @@ class _LibraryPageState extends State<LibraryPage> {
     int savedCount = 0;
     if (isLoggedIn) {
       try {
-        final savedDocs = await SavedService().fetchSaved(limit: 20);
+        final savedDocs = await SavedService().fetchSaved(limit: null);
         savedArticles = [for (final doc in savedDocs) _savedItemFromDoc(doc)];
+        savedCount = savedArticles.length;
       } catch (_) {
         savedArticles = const [];
-      }
-      try {
-        savedCount = await SavedService().fetchSavedCount();
-      } catch (_) {
         savedCount = 0;
       }
     }
@@ -225,6 +233,7 @@ class _LibraryPageState extends State<LibraryPage> {
       savedCount: savedCount,
       followsCount: followsCount,
       followedPublishers: followedPublishers,
+      isLoggedIn: isLoggedIn,
     );
   }
 
@@ -246,6 +255,8 @@ class _LibraryPageState extends State<LibraryPage> {
     final data = doc.data();
     final Timestamp? savedAt = data['savedAt'] as Timestamp?;
     return (
+      articleId: doc.id,
+      magazineId: data['magazineId'] as String? ?? '',
       title: data['articleTitle'] as String? ?? '(제목 없음)',
       publisher: data['magazineTitle'] as String? ?? '',
       date: savedAt == null ? '' : _formatDate(savedAt.toDate()),
@@ -297,7 +308,9 @@ class _LibraryPageState extends State<LibraryPage> {
       MaterialPageRoute(builder: (_) => _PublisherPage(item: publisher)),
     );
     if (mounted) {
-      setState(() => _libraryFuture = _loadLibrary());
+      setState(() {
+        _libraryFuture = _loadLibrary();
+      });
     }
   }
 
@@ -320,87 +333,112 @@ class _LibraryPageState extends State<LibraryPage> {
                 builder: (context, snapshot) {
                   final data = snapshot.data;
                   final magazines = data?.magazines ?? const <Magazine>[];
-                  final savedArticles =
+                  final initialSavedArticles =
                       data?.savedArticles ?? const <_SavedArticleItem>[];
                   final recentViewed = data?.recentViewed ?? _demoRecentViewed;
-                  final savedCount = data?.savedCount ?? 0;
                   final followsCount = data?.followsCount ?? _demoFollowsCount;
                   final followedPublishers =
                       data?.followedPublishers ?? _publishers;
+                  final isLoggedIn =
+                      data?.isLoggedIn ?? AuthService().currentUser != null;
 
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 6),
-                        const PageTitleHeader(title: 'My Library'),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Subscriptions, follows, and saved reading in one place.',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        _SummaryCardGroup(
-                          selected: _selectedSummary,
-                          magazineCount: magazines.length,
-                          savedCount: savedCount,
-                          followsCount: followsCount,
-                          onSelect: (summary) {
-                            setState(() => _selectedSummary = summary);
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 180),
-                          child: _LibraryDetailPanel(
-                            key: ValueKey(_selectedSummary),
-                            selected: _selectedSummary,
-                            magazines: magazines,
-                            publishers: followedPublishers,
-                            savedArticles: savedArticles,
-                            onPublisherTap: (publisher) =>
-                                _openPublisher(context, publisher),
-                            onSavedArticleReturn: _refreshLibrary,
-                          ),
-                        ),
-                        const SizedBox(height: 26),
-                        SectionHeader(
-                          title: 'Recently viewed',
-                          onViewAll: recentViewed.isEmpty
-                              ? null
-                              : () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => _RecentViewedPage(
-                                        items: recentViewed,
-                                      ),
-                                    ),
-                                  );
-                                },
-                        ),
-                        const SizedBox(height: 12),
-                        if (recentViewed.isEmpty)
-                          const _EmptyStateCard(
-                            message:
-                                '아직 읽은 글이 없어요.\n'
-                                '매거진을 펼쳐보면 여기에 기록이 남아요.',
-                          )
-                        else
-                          _RecentShelf(items: recentViewed),
-                        const SizedBox(height: 20),
-                      ],
-                    ),
+                  return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: isLoggedIn
+                        ? SavedService().watchSaved()
+                        : const Stream.empty(),
+                    builder: (context, savedSnapshot) {
+                      final savedArticles = savedSnapshot.hasData
+                          ? [
+                              for (final doc in savedSnapshot.data!.docs)
+                                _savedItemFromDoc(doc),
+                            ]
+                          : initialSavedArticles;
+
+                      return _buildLibraryContent(
+                        context: context,
+                        magazines: magazines,
+                        savedArticles: savedArticles,
+                        recentViewed: recentViewed,
+                        followsCount: followsCount,
+                        followedPublishers: followedPublishers,
+                      );
+                    },
                   );
                 },
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLibraryContent({
+    required BuildContext context,
+    required List<Magazine> magazines,
+    required List<_SavedArticleItem> savedArticles,
+    required List<_RecentViewedItem> recentViewed,
+    required int followsCount,
+    required List<_PublisherItem> followedPublishers,
+  }) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 6),
+          const PageTitleHeader(title: 'My Library'),
+          const SizedBox(height: 4),
+          const Text(
+            'Subscriptions, follows, and saved reading in one place.',
+            style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 20),
+          _SummaryCardGroup(
+            selected: _selectedSummary,
+            magazineCount: magazines.length,
+            savedCount: savedArticles.length,
+            followsCount: followsCount,
+            onSelect: (summary) {
+              setState(() => _selectedSummary = summary);
+            },
+          ),
+          const SizedBox(height: 12),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: _LibraryDetailPanel(
+              key: ValueKey(_selectedSummary),
+              selected: _selectedSummary,
+              magazines: magazines,
+              publishers: followedPublishers,
+              savedArticles: savedArticles,
+              onPublisherTap: (publisher) => _openPublisher(context, publisher),
+              onSavedArticleReturn: _refreshLibrary,
+            ),
+          ),
+          const SizedBox(height: 26),
+          SectionHeader(
+            title: 'Recently viewed',
+            onViewAll: recentViewed.isEmpty
+                ? null
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => _RecentViewedPage(items: recentViewed),
+                      ),
+                    );
+                  },
+          ),
+          const SizedBox(height: 12),
+          if (recentViewed.isEmpty)
+            const _EmptyStateCard(
+              message: '아직 읽은 글이 없어요.\n매거진을 펼쳐보면 여기에 기록이 남아요.',
+            )
+          else
+            _RecentShelf(items: recentViewed),
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }
@@ -796,7 +834,17 @@ class _SavedArticleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () async {
-        await Navigator.pushNamed(context, '/reader');
+        await Navigator.pushNamed(
+          context,
+          '/reader',
+          arguments: ReaderArgs(
+            title: item.title,
+            publisher: item.publisher,
+            magazineId: item.magazineId.isEmpty ? null : item.magazineId,
+            articleId: item.articleId.isEmpty ? null : item.articleId,
+            coverUrl: item.imageUrl.isEmpty ? null : item.imageUrl,
+          ),
+        );
         onReturn?.call();
       },
       child: Padding(

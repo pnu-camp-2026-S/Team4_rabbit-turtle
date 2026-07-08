@@ -66,7 +66,9 @@ class SavedPage extends StatelessWidget {
                     const Text(
                       '북마크한 글과 밑줄 친 문장이 여기에 모여요.',
                       style: TextStyle(
-                          fontSize: 13.5, color: AppColors.textSecondary),
+                        fontSize: 13.5,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 20),
 
@@ -81,7 +83,9 @@ class SavedPage extends StatelessWidget {
                           return Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                                vertical: 28, horizontal: 16),
+                              vertical: 28,
+                              horizontal: 16,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
@@ -91,9 +95,10 @@ class SavedPage extends StatelessWidget {
                               '아직 저장한 글이 없어요.\n리더에서 북마크를 눌러 저장해보세요.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textMuted,
-                                  height: 1.6),
+                                fontSize: 13,
+                                color: AppColors.textMuted,
+                                height: 1.6,
+                              ),
                             ),
                           );
                         }
@@ -108,7 +113,9 @@ class SavedPage extends StatelessWidget {
                               for (int i = 0; i < docs.length; i++) ...[
                                 if (i > 0)
                                   const Divider(
-                                      color: AppColors.border, height: 1),
+                                    color: AppColors.border,
+                                    height: 1,
+                                  ),
                                 _SavedTile(doc: docs[i]),
                               ],
                             ],
@@ -119,13 +126,14 @@ class SavedPage extends StatelessWidget {
                     const SizedBox(height: 24),
 
                     // 하이라이트 모아보기
-                    SectionHeader(
-                        title: 'Marked passages', onViewAll: () {}),
+                    SectionHeader(title: 'Marked passages', onViewAll: () {}),
                     const SizedBox(height: 4),
                     const Text(
                       '매거진을 읽으며 밑줄 친 문장들',
                       style: TextStyle(
-                          fontSize: 12.5, color: AppColors.textMuted),
+                        fontSize: 12.5,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     for (final mark in _marks) ...[
@@ -160,14 +168,20 @@ class _SavedTile extends StatelessWidget {
     final String date = savedAt == null
         ? ''
         : '${savedAt.toDate().year}.'
-            '${savedAt.toDate().month.toString().padLeft(2, '0')}.'
-            '${savedAt.toDate().day.toString().padLeft(2, '0')}';
+              '${savedAt.toDate().month.toString().padLeft(2, '0')}.'
+              '${savedAt.toDate().day.toString().padLeft(2, '0')}';
 
     return InkWell(
       onTap: () => Navigator.pushNamed(
         context,
         '/reader',
-        arguments: ReaderArgs(title: title, publisher: magazine),
+        arguments: ReaderArgs(
+          title: title,
+          publisher: magazine,
+          magazineId: data['magazineId'] as String?,
+          articleId: doc.id,
+          coverUrl: thumb.isEmpty ? null : thumb,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -195,7 +209,9 @@ class _SavedTile extends StatelessWidget {
                   Text(
                     magazine.isEmpty ? date : '$magazine · $date',
                     style: const TextStyle(
-                        fontSize: 12.5, color: AppColors.textSecondary),
+                      fontSize: 12.5,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -263,14 +279,19 @@ class _MarkCard extends StatelessWidget {
                     Text(
                       '$magazine · p.$page',
                       style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary),
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.chevron_right,
-                  size: 16, color: AppColors.textSecondary),
+              const Icon(
+                Icons.chevron_right,
+                size: 16,
+                color: AppColors.textSecondary,
+              ),
             ],
           ),
         ),

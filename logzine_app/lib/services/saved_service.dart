@@ -60,17 +60,17 @@ class SavedService {
 
   /// 저장 목록 1회 조회 (savedAt 내림차순). 비로그인 시 빈 리스트.
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> fetchSaved({
-    int limit = 20,
+    int? limit = 20,
   }) async {
     final uid = _uid;
     if (uid == null) return const [];
-    final snap = await _db
+    Query<Map<String, dynamic>> query = _db
         .collection('users')
         .doc(uid)
         .collection('saved')
-        .orderBy('savedAt', descending: true)
-        .limit(limit)
-        .get();
+        .orderBy('savedAt', descending: true);
+    if (limit != null) query = query.limit(limit);
+    final snap = await query.get();
     return snap.docs;
   }
 
