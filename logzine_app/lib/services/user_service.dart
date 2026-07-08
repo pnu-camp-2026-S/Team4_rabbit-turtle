@@ -57,6 +57,21 @@ class UserService {
     });
   }
 
+  /// 숨긴 매거진 하나를 추천 제외 목록에서 제거.
+  Future<void> unhideMagazine(String magazineId) {
+    return _userRef.update({
+      'excludedMagazines': FieldValue.arrayRemove([magazineId]),
+    });
+  }
+
+  /// "Not for me"로 숨긴 매거진 목록과 관련 피드백을 초기화.
+  Future<void> resetExcludedMagazines() {
+    return _userRef.update({
+      'excludedMagazines': <String>[],
+      'negativeFeedback': <Map<String, dynamic>>[],
+    });
+  }
+
   /// 추천 제외 매거진 ID 목록. 로그인 안 됨/없음이면 빈 목록.
   Future<List<String>> fetchExcludedMagazineIds() async {
     try {
@@ -67,5 +82,54 @@ class UserService {
     } catch (_) {
       return const [];
     }
+  }
+
+  /// Settings 관리 화면용. 실패를 빈 목록으로 숨기지 않고 호출부에서 처리한다.
+  Future<List<String>> fetchExcludedMagazineIdsStrict() async {
+    final snap = await _userRef.get();
+    final data = snap.data();
+    final raw = data?['excludedMagazines'];
+    if (raw is List) return raw.cast<String>();
+    return const [];
+  }
+
+  /// Settings 관리 화면용. 최근 "Not for me" 피드백 순으로 숨긴 매거진 ID를 반환.
+  Future<List<String>> fetchExcludedMagazineIdsByRecentStrict() async {
+    final snap = await _userRef.get();
+    final data = snap.data();
+    final rawExcluded = data?['excludedMagazines'];
+    if (rawExcluded is! List) return const [];
+
+    final excluded = rawExcluded.cast<String>();
+    final latestFeedbackAt = <String, Timestamp>{};
+    final rawFeedback = data?['negativeFeedback'];
+    if (rawFeedback is List) {
+      for (final entry in rawFeedback) {
+        if (entry is! Map) continue;
+        if (entry['reason'] != 'not_for_me') continue;
+        final magazineId = entry['magazineId'];
+        final createdAt = entry['createdAt'];
+        if (magazineId is! String || createdAt is! Timestamp) continue;
+        final previous = latestFeedbackAt[magazineId];
+        if (previous == null ||
+            createdAt.millisecondsSinceEpoch >
+                previous.millisecondsSinceEpoch) {
+          latestFeedbackAt[magazineId] = createdAt;
+        }
+      }
+    }
+
+    final indexed = excluded.asMap().entries.toList();
+    indexed.sort((a, b) {
+      final aTime = latestFeedbackAt[a.value]?.millisecondsSinceEpoch;
+      final bTime = latestFeedbackAt[b.value]?.millisecondsSinceEpoch;
+      if (aTime != null && bTime != null && aTime != bTime) {
+        return bTime.compareTo(aTime);
+      }
+      if (aTime != null) return -1;
+      if (bTime != null) return 1;
+      return b.key.compareTo(a.key);
+    });
+    return [for (final entry in indexed) entry.value];
   }
 }
