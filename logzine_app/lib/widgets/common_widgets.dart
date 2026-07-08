@@ -13,6 +13,7 @@ class LogzineTopBar extends StatelessWidget {
     this.showDivider = false,
     this.onBellTap,
     this.onSettingsTap,
+    this.logoHeight = 28,
   });
 
   final bool showBack;
@@ -22,8 +23,13 @@ class LogzineTopBar extends StatelessWidget {
   final VoidCallback? onBellTap;
   final VoidCallback? onSettingsTap;
 
+  /// LOGZINE 워드마크 높이(px). 홈처럼 로고를 앞세우는 화면에서 키운다.
+  final double logoHeight;
+
   @override
   Widget build(BuildContext context) {
+    // 로고를 키우면 상단 행도 함께 높아져야 잘리지 않는다.
+    final double rowHeight = logoHeight < 36 ? 36 : logoHeight;
     final BoxConstraints? iconConstraints = showDivider
         ? const BoxConstraints.tightFor(width: 36, height: 36)
         : null;
@@ -40,7 +46,7 @@ class LogzineTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 2),
         ],
-        const LogzineLogo(height: 28),
+        LogzineLogo(height: logoHeight),
         const Spacer(),
         if (showBell)
           IconButton(
@@ -74,7 +80,7 @@ class LogzineTopBar extends StatelessWidget {
         Padding(
           padding: EdgeInsets.fromLTRB(showBack ? 8 : 24, 6, 12, 0),
           child: showDivider
-              ? SizedBox(height: 36, child: topBarRow)
+              ? SizedBox(height: rowHeight, child: topBarRow)
               : topBarRow,
         ),
         if (showDivider)
