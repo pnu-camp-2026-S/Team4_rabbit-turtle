@@ -104,6 +104,20 @@ class MarkService {
     return snap.docs.map((d) => MarkRecord.fromMap(d.data())).toList();
   }
 
+  /// 마크(하이라이트·밑줄·메모) 총개수 — count() 집계로 문서 본문은 읽지
+  /// 않는다. 비로그인 시 0.
+  Future<int> fetchMarksCount() async {
+    final uid = _uid;
+    if (uid == null) return 0;
+    final agg = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('marks')
+        .count()
+        .get();
+    return agg.count ?? 0;
+  }
+
   /// 읽기 진행률 저장. 스키마: users/{uid}/progress/{articleId}
   Future<void> saveProgress({
     required String articleId,
