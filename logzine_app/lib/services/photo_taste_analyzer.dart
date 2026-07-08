@@ -96,13 +96,22 @@ class PhotoTasteAnalyzer {
                 'text':
                     '$_prompt\n\nReturn only valid JSON that matches this schema:\n${jsonEncode(_schema)}',
               },
-              for (final photo in photos.take(_maxPhotosPerAnalysis))
+              if (photos.any((photo) => photo.question.isNotEmpty))
+                {
+                  'text':
+                      '참고: 일부 사진 앞에는 사용자가 그 사진으로 답한 질문이 있습니다. '
+                      '질문 맥락(순간·시기·감정)을 keywords의 evidence에 반영하세요.',
+                },
+              for (final photo in photos.take(_maxPhotosPerAnalysis)) ...[
+                if (photo.question.isNotEmpty)
+                  {'text': '다음 사진은 "${photo.question}"에 대한 답입니다.'},
                 {
                   'inlineData': {
                     'mimeType': photo.mimeType,
                     'data': base64Encode(photo.bytes),
                   },
                 },
+              ],
             ],
           },
         ],
