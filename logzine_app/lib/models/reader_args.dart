@@ -8,6 +8,7 @@ class ReaderArgs {
     this.minutes = 18,
     this.magazineId,
     this.articleId,
+    this.coverUrl,
   });
 
   final String category;
@@ -20,4 +21,7 @@ class ReaderArgs {
 
   /// 지정되면(목차에서 진입) 이 아티클을 로드한다. null이면 매거진의 첫 아티클.
   final String? articleId;
+
+  /// 매거진 표지 URL — Save 시 저장 목록 썸네일로 쓰인다. null이면 리더 기본 이미지.
+  final String? coverUrl;
 }

@@ -73,6 +73,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
         publisher: _magazine.issue,
         magazineId: _magazine.id,
         articleId: article.id,
+        coverUrl: _magazine.coverUrl,
       ),
     );
   }
@@ -196,6 +197,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                                             magazineId: _magazine.id.isEmpty
                                                 ? null
                                                 : _magazine.id,
+                                            coverUrl: _magazine.coverUrl,
                                           ),
                                         ),
                                         style: FilledButton.styleFrom(
