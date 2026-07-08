@@ -15,28 +15,40 @@ const List<String> kMoodPhotos = [
       '?auto=format&fit=crop&w=600&q=80',
 ];
 
-/// 상단 바 — 좌측 LOGZINE 워드마크, 우측 Skip.
+/// 온보딩 공용 뒤로가기 버튼 — 이전 화면으로 pop.
+class OnboardingBackButton extends StatelessWidget {
+  const OnboardingBackButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.maybePop(context),
+      borderRadius: BorderRadius.circular(8),
+      child: const Padding(
+        padding: EdgeInsets.all(6),
+        child: Icon(Icons.arrow_back, size: 22, color: AppColors.ink),
+      ),
+    );
+  }
+}
+
+/// 상단 바 — (뒤로가기) + 좌측 LOGZINE 워드마크, 우측 Skip.
 class OnboardingTopBar extends StatelessWidget {
   const OnboardingTopBar({super.key, this.onSkip, this.editMode = false});
 
   final VoidCallback? onSkip;
 
-  /// 메인 화면에서 재진입한 편집 모드 — Skip 대신 뒤로가기를 표시.
+  /// 메인 화면에서 재진입한 편집 모드 — Skip을 숨긴다.
   final bool editMode;
 
   @override
   Widget build(BuildContext context) {
+    // 온보딩 흐름·편집 모드 모두, 돌아갈 화면이 있으면 뒤로가기를 보여준다.
+    final bool canBack = Navigator.of(context).canPop();
     return Row(
       children: [
-        if (editMode) ...[
-          InkWell(
-            onTap: () => Navigator.pop(context),
-            borderRadius: BorderRadius.circular(8),
-            child: const Padding(
-              padding: EdgeInsets.all(6),
-              child: Icon(Icons.arrow_back, size: 22, color: AppColors.ink),
-            ),
-          ),
+        if (canBack) ...[
+          const OnboardingBackButton(),
           const SizedBox(width: 8),
         ],
         const LogzineLogo(height: 24),
