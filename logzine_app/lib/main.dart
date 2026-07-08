@@ -9,6 +9,7 @@ import 'pages/splash_page.dart';
 import 'pages/login_welcome_page.dart';
 import 'pages/login_email_page.dart';
 import 'pages/signup_page.dart';
+import 'pages/onboarding_choice_page.dart';
 import 'pages/mood_upload_page.dart';
 import 'pages/mood_tags_page.dart';
 import 'pages/taste_profile_page.dart';
@@ -24,9 +25,7 @@ import 'pages/taste_picker_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   // 카탈로그/아티클 시드 동기화 — 앱 시작을 막지 않게 비동기 (실패해도 무해)
   MagazineService().syncCatalog().then((_) => MagazineService().syncArticles());
   runApp(const MyApp());
@@ -45,6 +44,7 @@ class MyApp extends StatelessWidget {
         '/welcome': (context) => const LoginWelcomePage(),
         '/login/email': (context) => const LoginEmailPage(),
         '/signup': (context) => const SignupPage(),
+        '/onboarding': (context) => const OnboardingChoicePage(),
         '/onboarding/upload': (context) => const MoodUploadPage(),
         '/onboarding/tags': (context) => const MoodTagsPage(),
         '/onboarding/profile': (context) => const TasteProfilePage(),

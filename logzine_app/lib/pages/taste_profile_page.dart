@@ -68,10 +68,13 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
                       const SizedBox(height: 24),
 
                       if (!_editMode) ...[
-                        // AI 결과 확인 후 → 직접 취향 고르기(/taste)로 이어짐
                         OutlinedButton(
-                          onPressed: () =>
-                              Navigator.pushNamed(context, '/taste'),
+                          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/main',
+                            (route) => false,
+                            arguments: 1,
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.ink,
                             backgroundColor: Colors.white,
@@ -85,7 +88,7 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          child: const Text('취향 직접 고르기'),
+                          child: const Text('Start recommendations'),
                         ),
                       ],
                       const SizedBox(height: 20),
