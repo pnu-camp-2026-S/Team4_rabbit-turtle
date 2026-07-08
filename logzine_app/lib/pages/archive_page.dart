@@ -59,6 +59,14 @@ String _weekdayLabelFor(String yyyyMMdd) {
   return labels[date.weekday - 1];
 }
 
+const List<String> _monthNames = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/// "July 2026" 형식 — 통계 페이지 "This month" 섹션 라벨용.
+String _monthYearLabel(DateTime date) => '${_monthNames[date.month - 1]} ${date.year}';
+
 class ArchivePage extends StatefulWidget {
   const ArchivePage({super.key});
 
@@ -364,7 +372,7 @@ class _ArchivePageState extends State<ArchivePage> {
                                           context,
                                           MaterialPageRoute(
                                             builder: (_) =>
-                                                const _WeeklyReadingPage(),
+                                                const _ReadingStatsPage(),
                                           ),
                                         );
                                       },
@@ -1068,26 +1076,44 @@ class _MarksPage extends StatelessWidget {
   }
 }
 
-/// "Time read" 카드를 탭하면 뜨는 최근 7일(오늘 포함) 읽기 통계 페이지.
-/// 비로그인 → 빈 상태 (My탭 카드는 이미 데모 문구를 보여주고 있어 여기까지
-/// 들어올 일은 드물지만, 방어적으로 빈 리스트를 반환한다).
-class _WeeklyReadingPage extends StatefulWidget {
-  const _WeeklyReadingPage();
+/// "Time read" 카드를 탭하면 뜨는 읽기 통계 페이지 — 이번 달 달력(읽은 날
+/// 마킹) + 이번 주(월~일) 막대 그래프. 비로그인 → 빈 상태 (My탭 카드는 이미
+/// 데모 문구를 보여주고 있어 여기까지 들어올 일은 드물지만, 방어적으로 빈
+/// 데이터를 반환한다).
+class _ReadingStatsPage extends StatefulWidget {
+  const _ReadingStatsPage();
 
   @override
-  State<_WeeklyReadingPage> createState() => _WeeklyReadingPageState();
+  State<_ReadingStatsPage> createState() => _ReadingStatsPageState();
 }
 
-class _WeeklyReadingPageState extends State<_WeeklyReadingPage> {
-  late final Future<List<ReadingStatRecord>> _future = _load();
+class _ReadingStatsData {
+  const _ReadingStatsData({required this.weekly, required this.monthly});
 
-  static Future<List<ReadingStatRecord>> _load() async {
-    if (AuthService().currentUser == null) return const [];
-    try {
-      return await ReadingStatsService().fetchWeeklyStats();
-    } catch (_) {
-      return const [];
+  final List<ReadingStatRecord> weekly;
+  final List<MonthlyReadingRecord> monthly;
+}
+
+class _ReadingStatsPageState extends State<_ReadingStatsPage> {
+  late final Future<_ReadingStatsData> _future = _load();
+
+  static Future<_ReadingStatsData> _load() async {
+    if (AuthService().currentUser == null) {
+      return const _ReadingStatsData(weekly: [], monthly: []);
     }
+    List<ReadingStatRecord> weekly = const [];
+    try {
+      weekly = await ReadingStatsService().fetchWeeklyStats();
+    } catch (_) {
+      weekly = const [];
+    }
+    List<MonthlyReadingRecord> monthly = const [];
+    try {
+      monthly = await ReadingStatsService().fetchMonthlyStats();
+    } catch (_) {
+      monthly = const [];
+    }
+    return _ReadingStatsData(weekly: weekly, monthly: monthly);
   }
 
   @override
@@ -1099,7 +1125,7 @@ class _WeeklyReadingPageState extends State<_WeeklyReadingPage> {
           children: [
             const LogzineTopBar(showBack: true, showBell: false),
             Expanded(
-              child: FutureBuilder<List<ReadingStatRecord>>(
+              child: FutureBuilder<_ReadingStatsData>(
                 future: _future,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
@@ -1107,8 +1133,8 @@ class _WeeklyReadingPageState extends State<_WeeklyReadingPage> {
                       child: CircularProgressIndicator(color: AppColors.forest),
                     );
                   }
-                  final records = snapshot.data!;
-                  if (records.isEmpty) {
+                  final data = snapshot.data!;
+                  if (data.weekly.isEmpty && data.monthly.isEmpty) {
                     return const Padding(
                       padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
                       child: _EmptyStateCard(
@@ -1117,43 +1143,54 @@ class _WeeklyReadingPageState extends State<_WeeklyReadingPage> {
                     );
                   }
 
-                  final int totalSeconds =
-                      records.fold(0, (total, r) => total + r.secondsRead);
-                  final int maxSeconds = records
+                  final int weeklyTotal =
+                      data.weekly.fold(0, (total, r) => total + r.secondsRead);
+                  final int weeklyMax = data.weekly
                       .map((r) => r.secondsRead)
                       .fold(1, (a, b) => b > a ? b : a);
 
                   return ListView(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                     children: [
+                      const SectionHeader(title: 'This month'),
+                      const SizedBox(height: 8),
                       Text(
-                        'This week',
+                        _monthYearLabel(DateTime.now()),
                         style: logoStyle(
-                          size: 28,
+                          size: 22,
                           weight: FontWeight.w500,
                           letterSpacingEm: 0.0,
                           color: AppColors.ink,
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      _SurfaceCard(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: _MonthlyCalendar(records: data.monthly),
+                        ),
+                      ),
+                      const SizedBox(height: 26),
+                      const SectionHeader(title: 'This week'),
                       const SizedBox(height: 4),
                       Text(
-                        'Total ${_formatReadTime(totalSeconds)}',
+                        'Total ${_formatReadTime(weeklyTotal)}',
                         style: const TextStyle(
                           fontSize: 13.5,
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 12),
                       _SurfaceCard(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             children: [
-                              for (int i = 0; i < records.length; i++) ...[
+                              for (int i = 0; i < data.weekly.length; i++) ...[
                                 if (i > 0) const SizedBox(height: 14),
                                 _WeeklyBarRow(
-                                  record: records[i],
-                                  maxSeconds: maxSeconds,
+                                  record: data.weekly[i],
+                                  maxSeconds: weeklyMax,
                                 ),
                               ],
                             ],
@@ -1166,6 +1203,94 @@ class _WeeklyReadingPageState extends State<_WeeklyReadingPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 이번 달 달력 그리드 — 요일 헤더(월~일) + 날짜 셀. 읽은 날(secondsRead > 0)은
+/// forest 옅은 배경으로, 오늘은 테두리로 구분.
+class _MonthlyCalendar extends StatelessWidget {
+  const _MonthlyCalendar({required this.records});
+
+  final List<MonthlyReadingRecord> records;
+
+  static const List<String> _weekdayHeaders = ['월', '화', '수', '목', '금', '토', '일'];
+
+  @override
+  Widget build(BuildContext context) {
+    if (records.isEmpty) return const SizedBox.shrink();
+    final DateTime firstDay = records.first.date;
+    final DateTime today = DateTime.now();
+    // firstDay.weekday: 월=1~일=7 → 1일 앞에 놓일 빈 칸 수
+    final int leadingBlanks = firstDay.weekday - 1;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            for (final label in _weekdayHeaders)
+              Expanded(
+                child: Center(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        GridView.count(
+          crossAxisCount: 7,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 6,
+          crossAxisSpacing: 6,
+          children: [
+            for (int i = 0; i < leadingBlanks; i++) const SizedBox.shrink(),
+            for (final record in records)
+              _CalendarDayCell(
+                record: record,
+                isToday: _isSameDate(record.date, today),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static bool _isSameDate(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+class _CalendarDayCell extends StatelessWidget {
+  const _CalendarDayCell({required this.record, required this.isToday});
+
+  final MonthlyReadingRecord record;
+  final bool isToday;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool hasRead = record.secondsRead > 0;
+    return Container(
+      decoration: BoxDecoration(
+        color: hasRead ? AppColors.forest.withValues(alpha: 0.16) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        border: isToday ? Border.all(color: AppColors.forest, width: 1.4) : null,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '${record.date.day}',
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: hasRead ? FontWeight.w700 : FontWeight.w400,
+          color: hasRead ? AppColors.forest : AppColors.ink,
         ),
       ),
     );
