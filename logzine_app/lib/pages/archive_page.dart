@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/article.dart';
@@ -14,12 +13,6 @@ import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
-typedef _SavedArticleItem = ({
-  String title,
-  String publisher,
-  String date,
-  String imageUrl,
-});
 typedef _MarkItem = ({
   String quote,
   String articleTitle,
@@ -33,11 +26,7 @@ typedef _MarkItem = ({
   String coverUrl,
   String savedAt,
 });
-typedef _MagazineMeta = ({
-  String title,
-  String coverUrl,
-  String publisherName,
-});
+typedef _MagazineMeta = ({String title, String coverUrl, String publisherName});
 typedef _RecentViewedItem = ({
   String articleId,
   String magazineId,
@@ -120,24 +109,6 @@ class ArchivePage extends StatefulWidget {
 class _ArchivePageState extends State<ArchivePage> {
   static const String _avatarUrl =
       'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=400&q=80';
-
-  /// [폴백] 비로그인일 때만 노출하는 데모 저장 글.
-  static const List<_SavedArticleItem> _demoSavedArticles = [
-    (
-      title: 'The beauty of empty space',
-      publisher: 'Openhouse',
-      date: 'May 20, 2024',
-      imageUrl:
-          'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
-    ),
-    (
-      title: 'A table, a chair, and the light',
-      publisher: 'ARK Journal',
-      date: 'May 18, 2024',
-      imageUrl:
-          'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=400&q=80',
-    ),
-  ];
 
   /// [폴백] 비로그인일 때만 노출하는 데모 최근 본 매거진.
   static const List<_RecentViewedItem> _demoRecentViewed = [
@@ -296,21 +267,6 @@ class _ArchivePageState extends State<ArchivePage> {
     );
   }
 
-  static _SavedArticleItem _savedItemFromDoc(
-    QueryDocumentSnapshot<Map<String, dynamic>> doc,
-    Map<String, String> coverOf,
-  ) {
-    final data = doc.data();
-    final Timestamp? savedAt = data['savedAt'] as Timestamp?;
-    final String magazineId = data['magazineId'] as String? ?? '';
-    return (
-      title: data['articleTitle'] as String? ?? '(제목 없음)',
-      publisher: data['magazineTitle'] as String? ?? '',
-      date: savedAt == null ? '' : _formatDate(savedAt.toDate()),
-      imageUrl: coverOf[magazineId] ?? data['coverUrl'] as String? ?? '',
-    );
-  }
-
   static String _formatDate(DateTime date) =>
       '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
 
@@ -338,7 +294,9 @@ class _ArchivePageState extends State<ArchivePage> {
       articleId: record.articleId,
       magazineId: record.magazineId,
       title: title,
-      publisher: meta.publisherName.isNotEmpty ? meta.publisherName : meta.title,
+      publisher: meta.publisherName.isNotEmpty
+          ? meta.publisherName
+          : meta.title,
       progress: record.percent.clamp(0, 100).toInt(),
       imageUrl: meta.coverUrl,
     );
@@ -871,8 +829,7 @@ class _RecentViewedPage extends StatelessWidget {
                   ? const Padding(
                       padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
                       child: _EmptyStateCard(
-                        message:
-                            '아직 최근 본 매거진이 없어요.\n매거진 상세나 리더를 열면 여기에 기록돼요.',
+                        message: '아직 최근 본 매거진이 없어요.\n매거진 상세나 리더를 열면 여기에 기록돼요.',
                       ),
                     )
                   : ListView.separated(
@@ -948,64 +905,6 @@ class _RecentViewedPage extends StatelessWidget {
                       },
                     ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SavedTile extends StatelessWidget {
-  const _SavedTile({required this.item});
-
-  final _SavedArticleItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => Navigator.pushNamed(context, '/reader'),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 58,
-              height: 78,
-              child: NetworkPhoto(url: item.imageUrl, radius: 10),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.publisher,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.date,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.bookmark, size: 18, color: AppColors.ink),
           ],
         ),
       ),
@@ -1109,12 +1008,7 @@ class _SettingsPageState extends State<_SettingsPage> {
             publisherName: byId[id]!.publisherName,
           )
         else
-          (
-            id: id,
-            title: 'Unavailable magazine',
-            issue: '',
-            publisherName: '',
-          ),
+          (id: id, title: 'Unavailable magazine', issue: '', publisherName: ''),
     ];
   }
 
@@ -1123,9 +1017,7 @@ class _SettingsPageState extends State<_SettingsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Show all hidden magazines again?'),
-        content: const Text(
-          'They may appear in your recommendations again.',
-        ),
+        content: const Text('They may appear in your recommendations again.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1156,9 +1048,7 @@ class _SettingsPageState extends State<_SettingsPage> {
     } catch (_) {
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Sign in to manage hidden magazines.'),
-        ),
+        const SnackBar(content: Text('Sign in to manage hidden magazines.')),
       );
     } finally {
       if (mounted) setState(() => _resettingHiddenMagazines = false);
@@ -1276,8 +1166,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                           },
                           onRefresh: () {
                             setState(() {
-                              _hiddenMagazinesFuture =
-                                  _loadHiddenMagazines();
+                              _hiddenMagazinesFuture = _loadHiddenMagazines();
                             });
                           },
                         ),
@@ -1443,11 +1332,7 @@ class _HiddenMagazinesTile extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                _statusText(
-                  loading: loading,
-                  hasError: hasError,
-                  items: items,
-                ),
+                _statusText(loading: loading, hasError: hasError, items: items),
                 style: const TextStyle(
                   fontSize: 12.5,
                   height: 1.45,
@@ -1509,9 +1394,7 @@ class _HiddenMagazinesTile extends StatelessWidget {
                       size: 18,
                     ),
                     label: Text(
-                      expanded
-                          ? 'Show fewer'
-                          : 'View $remaining more',
+                      expanded ? 'Show fewer' : 'View $remaining more',
                     ),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.forest,
@@ -1524,9 +1407,7 @@ class _HiddenMagazinesTile extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: resetting || busyIds.isNotEmpty
-                        ? null
-                        : onReset,
+                    onPressed: resetting || busyIds.isNotEmpty ? null : onReset,
                     icon: resetting
                         ? const SizedBox(
                             width: 16,
@@ -1542,9 +1423,7 @@ class _HiddenMagazinesTile extends StatelessWidget {
                             size: 18,
                           ),
                     label: Text(
-                      resetting
-                          ? 'Showing all...'
-                          : 'Unhide all magazines',
+                      resetting ? 'Showing all...' : 'Unhide all magazines',
                     ),
                     style: _hiddenActionButtonStyle(),
                   ),
@@ -1571,7 +1450,9 @@ class _HiddenMagazinesTile extends StatelessWidget {
     required List<_HiddenMagazineItem> items,
   }) {
     if (loading) return 'Checking magazines removed with Not for me.';
-    if (hasError) return 'Hidden magazine settings are temporarily unavailable.';
+    if (hasError) {
+      return 'Hidden magazine settings are temporarily unavailable.';
+    }
     if (items.isEmpty) return 'No magazines hidden from recommendations.';
     final suffix = items.length == 1 ? '' : 's';
     return '${items.length} magazine$suffix hidden from recommendations.';
@@ -1581,9 +1462,7 @@ class _HiddenMagazinesTile extends StatelessWidget {
     return OutlinedButton.styleFrom(
       foregroundColor: AppColors.forest,
       side: const BorderSide(color: AppColors.border),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     );
   }
 }
@@ -1795,46 +1674,6 @@ class _SliderTile extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SavedArticlesPage extends StatelessWidget {
-  const _SavedArticlesPage({required this.items});
-
-  final List<_SavedArticleItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.screen,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const LogzineTopBar(showBack: true, showBell: false),
-            Expanded(
-              child: items.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
-                      child: _EmptyStateCard(
-                        message: '아직 저장한 글이 없어요.\n리더에서 북마크를 눌러 저장해보세요.',
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                      itemCount: items.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        return _SurfaceCard(
-                          child: _SavedTile(item: items[index]),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
       ),
     );
   }

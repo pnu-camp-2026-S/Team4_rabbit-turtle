@@ -19,13 +19,18 @@ class SavedService {
     required String articleTitle,
     required String magazineTitle,
     required String coverUrl,
+    String subtitle = '',
+    String type = 'article',
   }) async {
     final uid = _uid;
     if (uid == null) return;
     await _ref(uid, articleId).set({
+      'id': articleId,
+      'type': type,
       'magazineId': magazineId,
       'articleTitle': articleTitle,
       'magazineTitle': magazineTitle,
+      'subtitle': subtitle,
       'coverUrl': coverUrl,
       'savedAt': FieldValue.serverTimestamp(),
     });

@@ -94,8 +94,8 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
       context,
       '/reader',
       arguments: ReaderArgs(
-        title: _magazine.title,
-        publisher: _magazine.issue,
+        title: article.title,
+        publisher: _magazine.title,
         magazineId: _magazine.id,
         articleId: article.id,
         coverUrl: _magazine.coverUrl,
