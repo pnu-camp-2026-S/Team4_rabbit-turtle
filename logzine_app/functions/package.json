@@ -1,0 +1,12 @@
+{
+  "name": "logzine-functions",
+  "description": "LOGZINE Gemini proxy (Cloud Functions)",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-functions": "^6.1.0"
+  },
+  "private": true
+}
