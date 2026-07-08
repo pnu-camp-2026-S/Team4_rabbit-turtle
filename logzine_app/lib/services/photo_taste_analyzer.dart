@@ -308,7 +308,17 @@ class PhotoTasteAnalyzer {
 
       final data = _decodeObject(outputText);
       final excludedLabels = _excludedLabelsFromJson(data);
+      // 사용자가 줄글에서 명시한 선호는 AI 보정 결과와 무관하게 항상 합류시킨다
+      // (모델이 놓쳐도 "축구 좋아해" 같은 직접 언급이 유실되지 않도록 이중화).
+      final directPositives = _feedbackPositiveLabels(trimmedFeedback);
       final refinedKeywords = _cleanProfileKeywords([
+        for (final label in directPositives)
+          _keywordFromUiLabel(
+            label,
+            confidence: 0.97,
+            evidence: '줄글 피드백 직접 언급',
+            status: TasteKeywordStatus.confirmed,
+          ),
         ..._refinedKeywordsFromJson(data),
       ], excludedLabels: excludedLabels);
       if (refinedKeywords.isEmpty) {
@@ -549,7 +559,9 @@ class PhotoTasteAnalyzer {
     final compact = feedback.replaceAll(RegExp(r'\s+'), '');
     final downweightsActive =
         compact.contains('활동적인') &&
-        (compact.contains('보다는') || compact.contains('보다'));
+        (compact.contains('보다는') ||
+            compact.contains('보단') ||
+            compact.contains('보다'));
     final negativeSubjects = _negativeSubjects(feedback);
     for (final keyword in keywords) {
       final label = keyword.label;
@@ -589,7 +601,7 @@ class PhotoTasteAnalyzer {
   static Set<String> _negativeSubjects(String feedback) {
     final subjects = <String>{};
     final patterns = [
-      RegExp(r'([가-힣A-Za-z0-9/·\s]{2,18})(?:보다는|보다\s+|말고)'),
+      RegExp(r'([가-힣A-Za-z0-9/·\s]{2,18})(?:보다는|보단|보다\s+|말고)'),
       RegExp(
         r'([가-힣A-Za-z0-9/·\s]{2,18})(?:은|는|이|가)?\s*(?:안\s*좋아|싫어|별로|관심\s*없|제외|빼줘)',
       ),
@@ -636,8 +648,10 @@ class PhotoTasteAnalyzer {
         caseSensitive: false,
       ).hasMatch(trimmed);
 
-      if (compact.contains('보다는') || compact.contains('보다')) {
-        final parts = trimmed.split(RegExp(r'보다는|보다\s+'));
+      if (compact.contains('보다는') ||
+          compact.contains('보단') ||
+          compact.contains('보다')) {
+        final parts = trimmed.split(RegExp(r'보다는|보단|보다\s+'));
         if (parts.length > 1) addLabel(parts.last);
         continue;
       }
@@ -801,8 +815,8 @@ class PhotoTasteAnalyzer {
         .replaceAll(RegExp(r"\bdon'?t like\b", caseSensitive: false), '')
         .replaceAll(RegExp(r'\bdislike\b|\bhate\b', caseSensitive: false), '')
         .replaceAll(RegExp(r'^(나는|제가|내가)\s*'), '')
-        .replaceAll(RegExp(r'^((것|거)(보다는|보다)|사실|그리고|또한|또)\s*'), '')
-        .replaceAll(RegExp(r'.*(?:보다는|보다\s+|말고)\s*'), '')
+        .replaceAll(RegExp(r'^((것|거)(보다는|보단|보다)|사실|그리고|또한|또)\s*'), '')
+        .replaceAll(RegExp(r'.*(?:보다는|보단|보다\s+|말고)\s*'), '')
         .replaceAll(
           RegExp(r'(좋아하긴\s*해|좋아해|좋아하고|좋습니다|좋아|관심 있어|관심있어|원해|선호해|하고 싶어).*$'),
           '',
