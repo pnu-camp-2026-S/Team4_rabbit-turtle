@@ -115,7 +115,14 @@ class _ArchivePageState extends State<ArchivePage> {
     List<_SavedArticleItem> savedArticles = const [];
     try {
       final docs = await SavedService().fetchSaved(limit: 20);
-      savedArticles = [for (final doc in docs) _savedItemFromDoc(doc)];
+      // 저장 당시 coverUrl이 리더 기본 이미지였던 과거 데이터 보정 —
+      // magazineId로 실제 매거진 표지를 우선 사용한다.
+      Map<String, String> coverOf = const {};
+      try {
+        final mags = await MagazineService().fetchMagazines();
+        coverOf = {for (final m in mags) m.id: m.coverUrl};
+      } catch (_) {}
+      savedArticles = [for (final doc in docs) _savedItemFromDoc(doc, coverOf)];
     } catch (_) {
       savedArticles = const [];
     }
@@ -145,14 +152,16 @@ class _ArchivePageState extends State<ArchivePage> {
 
   static _SavedArticleItem _savedItemFromDoc(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    Map<String, String> coverOf,
   ) {
     final data = doc.data();
     final Timestamp? savedAt = data['savedAt'] as Timestamp?;
+    final String magazineId = data['magazineId'] as String? ?? '';
     return (
       title: data['articleTitle'] as String? ?? '(제목 없음)',
       publisher: data['magazineTitle'] as String? ?? '',
       date: savedAt == null ? '' : _formatDate(savedAt.toDate()),
-      imageUrl: data['coverUrl'] as String? ?? '',
+      imageUrl: coverOf[magazineId] ?? data['coverUrl'] as String? ?? '',
     );
   }
 

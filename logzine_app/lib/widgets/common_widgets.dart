@@ -13,7 +13,7 @@ class LogzineTopBar extends StatelessWidget {
     this.showDivider = false,
     this.onBellTap,
     this.onSettingsTap,
-    this.logoHeight = 28,
+    this.logoHeight = 44,
   });
 
   final bool showBack;

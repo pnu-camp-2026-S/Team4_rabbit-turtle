@@ -5,6 +5,7 @@ import '../models/magazine.dart';
 import '../services/auth_service.dart';
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
+import '../services/publisher_service.dart';
 import '../services/saved_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
@@ -19,7 +20,12 @@ class LibraryPage extends StatefulWidget {
 
 enum _LibrarySummary { magazines, publishers, saved }
 
-typedef _PublisherItem = ({String name, String imageUrl, String description});
+typedef _PublisherItem = ({
+  String id,
+  String name,
+  String imageUrl,
+  String description,
+});
 typedef _SavedArticleItem = ({
   String title,
   String publisher,
@@ -40,22 +46,24 @@ class _LibraryData {
     required this.savedArticles,
     required this.recentViewed,
     required this.savedCount,
-    required this.isLoggedIn,
+    required this.followsCount,
+    required this.followedPublishers,
   });
 
   final List<Magazine> magazines;
   final List<_SavedArticleItem> savedArticles;
   final List<_RecentViewedItem> recentViewed;
   final int savedCount;
-
-  /// Publisher follows처럼 실제 데이터 소스가 없는 개인 지표의 표시값을
-  /// 로그인 여부로 가르는 데 쓴다 (로그인 시 0부터 시작하는 정책 일관성).
-  final bool isLoggedIn;
+  final int followsCount;
+  final List<_PublisherItem> followedPublishers;
 }
 
 class _LibraryPageState extends State<LibraryPage> {
+  /// [폴백] publishers 컬렉션이 비기 전까지 쓰는 데모 발행사 목록.
+  /// id는 실 컬렉션이 채워지기 전까지 팔로우 문서 ID로 쓰는 안정적인 슬러그.
   static const List<_PublisherItem> _publishers = [
     (
+      id: 'studio-log',
       name: 'Studio Log',
       imageUrl:
           'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=400&q=80',
@@ -63,6 +71,7 @@ class _LibraryPageState extends State<LibraryPage> {
           'Quiet interiors, lasting objects, and warm editorial photography.',
     ),
     (
+      id: 'room-note',
       name: 'Room Note',
       imageUrl:
           'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80',
@@ -70,6 +79,7 @@ class _LibraryPageState extends State<LibraryPage> {
           'A magazine about gentle rooms, slow mornings, and thoughtful living.',
     ),
     (
+      id: 'oak-paper',
       name: 'Oak Paper',
       imageUrl:
           'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=400&q=80',
@@ -77,6 +87,7 @@ class _LibraryPageState extends State<LibraryPage> {
           'Independent print stories shaped around craft, paper, and tactile design.',
     ),
     (
+      id: 'still-life',
       name: 'Still Life',
       imageUrl:
           'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
@@ -132,7 +143,10 @@ class _LibraryPageState extends State<LibraryPage> {
   /// (0 포함) 항상 실제 count()를 그대로 보여준다.
   static const int _demoSavedCount = 28;
 
-  late final Future<_LibraryData> _libraryFuture = _loadLibrary();
+  /// [폴백] 비로그인일 때만 노출하는 데모 팔로우 수.
+  static const int _demoFollowsCount = 8;
+
+  late Future<_LibraryData> _libraryFuture = _loadLibrary();
 
   static Future<_LibraryData> _loadLibrary() async {
     List<Magazine> magazines;
@@ -166,6 +180,21 @@ class _LibraryPageState extends State<LibraryPage> {
       }
     }
 
+    int followsCount = _demoFollowsCount;
+    List<_PublisherItem> followedPublishers = _publishers;
+    if (isLoggedIn) {
+      try {
+        final followDocs = await PublisherService().fetchFollows();
+        followsCount = followDocs.length;
+        followedPublishers = [
+          for (final doc in followDocs) _publisherItemFromDoc(doc),
+        ];
+      } catch (_) {
+        followsCount = 0;
+        followedPublishers = const [];
+      }
+    }
+
     List<_RecentViewedItem> recentViewed = _demoRecentViewed;
     if (isLoggedIn) {
       try {
@@ -184,7 +213,20 @@ class _LibraryPageState extends State<LibraryPage> {
       savedArticles: savedArticles,
       recentViewed: recentViewed,
       savedCount: savedCount,
-      isLoggedIn: isLoggedIn,
+      followsCount: followsCount,
+      followedPublishers: followedPublishers,
+    );
+  }
+
+  static _PublisherItem _publisherItemFromDoc(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    return (
+      id: doc.id,
+      name: data['publisherName'] as String? ?? '',
+      imageUrl: data['logoUrl'] as String? ?? '',
+      description: '',
     );
   }
 
@@ -234,6 +276,21 @@ class _LibraryPageState extends State<LibraryPage> {
 
   _LibrarySummary _selectedSummary = _LibrarySummary.magazines;
 
+  /// 발행사 상세로 이동 — 거기서 팔로우/언팔로우가 일어날 수 있으므로
+  /// 돌아오면 목록을 새로 불러온다 (home_page의 _openMagazine과 동일 패턴).
+  Future<void> _openPublisher(
+    BuildContext context,
+    _PublisherItem publisher,
+  ) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => _PublisherPage(item: publisher)),
+    );
+    if (mounted) {
+      setState(() => _libraryFuture = _loadLibrary());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -257,7 +314,9 @@ class _LibraryPageState extends State<LibraryPage> {
                       data?.savedArticles ?? _demoSavedArticles;
                   final recentViewed = data?.recentViewed ?? _demoRecentViewed;
                   final savedCount = data?.savedCount ?? _demoSavedCount;
-                  final isLoggedIn = data?.isLoggedIn ?? false;
+                  final followsCount = data?.followsCount ?? _demoFollowsCount;
+                  final followedPublishers =
+                      data?.followedPublishers ?? _publishers;
 
                   return SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -287,7 +346,7 @@ class _LibraryPageState extends State<LibraryPage> {
                           selected: _selectedSummary,
                           magazineCount: magazines.length,
                           savedCount: savedCount,
-                          isLoggedIn: isLoggedIn,
+                          followsCount: followsCount,
                           onSelect: (summary) {
                             setState(() => _selectedSummary = summary);
                           },
@@ -299,8 +358,10 @@ class _LibraryPageState extends State<LibraryPage> {
                             key: ValueKey(_selectedSummary),
                             selected: _selectedSummary,
                             magazines: magazines,
-                            publishers: _publishers,
+                            publishers: followedPublishers,
                             savedArticles: savedArticles,
+                            onPublisherTap: (publisher) =>
+                                _openPublisher(context, publisher),
                           ),
                         ),
                         const SizedBox(height: 26),
@@ -347,14 +408,14 @@ class _SummaryCardGroup extends StatelessWidget {
     required this.selected,
     required this.magazineCount,
     required this.savedCount,
-    required this.isLoggedIn,
+    required this.followsCount,
     required this.onSelect,
   });
 
   final _LibrarySummary selected;
   final int magazineCount;
   final int savedCount;
-  final bool isLoggedIn;
+  final int followsCount;
   final ValueChanged<_LibrarySummary> onSelect;
 
   @override
@@ -374,12 +435,9 @@ class _SummaryCardGroup extends StatelessWidget {
             ),
             const VerticalDivider(color: AppColors.border, width: 1),
             Expanded(
-              // 발행사 팔로우는 스키마에 컬렉션 자체가 없는 미구현 기능.
-              // 로그인 시 개인 지표는 0부터 시작한다는 정책 일관성에 맞춰
-              // 로그인 상태에서는 0, 비로그인 둘러보기에서는 데모값 8을 보여준다.
               child: _SummaryItem(
                 label: 'Publisher follows',
-                value: isLoggedIn ? '0' : '8',
+                value: '$followsCount',
                 icon: Icons.person_outline,
                 active: selected == _LibrarySummary.publishers,
                 onTap: () => onSelect(_LibrarySummary.publishers),
@@ -499,12 +557,14 @@ class _LibraryDetailPanel extends StatelessWidget {
     required this.magazines,
     required this.publishers,
     required this.savedArticles,
+    required this.onPublisherTap,
   });
 
   final _LibrarySummary selected;
   final List<Magazine> magazines;
   final List<_PublisherItem> publishers;
   final List<_SavedArticleItem> savedArticles;
+  final ValueChanged<_PublisherItem> onPublisherTap;
 
   @override
   Widget build(BuildContext context) {
@@ -521,6 +581,11 @@ class _LibraryDetailPanel extends StatelessWidget {
           ),
         );
       case _LibrarySummary.publishers:
+        if (publishers.isEmpty) {
+          return const _EmptyStateCard(
+            message: '아직 팔로우한 발행사가 없어요.\n발행사 프로필에서 Follow를 눌러보세요.',
+          );
+        }
         return _SurfaceCard(
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -531,14 +596,7 @@ class _LibraryDetailPanel extends StatelessWidget {
                 for (final publisher in publishers)
                   _PublisherBubble(
                     item: publisher,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => _PublisherPage(item: publisher),
-                        ),
-                      );
-                    },
+                    onTap: () => onPublisherTap(publisher),
                   ),
               ],
             ),
@@ -925,6 +983,12 @@ class _PublisherPage extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
+                    _FollowButton(
+                      publisherId: item.id,
+                      publisherName: item.name,
+                      logoUrl: item.imageUrl,
+                    ),
                     const SizedBox(height: 24),
                     const Text(
                       'Latest from this publisher',
@@ -947,6 +1011,93 @@ class _PublisherPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 발행사 상세의 팔로우 토글 버튼. 팔로우 여부에 따라 텍스트/스타일이 바뀐다
+/// (미팔로우: forest 채움 "Follow" / 팔로우 중: 아웃라인 "Following").
+class _FollowButton extends StatefulWidget {
+  const _FollowButton({
+    required this.publisherId,
+    required this.publisherName,
+    required this.logoUrl,
+  });
+
+  final String publisherId;
+  final String publisherName;
+  final String logoUrl;
+
+  @override
+  State<_FollowButton> createState() => _FollowButtonState();
+}
+
+class _FollowButtonState extends State<_FollowButton> {
+  bool _following = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFollowing();
+  }
+
+  Future<void> _loadFollowing() async {
+    final following = await PublisherService().isFollowing(widget.publisherId);
+    if (!mounted) return;
+    setState(() => _following = following);
+  }
+
+  Future<void> _toggle() async {
+    final bool nowFollowing = !_following;
+    setState(() => _following = nowFollowing);
+    try {
+      if (nowFollowing) {
+        await PublisherService().follow(
+          publisherId: widget.publisherId,
+          publisherName: widget.publisherName,
+          logoUrl: widget.logoUrl,
+        );
+      } else {
+        await PublisherService().unfollow(widget.publisherId);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _following = !nowFollowing);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('처리 중 문제가 발생했어요')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_following) {
+      return OutlinedButton(
+        onPressed: _toggle,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.ink,
+          side: const BorderSide(color: AppColors.border),
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        child: const Text('Following'),
+      );
+    }
+    return FilledButton(
+      onPressed: _toggle,
+      style: FilledButton.styleFrom(
+        backgroundColor: AppColors.forest,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+      child: const Text('Follow'),
     );
   }
 }

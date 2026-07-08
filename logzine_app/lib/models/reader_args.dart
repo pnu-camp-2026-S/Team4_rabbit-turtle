@@ -23,7 +23,7 @@ class ReaderArgs {
   /// 지정되면(목차에서 진입) 이 아티클을 로드한다. null이면 매거진의 첫 아티클.
   final String? articleId;
 
-  /// 지정되면 리더 상단/중간 이미지에 선택한 매거진 표지를 사용한다.
+  /// 매거진 표지 URL — Save 시 저장 목록 썸네일로 쓰인다. null이면 리더 기본 이미지.
   final String? coverUrl;
 
   /// 리더 상단의 Today's keyword 칩에 표시할 대표 키워드.

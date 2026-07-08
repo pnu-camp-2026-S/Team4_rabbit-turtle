@@ -26,6 +26,7 @@ class DiscoverPage extends StatefulWidget {
 
 class _DiscoverPageState extends State<DiscoverPage> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
   late final Future<_SearchData> _dataFuture = _loadData();
 
   /// 검색어 (실시간 반영)
@@ -58,11 +59,14 @@ class _DiscoverPageState extends State<DiscoverPage> {
     _searchController.addListener(() {
       setState(() => _query = _searchController.text.trim());
     });
+    // 포커스가 바뀌면 검색창 힌트(오늘의 키워드) 표시 여부를 갱신
+    _searchFocus.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -146,13 +150,18 @@ class _DiscoverPageState extends State<DiscoverPage> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: _searchController,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(
+                      focusNode: _searchFocus,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(
                           Icons.search,
                           size: 18,
                           color: AppColors.textMuted,
                         ),
-                        hintText: '매거진, 키워드, 발행사 검색...',
+                        // 포커스 전에는 오늘의 키워드를 연하게 안내, 탭하면 사라짐
+                        hintText: _searchFocus.hasFocus
+                            ? '매거진, 키워드, 발행사 검색...'
+                            : "Today's keyword · "
+                                  '${popularTags.isEmpty ? 'Light' : popularTags.first}',
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -395,38 +404,21 @@ class _SearchResultCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
+                      spacing: 10,
+                      runSpacing: 4,
                       children: [
-                        // 내 취향과 일치하는 태그는 forest 색으로 강조
+                        // 배경 없이 텍스트만 — 내 취향과 일치하는 태그는 forest 강조
                         for (final tag in magazine.tags)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
+                          Text(
+                            '#$tag',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: matched.contains(tag)
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                               color: matched.contains(tag)
-                                  ? AppColors.forest.withValues(alpha: 0.08)
-                                  : AppColors.screen,
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: matched.contains(tag)
-                                    ? AppColors.forest.withValues(alpha: 0.4)
-                                    : AppColors.border,
-                              ),
-                            ),
-                            child: Text(
-                              '#$tag',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: matched.contains(tag)
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
-                                color: matched.contains(tag)
-                                    ? AppColors.forest
-                                    : AppColors.textSecondary,
-                              ),
+                                  ? AppColors.forest
+                                  : AppColors.textSecondary,
                             ),
                           ),
                       ],

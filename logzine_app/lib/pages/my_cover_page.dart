@@ -35,7 +35,13 @@ class _MyCoverPageState extends State<MyCoverPage> {
     } catch (_) {}
     if (mounted) setState(() => _taste = taste);
 
-    final art = await CoverArtService.weeklyCover(taste);
+    // 어떤 예외가 나도 로딩은 반드시 끝낸다 (무한 스피너 방지)
+    Uint8List? art;
+    try {
+      art = await CoverArtService.weeklyCover(taste);
+    } catch (_) {
+      art = null;
+    }
     if (mounted) {
       setState(() {
         _art = art;

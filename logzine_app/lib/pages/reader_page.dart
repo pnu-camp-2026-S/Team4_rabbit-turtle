@@ -288,7 +288,8 @@ class _ReaderPageState extends State<ReaderPage> {
           magazineId: magazineId,
           articleTitle: _args.title,
           magazineTitle: _args.publisher,
-          coverUrl: _heroUrl,
+          // 저장 썸네일 = 매거진 표지 (없으면 리더 기본 이미지)
+          coverUrl: _args.coverUrl ?? _heroUrl,
         );
       } else {
         await _savedService.unsave(articleId);

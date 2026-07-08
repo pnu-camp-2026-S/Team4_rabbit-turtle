@@ -6,7 +6,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
-    // 사용자 데이터: 본인만 읽기/쓰기
+    // 발행사: 매거진과 동일 — 누구나 읽기, 쓰기 금지
+    match /publishers/{publisherId}/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // 사용자 데이터: 본인만 읽기/쓰기 (marks/progress/saved/subscriptions/follows 전부 포함)
     match /users/{uid}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
