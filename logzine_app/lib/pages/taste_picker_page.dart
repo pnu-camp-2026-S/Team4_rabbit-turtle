@@ -19,49 +19,71 @@ class _Facet {
   final List<String> tags; // 세부 태그
 }
 
-/// 취향 트리 — 대분류 6개(가판대 커버), 각 대분류의 세부 태그.
+/// 취향 트리 — UI keyword vocabulary 기준 대분류와 세부 태그.
 const List<_Facet> _kFacets = [
   _Facet(
     name: '음식',
     caption: 'FOOD',
-    photo: 'https://images.unsplash.com/photo-1504754524776-8f4f37790ca0'
+    photo:
+        'https://images.unsplash.com/photo-1504754524776-8f4f37790ca0'
         '?auto=format&fit=crop&w=600&q=80',
-    tags: ['카페', '디저트', '와인', '집밥', '파인다이닝', '로컬 맛집'],
+    tags: ['카페', '커피', '디저트', '베이커리', '브런치', '전통차', '와인', '로컬 맛집'],
   ),
   _Facet(
     name: '패션',
     caption: 'FASHION',
-    photo: 'https://images.unsplash.com/photo-1483985988355-763728e1935b'
+    photo:
+        'https://images.unsplash.com/photo-1483985988355-763728e1935b'
         '?auto=format&fit=crop&w=600&q=80',
-    tags: ['미니멀', '빈티지', '스트릿', '디자이너 브랜드', '액세서리', '데일리룩'],
+    tags: ['미니멀', '빈티지', '스트릿', '클래식', '디자이너 브랜드', '스포츠웨어', '액세서리', '데일리룩'],
   ),
   _Facet(
     name: '공간',
     caption: 'SPACE',
-    photo: 'https://images.unsplash.com/photo-1503602642458-232111445657'
+    photo:
+        'https://images.unsplash.com/photo-1503602642458-232111445657'
         '?auto=format&fit=crop&w=600&q=80',
-    tags: ['인테리어', '가구', '호텔', '전시 공간', '동네 가게', '작업실'],
+    tags: ['인테리어', '가구', '한옥', '호텔', '전시 공간', '서점', '정원', '복합문화공간'],
   ),
   _Facet(
     name: '여행',
     caption: 'TRAVEL',
-    photo: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828'
+    photo:
+        'https://images.unsplash.com/photo-1488646953014-85cb44e25828'
         '?auto=format&fit=crop&w=600&q=80',
-    tags: ['도시 여행', '로컬', '숙소', '산책', '자연', '주말 여행'],
+    tags: ['도시 여행', '해외 도시', '랜드마크', '골목 탐방', '자연', '숙소', '미식 여행', '스포츠 여행'],
   ),
   _Facet(
     name: '예술',
     caption: 'ART',
-    photo: 'https://images.unsplash.com/photo-1531913764164-f85c52e6e654'
+    photo:
+        'https://images.unsplash.com/photo-1531913764164-f85c52e6e654'
         '?auto=format&fit=crop&w=600&q=80',
-    tags: ['전시', '현대미술', '공예', '디자인', '일러스트', '사진'],
+    tags: ['전시', '현대미술', '건축', '공예', '디자인', '일러스트', '사진', '아트페어'],
   ),
   _Facet(
     name: '음악',
     caption: 'MUSIC',
-    photo: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745'
+    photo:
+        'https://images.unsplash.com/photo-1470225620780-dba8ba36b745'
         '?auto=format&fit=crop&w=600&q=80',
-    tags: ['인디', '재즈', '플레이리스트', '공연', '바이닐', '사운드트랙'],
+    tags: ['인디', '재즈', '라이브 공연', '페스티벌', '플레이리스트', '바이닐', '클래식', '사운드트랙'],
+  ),
+  _Facet(
+    name: '스포츠',
+    caption: 'SPORTS',
+    photo:
+        'https://images.unsplash.com/photo-1461896836934-ffe607ba8211'
+        '?auto=format&fit=crop&w=600&q=80',
+    tags: ['축구', '야구', '러닝', '요가', '클라이밍', '스포츠 관람', '경기장 투어', '스포츠 여행'],
+  ),
+  _Facet(
+    name: '라이프',
+    caption: 'LIFESTYLE',
+    photo:
+        'https://images.unsplash.com/photo-1499750310107-5fef28a66643'
+        '?auto=format&fit=crop&w=600&q=80',
+    tags: ['독서', '웰니스', '작업 루틴', '홈라이프', '반려생활', '취미 수집', '조용한 휴식', '로컬 탐방'],
   ),
 ];
 
@@ -78,15 +100,19 @@ class _TastePickerPageState extends State<TastePickerPage>
     with SingleTickerProviderStateMixin {
   static const int _start = 2; // 가운데(공간)에서 시작
 
-  final PageController _controller =
-      PageController(viewportFraction: 0.62, initialPage: _start);
+  final PageController _controller = PageController(
+    viewportFraction: 0.62,
+    initialPage: _start,
+  );
 
   late final AnimationController _reveal = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 320),
   );
-  late final Animation<double> _revealCurve =
-      CurvedAnimation(parent: _reveal, curve: Curves.easeOutCubic);
+  late final Animation<double> _revealCurve = CurvedAnimation(
+    parent: _reveal,
+    curve: Curves.easeOutCubic,
+  );
 
   double _page = _start.toDouble();
   int _current = _start;
@@ -210,8 +236,7 @@ class _TastePickerPageState extends State<TastePickerPage>
         // 열림 시 태그 지면 시작점 = 화면 아래 약 1/3 지점.
         final double tagsTopOpen = h * 0.66;
         // 커버 블록(커버+점)은 그 위 공간을 채우도록 세로로 길게.
-        final double blockH =
-            (tagsTopOpen - openTop - gap).clamp(240.0, 380.0);
+        final double blockH = (tagsTopOpen - openTop - gap).clamp(240.0, 380.0);
         final double carouselH = blockH - 18; // 점(12+6) 제외
         final double closedTop = ((h - blockH) / 2).clamp(0.0, h);
 
@@ -289,10 +314,7 @@ class _TastePickerPageState extends State<TastePickerPage>
                     );
                   }
                 },
-                child: _FacetCover(
-                  facet: _kFacets[index],
-                  elevated: isCenter,
-                ),
+                child: _FacetCover(facet: _kFacets[index], elevated: isCenter),
               ),
             ),
           ),
@@ -374,7 +396,10 @@ class _Header extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           '취향을 매거진처럼 넘겨보고, 가까운 장면을 열어보세요.',
-          style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
+          style: const TextStyle(
+            fontSize: 13.5,
+            color: AppColors.textSecondary,
+          ),
         ),
       ],
     );

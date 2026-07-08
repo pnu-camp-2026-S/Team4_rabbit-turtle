@@ -64,6 +64,21 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
       } catch (_) {} // 비로그인·오프라인이어도 온보딩은 계속
       if (!mounted) return;
       Navigator.pushNamed(context, '/onboarding/profile', arguments: profile);
+    } on TasteAnalysisException {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('줄글 분석이 필요해요'),
+          content: const Text('AI가 작성한 피드백을 분석하지 못했어요. 잠시 후 다시 시도해주세요.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
     } finally {
       if (mounted) setState(() => _refining = false);
     }
