@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/magazine.dart';
-import '../services/curator_service.dart';
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
 import '../services/recommendation_service.dart';
@@ -58,33 +57,6 @@ class _HomePageState extends State<HomePage> {
   Future<_HomeData> _homeFuture = _loadHome();
   late final Future<_RecentMarkInfo> _recentMarkFuture = _loadRecentMark();
   String? _selectedTasteLabel;
-
-  /// AI 큐레이터 한 줄 — 홈 데이터가 준비되면 취향+오늘의 픽으로 생성.
-  Future<String>? _curatorFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _watchCurator(_homeFuture);
-  }
-
-  void _watchCurator(Future<_HomeData> future) {
-    future
-        .then((data) {
-          if (!mounted) return;
-          final int center = data.shelf.length > 2 ? 2 : 0;
-          final String topPick = data.shelf.isEmpty
-              ? ''
-              : data.shelf[center].title;
-          setState(() {
-            _curatorFuture = CuratorService.todayLine(
-              taste: data.taste,
-              topPick: topPick,
-            );
-          });
-        })
-        .catchError((_) {});
-  }
 
   static Future<_HomeData> _loadHome() async {
     List<Magazine> magazines;
@@ -161,35 +133,6 @@ class _HomePageState extends State<HomePage> {
     return '${diff.inDays} d ago';
   }
 
-  /// 오늘의 지면 날짜줄 — WEDNESDAY · JULY 8
-  String get _dateLine {
-    const weekdays = [
-      'MONDAY',
-      'TUESDAY',
-      'WEDNESDAY',
-      'THURSDAY',
-      'FRIDAY',
-      'SATURDAY',
-      'SUNDAY',
-    ];
-    const months = [
-      'JANUARY',
-      'FEBRUARY',
-      'MARCH',
-      'APRIL',
-      'MAY',
-      'JUNE',
-      'JULY',
-      'AUGUST',
-      'SEPTEMBER',
-      'OCTOBER',
-      'NOVEMBER',
-      'DECEMBER',
-    ];
-    final now = DateTime.now();
-    return '${weekdays[now.weekday - 1]} · ${months[now.month - 1]} ${now.day}';
-  }
-
   Future<void> _openMagazine(BuildContext context, Magazine magazine) async {
     await Navigator.pushNamed(context, '/discover/why', arguments: magazine);
     if (mounted) {
@@ -197,7 +140,6 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _homeFuture = next;
       });
-      _watchCurator(next);
     }
   }
 
@@ -232,19 +174,6 @@ class _HomePageState extends State<HomePage> {
     return RecommendationService.arrangeForShelf(ranked);
   }
 
-  String _lineForSelectedTaste(
-    String? selectedTaste,
-    List<Magazine> magazines,
-  ) {
-    if (magazines.isEmpty) return 'Picked from your taste';
-    final int center = magazines.length > 2 ? 2 : 0;
-    final String topPick = magazines[center].title;
-    if (selectedTaste == null) {
-      return 'Picked from your taste, start with $topPick.';
-    }
-    return 'Picked for $selectedTaste, start with $topPick.';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -266,66 +195,10 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 12),
-                    // ── 오늘의 지면(Front Page) 헤더 ──
-                    Text(_dateLine, style: eyebrowStyle()),
-                    const SizedBox(height: 12),
-                    // AI 큐레이터의 한 줄 — 보일 듯 말 듯, 조용하게
-                    FutureBuilder<String>(
-                      future: _curatorFuture,
-                      builder: (context, snapshot) {
-                        final String line = snapshot.data ?? '오늘의 가판대가 도착했어요';
-                        return AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 500),
-                          child: Text(
-                            line,
-                            key: ValueKey(line),
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              height: 1.55,
-                              fontStyle: FontStyle.italic,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                     SectionHeader(
                       title: 'Today\'s stand',
                       onViewAll: () => Navigator.pushNamed(context, '/stand'),
-                    ),
-                    const SizedBox(height: 6),
-                    // 선택한 취향 칩에 맞춰 바뀌는 선반 안내 (팀원 #90)
-                    FutureBuilder<_HomeData>(
-                      future: _homeFuture,
-                      builder: (context, snapshot) {
-                        final _HomeData? data = snapshot.data;
-                        final labels = _chipLabels(
-                          data?.taste ?? const <String>[],
-                        );
-                        final selectedTaste = _resolvedSelectedTaste(labels);
-                        final magazines = data == null
-                            ? const <Magazine>[]
-                            : _shelfForSelectedTaste(data, selectedTaste);
-                        final line = _lineForSelectedTaste(
-                          selectedTaste,
-                          magazines,
-                        );
-                        return AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          child: Text(
-                            line,
-                            key: ValueKey(line),
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              height: 1.45,
-                              fontStyle: FontStyle.italic,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        );
-                      },
                     ),
                   ],
                 ),
@@ -379,7 +252,6 @@ class _HomePageState extends State<HomePage> {
                                 _homeFuture = next;
                                 _selectedTasteLabel = null;
                               });
-                              _watchCurator(next);
                             }
                           },
                           child: const Row(
