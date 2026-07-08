@@ -11,6 +11,7 @@ import '../services/magazine_service.dart';
 import '../services/article_text_size_service.dart';
 import '../services/mark_service.dart';
 import '../services/publisher_service.dart';
+import '../services/reading_stats_service.dart';
 import '../services/saved_service.dart';
 
 /// 하이라이트/메모 마크.
@@ -102,8 +103,13 @@ class _ReaderPageState extends State<ReaderPage> {
 
   final MarkService _markService = MarkService();
   final SavedService _savedService = SavedService();
+  final ReadingStatsService _readingStatsService = ReadingStatsService();
   String? _magazineId;
   String? _articleId;
+
+  /// 리더 화면 진입~dispose 구간의 체류 시간. 탭 전환/백그라운드에도 계속
+  /// 흐르며, dispose에서 경과 초를 한 번에 반영한다 (별도 lifecycle 처리 불필요).
+  final Stopwatch _readStopwatch = Stopwatch();
 
   @override
   void didChangeDependencies() {
@@ -121,6 +127,7 @@ class _ReaderPageState extends State<ReaderPage> {
   @override
   void initState() {
     super.initState();
+    _readStopwatch.start();
     _rebuildRecognizers(_paragraphs);
     // 스크롤 → 읽기 진행률 연동
     _scroll.addListener(() {
@@ -310,6 +317,11 @@ class _ReaderPageState extends State<ReaderPage> {
   @override
   void dispose() {
     _saveProgress();
+    _readStopwatch.stop();
+    final int readSeconds = _readStopwatch.elapsed.inSeconds;
+    if (readSeconds >= 3) {
+      _readingStatsService.addReadingSeconds(readSeconds);
+    }
     for (final r in _recognizers.values) {
       r.dispose();
     }
