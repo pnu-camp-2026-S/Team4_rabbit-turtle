@@ -6,6 +6,7 @@ import '../services/article_text_size_service.dart';
 import '../services/auth_service.dart';
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
+import '../services/reading_stats_service.dart';
 import '../services/saved_service.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
@@ -24,12 +25,33 @@ class _ArchiveData {
     required this.savedArticles,
     required this.marks,
     required this.marksCount,
+    required this.todaySeconds,
   });
 
   final bool isLoggedIn;
   final List<_SavedArticleItem> savedArticles;
   final List<_MarkItem> marks;
   final int marksCount;
+  final int todaySeconds;
+}
+
+/// 초 → '0m' / '1h 24m' 표기 (기존 화면 형식 유지).
+String _formatReadTime(int seconds) {
+  final int totalMinutes = seconds ~/ 60;
+  final int hours = totalMinutes ~/ 60;
+  final int minutes = totalMinutes % 60;
+  return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
+}
+
+/// yyyyMMdd 문서 ID → 요일 라벨 (Mon~Sun)
+String _weekdayLabelFor(String yyyyMMdd) {
+  final DateTime date = DateTime(
+    int.parse(yyyyMMdd.substring(0, 4)),
+    int.parse(yyyyMMdd.substring(4, 6)),
+    int.parse(yyyyMMdd.substring(6, 8)),
+  );
+  const List<String> labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  return labels[date.weekday - 1];
 }
 
 class ArchivePage extends StatefulWidget {
@@ -103,6 +125,7 @@ class _ArchivePageState extends State<ArchivePage> {
         savedArticles: _demoSavedArticles,
         marks: _demoMarks,
         marksCount: _demoMarksCount,
+        todaySeconds: 0,
       );
     }
 
@@ -138,11 +161,19 @@ class _ArchivePageState extends State<ArchivePage> {
       marks = const [];
     }
 
+    int todaySeconds = 0;
+    try {
+      todaySeconds = await ReadingStatsService().fetchTodaySeconds();
+    } catch (_) {
+      todaySeconds = 0;
+    }
+
     return _ArchiveData(
       isLoggedIn: true,
       savedArticles: savedArticles,
       marks: marks,
       marksCount: marksCount,
+      todaySeconds: todaySeconds,
     );
   }
 
@@ -250,7 +281,9 @@ class _ArchivePageState extends State<ArchivePage> {
                   final savedArticles = data?.savedArticles ?? _demoSavedArticles;
                   final marks = data?.marks ?? _demoMarks;
                   final int marksCount = data?.marksCount ?? _demoMarksCount;
-                  final String timeRead = isLoggedIn ? '0m' : '1h 24m';
+                  final int todaySeconds = data?.todaySeconds ?? 0;
+                  final String timeRead =
+                      isLoggedIn ? _formatReadTime(todaySeconds) : '1h 24m';
 
                   return SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -311,10 +344,21 @@ class _ArchivePageState extends State<ArchivePage> {
                               child: Row(
                                 children: [
                                   Expanded(
-                                    child: _StatItem(
-                                      label: 'Time read',
-                                      value: timeRead,
-                                      icon: Icons.schedule,
+                                    child: InkWell(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const _WeeklyReadingPage(),
+                                          ),
+                                        );
+                                      },
+                                      child: _StatItem(
+                                        label: 'Time read',
+                                        value: timeRead,
+                                        icon: Icons.schedule,
+                                      ),
                                     ),
                                   ),
                                   const VerticalDivider(color: AppColors.border, width: 1),
@@ -986,6 +1030,155 @@ class _MarksPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "Time read" 카드를 탭하면 뜨는 최근 7일(오늘 포함) 읽기 통계 페이지.
+/// 비로그인 → 빈 상태 (My탭 카드는 이미 데모 문구를 보여주고 있어 여기까지
+/// 들어올 일은 드물지만, 방어적으로 빈 리스트를 반환한다).
+class _WeeklyReadingPage extends StatefulWidget {
+  const _WeeklyReadingPage();
+
+  @override
+  State<_WeeklyReadingPage> createState() => _WeeklyReadingPageState();
+}
+
+class _WeeklyReadingPageState extends State<_WeeklyReadingPage> {
+  late final Future<List<ReadingStatRecord>> _future = _load();
+
+  static Future<List<ReadingStatRecord>> _load() async {
+    if (AuthService().currentUser == null) return const [];
+    try {
+      return await ReadingStatsService().fetchWeeklyStats();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.screen,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const LogzineTopBar(showBack: true, showBell: false),
+            Expanded(
+              child: FutureBuilder<List<ReadingStatRecord>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: AppColors.forest),
+                    );
+                  }
+                  final records = snapshot.data!;
+                  if (records.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
+                      child: _EmptyStateCard(
+                        message: '아직 읽은 기록이 없어요.\n리더에서 글을 읽으면 여기에 쌓여요.',
+                      ),
+                    );
+                  }
+
+                  final int totalSeconds =
+                      records.fold(0, (total, r) => total + r.secondsRead);
+                  final int maxSeconds = records
+                      .map((r) => r.secondsRead)
+                      .fold(1, (a, b) => b > a ? b : a);
+
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                    children: [
+                      Text(
+                        'This week',
+                        style: logoStyle(
+                          size: 28,
+                          weight: FontWeight.w500,
+                          letterSpacingEm: 0.0,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Total ${_formatReadTime(totalSeconds)}',
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _SurfaceCard(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              for (int i = 0; i < records.length; i++) ...[
+                                if (i > 0) const SizedBox(height: 14),
+                                _WeeklyBarRow(
+                                  record: records[i],
+                                  maxSeconds: maxSeconds,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WeeklyBarRow extends StatelessWidget {
+  const _WeeklyBarRow({required this.record, required this.maxSeconds});
+
+  final ReadingStatRecord record;
+  final int maxSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final double ratio =
+        maxSeconds == 0 ? 0 : record.secondsRead / maxSeconds;
+    return Row(
+      children: [
+        SizedBox(
+          width: 36,
+          child: Text(
+            _weekdayLabelFor(record.date),
+            style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: ratio.clamp(0.0, 1.0),
+              minHeight: 10,
+              backgroundColor: const Color(0xFFEFEBE0),
+              valueColor: const AlwaysStoppedAnimation(AppColors.forest),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 54,
+          child: Text(
+            _formatReadTime(record.secondsRead),
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+          ),
+        ),
+      ],
     );
   }
 }
