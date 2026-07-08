@@ -393,46 +393,6 @@ class _ArchivePageState extends State<ArchivePage> {
                           userName: userName,
                         ),
                         const SizedBox(height: 24),
-                        SectionHeader(
-                          title: 'Saved articles',
-                          onViewAll: savedArticles.isEmpty
-                              ? null
-                              : () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => _SavedArticlesPage(
-                                        items: savedArticles,
-                                      ),
-                                    ),
-                                  );
-                                },
-                        ),
-                        const SizedBox(height: 10),
-                        if (savedArticles.isEmpty)
-                          const _EmptyStateCard(
-                            message: '아직 저장한 글이 없어요.\n리더에서 북마크를 눌러 저장해보세요.',
-                          )
-                        else
-                          _SurfaceCard(
-                            child: Column(
-                              children: [
-                                for (
-                                  int i = 0;
-                                  i < savedArticles.length;
-                                  i++
-                                ) ...[
-                                  if (i > 0)
-                                    const Divider(
-                                      color: AppColors.border,
-                                      height: 1,
-                                    ),
-                                  _SavedTile(item: savedArticles[i]),
-                                ],
-                              ],
-                            ),
-                          ),
-                        const SizedBox(height: 22),
                         const SectionHeader(title: 'This week'),
                         const SizedBox(height: 10),
                         _SurfaceCard(
@@ -487,6 +447,46 @@ class _ArchivePageState extends State<ArchivePage> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 22),
+                        SectionHeader(
+                          title: 'Saved articles',
+                          onViewAll: savedArticles.isEmpty
+                              ? null
+                              : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => _SavedArticlesPage(
+                                        items: savedArticles,
+                                      ),
+                                    ),
+                                  );
+                                },
+                        ),
+                        const SizedBox(height: 10),
+                        if (savedArticles.isEmpty)
+                          const _EmptyStateCard(
+                            message: '아직 저장한 글이 없어요.\n리더에서 북마크를 눌러 저장해보세요.',
+                          )
+                        else
+                          _SurfaceCard(
+                            child: Column(
+                              children: [
+                                for (
+                                  int i = 0;
+                                  i < savedArticles.length;
+                                  i++
+                                ) ...[
+                                  if (i > 0)
+                                    const Divider(
+                                      color: AppColors.border,
+                                      height: 1,
+                                    ),
+                                  _SavedTile(item: savedArticles[i]),
+                                ],
+                              ],
+                            ),
+                          ),
                         const SizedBox(height: 24),
                       ],
                     ),
