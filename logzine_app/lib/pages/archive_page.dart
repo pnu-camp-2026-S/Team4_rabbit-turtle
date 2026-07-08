@@ -386,8 +386,8 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
   }
 
   Future<void> _openRefine() async {
-    // 실제 취향 편집은 취향 픽커(/taste)에서 — 편집 모드로 진입
-    await Navigator.pushNamed(context, '/taste', arguments: 'edit');
+    // 취향 재분석은 사진 분석/키워드 선택 진입 화면에서 시작한다.
+    await Navigator.pushNamed(context, '/onboarding', arguments: 'edit');
     // 편집 화면에서 돌아오면 최신 취향으로 갱신
     _loadTaste();
   }

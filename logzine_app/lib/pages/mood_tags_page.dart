@@ -6,6 +6,14 @@ import '../widgets/onboarding_widgets.dart'
     show OnboardingHeader, OnboardingPrimaryButton, OnboardingTopBar, TasteChip;
 
 import '../services/user_service.dart';
+import 'taste_profile_page.dart';
+
+class MoodTagsPageArgs {
+  const MoodTagsPageArgs({required this.analysis, this.editMode = false});
+
+  final TasteAnalysisResult analysis;
+  final bool editMode;
+}
 
 /// 온보딩 2단계 — 분석 중 태그 선택.
 class MoodTagsPage extends StatefulWidget {
@@ -19,6 +27,7 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
   final TextEditingController _feedbackController = TextEditingController();
   final Set<String> _selected = <String>{};
   TasteAnalysisResult? _analysis;
+  bool _editMode = false;
   bool _argsApplied = false;
   bool _refining = false;
 
@@ -33,9 +42,13 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_argsApplied) return;
-    _analysis =
-        ModalRoute.of(context)?.settings.arguments as TasteAnalysisResult? ??
-        TasteAnalysisResult.empty();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is MoodTagsPageArgs) {
+      _analysis = args.analysis;
+      _editMode = args.editMode;
+    } else {
+      _analysis = args as TasteAnalysisResult? ?? TasteAnalysisResult.empty();
+    }
     _selected.addAll(
       _analysis!.primaryKeywords.map((keyword) => keyword.label),
     );
@@ -63,7 +76,26 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
         await UserService().saveTasteTags(profile.displayTags);
       } catch (_) {} // 비로그인·오프라인이어도 온보딩은 계속
       if (!mounted) return;
-      Navigator.pushNamed(context, '/onboarding/profile', arguments: profile);
+      Navigator.pushNamed(
+        context,
+        '/onboarding/profile',
+        arguments: TasteProfilePageArgs(profile: profile, editMode: _editMode),
+      );
+    } on TasteAnalysisException {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('줄글 분석이 필요해요'),
+          content: const Text('AI가 작성한 피드백을 분석하지 못했어요. 잠시 후 다시 시도해주세요.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
     } finally {
       if (mounted) setState(() => _refining = false);
     }
@@ -82,7 +114,7 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 8),
-              const OnboardingTopBar(),
+              OnboardingTopBar(editMode: _editMode),
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(

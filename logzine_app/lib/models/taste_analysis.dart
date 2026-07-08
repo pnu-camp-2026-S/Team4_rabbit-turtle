@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
 enum TasteKeywordType {
@@ -37,6 +38,8 @@ class TasteKeyword {
     required this.type,
     required this.confidence,
     required this.evidence,
+    this.category,
+    this.mappedConcepts = const [],
     this.status = TasteKeywordStatus.draft,
   });
 
@@ -44,6 +47,8 @@ class TasteKeyword {
   final TasteKeywordType type;
   final double confidence;
   final String evidence;
+  final String? category;
+  final List<String> mappedConcepts;
   final TasteKeywordStatus status;
 
   TasteKeyword copyWith({TasteKeywordStatus? status}) {
@@ -52,6 +57,8 @@ class TasteKeyword {
       type: type,
       confidence: confidence,
       evidence: evidence,
+      category: category,
+      mappedConcepts: mappedConcepts,
       status: status ?? this.status,
     );
   }
@@ -90,7 +97,7 @@ class TasteAnalysisResult {
   List<TasteKeyword> get secondaryKeywords => keywords
       .where((keyword) => keyword.status == TasteKeywordStatus.draft)
       .skip(3)
-      .take(5)
+      .take(8)
       .toList();
 
   List<TasteKeyword> get uncertainKeywords => keywords
@@ -130,8 +137,9 @@ class PhotoTasteAnalyzer {
     'GEMINI_MODEL',
     defaultValue: 'gemini-2.5-flash',
   );
-  static const String _fallbackModel = 'gemini-flash-latest';
-  static const int _maxAttemptsPerModel = 3;
+  static const String _fallbackModel = 'gemini-2.0-flash';
+  static const int _maxAttemptsPerModel = 2;
+  static const int _maxPhotosPerAnalysis = 6;
 
   static Future<TasteAnalysisResult> analyze(List<TastePhoto> photos) async {
     if (photos.isEmpty) {
@@ -153,17 +161,26 @@ class PhotoTasteAnalyzer {
           lastResponse = response;
 
           if (response.statusCode >= 200 && response.statusCode < 300) {
-            return _resultFromResponse(response, photos);
-          }
-
-          if (!_shouldRetryResponse(response)) {
-            throw TasteAnalysisException(_friendlyHttpError(response));
+            try {
+              return _resultFromResponse(response, photos);
+            } on FormatException catch (error) {
+              lastError = error;
+            } on TasteAnalysisException catch (error) {
+              lastError = error;
+            }
+          } else if (!_shouldRetryResponse(response)) {
+            lastError = TasteAnalysisException(_friendlyHttpError(response));
+            break;
           }
         } on TasteAnalysisException {
           rethrow;
         } on TimeoutException catch (error) {
           lastError = error;
         } on http.ClientException catch (error) {
+          lastError = error;
+        } on FormatException catch (error) {
+          lastError = error;
+        } on TypeError catch (error) {
           lastError = error;
         }
 
@@ -174,20 +191,22 @@ class PhotoTasteAnalyzer {
     }
 
     if (lastResponse != null) {
-      throw TasteAnalysisException(_friendlyHttpError(lastResponse));
+      debugPrint('[PhotoTasteAnalyzer] ${_friendlyHttpError(lastResponse)}');
+      return _fallbackAnalysisResult(photos);
     }
-    throw TasteAnalysisException(
-      'Gemini 분석 요청이 일시적으로 불안정해요. 잠시 뒤 다시 시도해주세요. ${lastError ?? ''}',
+    debugPrint(
+      '[PhotoTasteAnalyzer] fallback after analysis error: $lastError',
     );
+    return _fallbackAnalysisResult(photos);
   }
 
   static List<String> get _candidateModels {
-    if (_model == _fallbackModel) return const [_model];
-    return const [_model, _fallbackModel];
+    final models = <String>[_model, _fallbackModel];
+    return models.toSet().toList();
   }
 
   static Duration _retryDelay(int attempt) {
-    return Duration(milliseconds: 900 * (1 << attempt));
+    return Duration(milliseconds: 900 * (1 << attempt) + 250 * attempt);
   }
 
   static Future<http.Response> _requestAnalysis(
@@ -212,7 +231,7 @@ class PhotoTasteAnalyzer {
                     'text':
                         '$_prompt\n\nReturn only valid JSON that matches this schema:\n${jsonEncode(_schema)}',
                   },
-                  for (final photo in photos)
+                  for (final photo in photos.take(_maxPhotosPerAnalysis))
                     {
                       'inlineData': {
                         'mimeType': photo.mimeType,
@@ -222,35 +241,86 @@ class PhotoTasteAnalyzer {
                 ],
               },
             ],
-            'generationConfig': {'responseMimeType': 'application/json'},
+            'generationConfig': {
+              'responseMimeType': 'application/json',
+              'temperature': 0.2,
+              'topP': 0.8,
+              'maxOutputTokens': 2048,
+            },
           }),
         )
-        .timeout(const Duration(seconds: 35));
+        .timeout(const Duration(seconds: 25));
   }
 
   static TasteAnalysisResult _resultFromResponse(
     http.Response response,
     List<TastePhoto> photos,
   ) {
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final decodedRaw = jsonDecode(response.body);
+    if (decodedRaw is! Map<String, dynamic>) {
+      throw const TasteAnalysisException('Gemini 응답 형식이 예상과 달라요.');
+    }
+    final decoded = decodedRaw;
     final outputText = _extractOutputText(decoded);
     if (outputText == null || outputText.trim().isEmpty) {
       throw const TasteAnalysisException('Gemini 응답에서 분석 JSON을 찾지 못했어요.');
     }
 
-    final data = jsonDecode(outputText) as Map<String, dynamic>;
+    final data = _decodeObject(outputText);
+    final keywords = <TasteKeyword>[];
+    final rawKeywords = data['keywords'];
+    if (rawKeywords is List<dynamic>) {
+      for (final item in rawKeywords) {
+        if (item is! Map<String, dynamic>) continue;
+        final keyword = _keywordFromJson(item);
+        if (keyword == null) continue;
+        if (keywords.any((value) => value.label == keyword.label)) continue;
+        keywords.add(keyword);
+      }
+    }
+
+    final rawMoreSignals = data['more_signals'];
+    if (rawMoreSignals is List<dynamic>) {
+      for (final item in rawMoreSignals) {
+        if (item is! String) continue;
+        final label = _normalizeFinalLabel(item);
+        if (label == null) continue;
+        if (keywords.any((value) => value.label == label)) continue;
+        keywords.add(_keywordFromUiLabel(label, confidence: 0.72));
+      }
+    }
+
+    if (keywords.isEmpty) {
+      throw const TasteAnalysisException('분석 결과에서 사용할 키워드를 찾지 못했어요.');
+    }
+
     return TasteAnalysisResult(
       photos: photos,
-      summary: data['summary'] as String,
-      keywords: [
-        for (final item in data['keywords'] as List<dynamic>)
-          _keywordFromJson(item as Map<String, dynamic>),
-      ],
-      recommendedQuestion: data['recommended_question'] as String,
+      summary: data['summary'] as String? ?? '사진에서 관심사 후보를 찾았어요.',
+      keywords: keywords,
+      recommendedQuestion:
+          data['recommended_question'] as String? ?? '가장 마음에 드는 후보만 남겨주세요.',
       privacyNotes: [
-        for (final note in data['privacy_notes'] as List<dynamic>)
-          note as String,
+        for (final note in (data['privacy_notes'] as List<dynamic>? ?? []))
+          if (note is String) note,
       ],
+    );
+  }
+
+  static TasteAnalysisResult _fallbackAnalysisResult(List<TastePhoto> photos) {
+    return TasteAnalysisResult(
+      photos: photos,
+      summary: '이미지 분석이 잠시 불안정해서 기본 관심사 후보를 먼저 준비했어요. 맞는 키워드만 남기고 자유롭게 수정해주세요.',
+      keywords: [
+        _keywordFromUiLabel('카페', confidence: 0.55, evidence: '기본 후보'),
+        _keywordFromUiLabel('조용한 휴식', confidence: 0.55, evidence: '기본 후보'),
+        _keywordFromUiLabel('로컬 탐방', confidence: 0.52, evidence: '기본 후보'),
+        _keywordFromUiLabel('전시', confidence: 0.5, evidence: '기본 후보'),
+        _keywordFromUiLabel('디자인', confidence: 0.5, evidence: '기본 후보'),
+        _keywordFromUiLabel('골목 탐방', confidence: 0.5, evidence: '기본 후보'),
+      ],
+      recommendedQuestion: '분석이 불안정했어요. 지금 보이는 후보 중 맞는 것만 남겨주세요.',
+      privacyNotes: const ['AI 분석 실패 시 기본 후보를 표시함'],
     );
   }
 
@@ -265,7 +335,9 @@ class PhotoTasteAnalyzer {
     }
 
     try {
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final decodedRaw = jsonDecode(response.body);
+      if (decodedRaw is! Map<String, dynamic>) return false;
+      final decoded = decodedRaw;
       final error = decoded['error'];
       if (error is! Map<String, dynamic>) return false;
       final message = (error['message'] as String? ?? '').toLowerCase();
@@ -333,13 +405,17 @@ class PhotoTasteAnalyzer {
     required Set<String> confirmedLabels,
     required String feedback,
   }) async {
-    final fallback = buildProfile(
+    final baseProfile = buildProfile(
       analysis: analysis,
       confirmedLabels: confirmedLabels,
-      feedback: '',
+      feedback: feedback,
     );
     final trimmedFeedback = feedback.trim();
-    if (_apiKey.isEmpty || trimmedFeedback.isEmpty) return fallback;
+    if (trimmedFeedback.isEmpty) return baseProfile;
+
+    if (_apiKey.isEmpty) {
+      throw const TasteAnalysisException('줄글 분석을 위한 GEMINI_API_KEY가 없습니다.');
+    }
 
     final aiKeywords = [for (final keyword in analysis.keywords) keyword.label];
     final selectedKeywords = [
@@ -359,20 +435,23 @@ class PhotoTasteAnalyzer {
         feedback: trimmedFeedback,
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        return fallback;
+        debugPrint('[TasteKeywordRefiner] ${_friendlyHttpError(response)}');
+        throw TasteAnalysisException(_friendlyHttpError(response));
       }
 
-      final outputText = _extractOutputText(
-        jsonDecode(response.body) as Map<String, dynamic>,
-      );
-      if (outputText == null || outputText.trim().isEmpty) return fallback;
+      final outputText = _extractOutputText(_decodeHttpObject(response.body));
+      if (outputText == null || outputText.trim().isEmpty) {
+        throw const TasteAnalysisException('AI 줄글 분석 결과를 찾지 못했어요.');
+      }
 
-      final data = jsonDecode(outputText) as Map<String, dynamic>;
+      final data = _decodeObject(outputText);
       final excludedLabels = _excludedLabelsFromJson(data);
       final refinedKeywords = _cleanProfileKeywords([
         ..._refinedKeywordsFromJson(data),
       ], excludedLabels: excludedLabels);
-      if (refinedKeywords.isEmpty) return fallback;
+      if (refinedKeywords.isEmpty) {
+        throw const TasteAnalysisException('AI가 최종 키워드를 확정하지 못했어요.');
+      }
 
       final photoTags = analysis.keywords.map((keyword) {
         return excludedLabels.any(
@@ -381,17 +460,20 @@ class PhotoTasteAnalyzer {
             ? keyword.copyWith(status: TasteKeywordStatus.removed)
             : keyword;
       }).toList();
+      final sortedKeywords = _sortFinalKeywords(refinedKeywords);
 
       return TasteProfileDraft(
         photoTags: photoTags,
-        confirmedTags: refinedKeywords,
-        preferenceProfile: refinedKeywords,
-        summary: _profileSummary(refinedKeywords),
+        confirmedTags: sortedKeywords,
+        preferenceProfile: sortedKeywords,
+        summary: _profileSummary(sortedKeywords),
         photos: analysis.photos,
         feedback: trimmedFeedback,
       );
-    } catch (_) {
-      return fallback;
+    } catch (error) {
+      debugPrint('[TasteKeywordRefiner] failed: $error');
+      if (error is TasteAnalysisException) rethrow;
+      throw const TasteAnalysisException('줄글 분석 중 오류가 발생했어요. 다시 시도해주세요.');
     }
   }
 
@@ -402,10 +484,11 @@ class PhotoTasteAnalyzer {
     required String feedback,
   }) {
     final input = {
-      'ai_keywords': aiKeywords,
+      'photo_keywords': aiKeywords,
       'selected_keywords': selectedKeywords,
       'deselected_keywords': deselectedKeywords,
       'free_text_feedback': feedback,
+      'allowed_ui_keywords': _allowedUiKeywords.toList(),
     };
 
     return http
@@ -429,22 +512,51 @@ class PhotoTasteAnalyzer {
                 ],
               },
             ],
-            'generationConfig': {'responseMimeType': 'application/json'},
+            'generationConfig': {
+              'responseMimeType': 'application/json',
+              'temperature': 0.1,
+              'topP': 0.8,
+              'maxOutputTokens': 1200,
+            },
           }),
         )
-        .timeout(const Duration(seconds: 25));
+        .timeout(const Duration(seconds: 12));
   }
 
   static List<TasteKeyword> _refinedKeywordsFromJson(
     Map<String, dynamic> json,
   ) {
+    final mainItems = json['main_keywords'];
+    if (mainItems is List<dynamic>) {
+      final keywords = <TasteKeyword>[];
+      for (final item in mainItems) {
+        if (item is! Map<String, dynamic>) continue;
+        final label = _normalizeFinalLabel(
+          item['ui_keyword'] as String? ?? item['label'] as String? ?? '',
+        );
+        if (label == null ||
+            keywords.any((keyword) => keyword.label == label)) {
+          continue;
+        }
+        keywords.add(
+          _keywordFromUiLabel(
+            label,
+            confidence: ((item['confidence'] as num?) ?? 0.95).toDouble(),
+            evidence: item['reason'] as String? ?? '사용자 피드백 정제',
+            status: TasteKeywordStatus.confirmed,
+          ),
+        );
+        if (keywords.length >= 6) break;
+      }
+      if (keywords.isNotEmpty) return keywords;
+    }
+
     final displayKeywords = _displayKeywordsFromJson(json);
     if (displayKeywords.isNotEmpty) {
       return [
         for (final label in displayKeywords)
-          TasteKeyword(
-            label: label,
-            type: TasteKeywordType.preference,
+          _keywordFromUiLabel(
+            label,
             confidence: 0.95,
             evidence: '사용자 피드백 정제',
             status: TasteKeywordStatus.confirmed,
@@ -458,19 +570,20 @@ class PhotoTasteAnalyzer {
     final keywords = <TasteKeyword>[];
     for (final item in items) {
       if (item is! Map<String, dynamic>) continue;
-      final label = _normalizeFinalLabel(item['label'] as String? ?? '');
+      final label = _normalizeFinalLabel(
+        item['ui_keyword'] as String? ?? item['label'] as String? ?? '',
+      );
       if (label == null || label.isEmpty) continue;
       if (keywords.any((keyword) => keyword.label == label)) continue;
       keywords.add(
-        TasteKeyword(
-          label: label,
-          type: _typeFromApi(item['type'] as String? ?? 'preference'),
+        _keywordFromUiLabel(
+          label,
           confidence: ((item['confidence'] as num?) ?? 0.9).toDouble(),
           evidence: item['reason'] as String? ?? '사용자 피드백 정제',
           status: TasteKeywordStatus.confirmed,
         ),
       );
-      if (keywords.length >= 8) break;
+      if (keywords.length >= 6) break;
     }
     return keywords;
   }
@@ -492,13 +605,18 @@ class PhotoTasteAnalyzer {
   static Set<String> _excludedLabelsFromJson(Map<String, dynamic> json) {
     final items = json['excluded_keywords'];
     if (items is! List<dynamic>) return const <String>{};
-    return {
-      for (final item in items)
-        if (item is Map<String, dynamic> &&
-            item['label'] is String &&
-            (item['label'] as String).trim().isNotEmpty)
-          (item['label'] as String).trim(),
-    };
+    final labels = <String>{};
+    for (final item in items) {
+      final raw = switch (item) {
+        String value => value,
+        Map<String, dynamic> value =>
+          value['ui_keyword'] as String? ?? value['label'] as String? ?? '',
+        _ => '',
+      };
+      final label = _normalizeFinalLabel(raw);
+      if (label != null) labels.add(label);
+    }
+    return labels;
   }
 
   static Set<String> _feedbackRemovedLabels(
@@ -579,15 +697,65 @@ class PhotoTasteAnalyzer {
       cleaned.add(
         TasteKeyword(
           label: label,
-          type: keyword.type,
+          type: _typeFromCategory(_uiKeywordCategories[label]) ?? keyword.type,
           confidence: keyword.confidence,
           evidence: keyword.evidence,
+          category: _uiKeywordCategories[label],
+          mappedConcepts: _uiKeywordConcepts[label] ?? const [],
           status: keyword.status,
         ),
       );
       if (cleaned.length >= 6) break;
     }
     return cleaned;
+  }
+
+  static List<TasteKeyword> _sortFinalKeywords(List<TasteKeyword> keywords) {
+    final indexed = [
+      for (var index = 0; index < keywords.length; index++)
+        MapEntry(index, keywords[index]),
+    ];
+    indexed.sort((left, right) {
+      final priorityCompare = _finalKeywordPriority(
+        right.value,
+      ).compareTo(_finalKeywordPriority(left.value));
+      if (priorityCompare != 0) return priorityCompare;
+
+      final confidenceCompare = right.value.confidence.compareTo(
+        left.value.confidence,
+      );
+      if (confidenceCompare != 0) return confidenceCompare;
+
+      return left.key.compareTo(right.key);
+    });
+
+    final sorted = indexed.map((entry) => entry.value).toList();
+    final diversified = <TasteKeyword>[];
+    final remaining = <TasteKeyword>[];
+    final seenCategories = <String>{};
+    for (final keyword in sorted) {
+      final category = keyword.category ?? _uiKeywordCategories[keyword.label];
+      if (category != null && seenCategories.add(category)) {
+        diversified.add(keyword);
+      } else {
+        remaining.add(keyword);
+      }
+    }
+    return [...diversified, ...remaining].take(6).toList();
+  }
+
+  static int _finalKeywordPriority(TasteKeyword keyword) {
+    var score = 0;
+    if (keyword.status == TasteKeywordStatus.confirmed) score += 40;
+    if (keyword.evidence.contains('줄글') || keyword.evidence.contains('피드백')) {
+      score += 30;
+    }
+    if (keyword.type == TasteKeywordType.preference ||
+        keyword.type == TasteKeywordType.interest ||
+        keyword.type == TasteKeywordType.context) {
+      score += 10;
+    }
+    return score;
   }
 
   static bool _labelsOverlap(String left, String right) {
@@ -675,25 +843,7 @@ class PhotoTasteAnalyzer {
     final finalMapped = _taxonomyLabelFor(label);
     if (finalMapped != null) return finalMapped;
 
-    if (label.length < 2 || label.length > 16) return null;
-    if (label.contains('...') || label.contains('…')) return null;
-    if (label.contains('보다는') || label.contains('좋아하긴')) return null;
-    if (RegExp(
-      r"나는|제가|내가|I like|I\b|I'm",
-      caseSensitive: false,
-    ).hasMatch(label)) {
-      return null;
-    }
-    if (RegExp(
-      r"싫어|안 좋아|관심 없어|무서워|두려워|겁나|not into|don'?t like|afraid|scared",
-      caseSensitive: false,
-    ).hasMatch(label)) {
-      return null;
-    }
-    if (RegExp(r'(을|를|은|는|이|가|하고|안|도)$').hasMatch(label)) {
-      return null;
-    }
-    return label;
+    return null;
   }
 
   static bool _looksLikeRawOrNegativeFeedback(String value) {
@@ -717,61 +867,146 @@ class PhotoTasteAnalyzer {
         .replaceAll(RegExp(r'\s+'), '')
         .replaceAll(RegExp(r'[.!?。！？,]'), '');
     if (compact.isEmpty) return null;
+    if (_allowedUiKeywords.contains(value.trim())) return value.trim();
 
     if (compact.contains('조용한') && compact.contains('분위기')) {
-      return '조용한 분위기';
+      return '조용한 휴식';
     }
     if (compact.contains('조용한') &&
         (compact.contains('휴식') || compact.contains('쉬'))) {
       return '조용한 휴식';
     }
     if (compact.contains('차분한') || compact.contains('잔잔한')) {
-      return '차분한 분위기';
+      return '조용한 휴식';
     }
-    if (compact.contains('여행')) return '여행';
-    if (compact.contains('활동적') || compact.contains('액티브')) {
-      return '활동적인 취향';
+    if (compact.contains('해외') && compact.contains('도시')) {
+      return '해외 도시';
     }
-    if (compact.contains('아웃도어') || compact.contains('야외')) {
-      return '자연/아웃도어';
+    if (compact.contains('도시') && compact.contains('여행')) {
+      return '도시 여행';
     }
-    if (compact.contains('자연') || compact.contains('풍경')) {
-      return '자연 풍경';
+    if (compact.contains('미식') && compact.contains('여행')) {
+      return '미식 여행';
+    }
+    if (compact.contains('스포츠') && compact.contains('여행')) {
+      return '스포츠 여행';
+    }
+    if (compact.contains('여행')) return '도시 여행';
+    if (compact.contains('골목') || compact.contains('도시탐험')) {
+      return '골목 탐방';
+    }
+    if (compact.contains('로컬') || compact.contains('동네')) {
+      return '로컬 탐방';
+    }
+    if (compact.contains('아웃도어') ||
+        compact.contains('야외') ||
+        compact.contains('자연') ||
+        compact.contains('풍경')) {
+      return '자연';
     }
     if (compact.contains('공부') ||
         compact.contains('업무') ||
         compact.contains('작업')) {
-      return '공부/작업';
+      return '작업 루틴';
     }
     if (compact.contains('문화') && compact.contains('건축')) {
-      return '문화/건축';
+      return '건축';
     }
     if (compact.contains('건축') || compact.contains('디자인')) {
-      return '건축/디자인';
+      return compact.contains('건축') ? '건축' : '디자인';
     }
     if (compact.contains('전시') ||
         compact.contains('갤러리') ||
         compact.contains('예술')) {
-      return '전시/예술';
+      return '전시';
     }
     if (compact.contains('카페') && compact.contains('커피')) {
-      return '카페/커피';
+      return '카페';
     }
     if (compact.contains('카페')) return '카페';
     if (compact.contains('커피')) return '커피';
+    if (compact.contains('베이킹') || compact.contains('베이커리')) {
+      return '베이커리';
+    }
+    if (compact.contains('디저트')) return '디저트';
+    if (compact.contains('브런치')) return '브런치';
+    if (compact.contains('한옥')) return '한옥';
+    if (compact.contains('서점')) return '서점';
+    if (compact.contains('정원')) return '정원';
+    if (compact.contains('축구')) return '축구';
+    if (compact.contains('야구')) return '야구';
+    if (compact.contains('러닝') || compact.contains('달리기')) return '러닝';
+    if (compact.contains('요가')) return '요가';
+    if (compact.contains('클라이밍')) return '클라이밍';
+    if (compact.contains('경기장')) return '경기장 투어';
+    if (compact.contains('스포츠') && compact.contains('관람')) {
+      return '스포츠 관람';
+    }
+    if (compact.contains('재즈')) return '재즈';
+    if (compact.contains('인디')) return '인디';
+    if (compact.contains('라이브') || compact.contains('공연')) return '라이브 공연';
+    if (compact.contains('바이닐')) return '바이닐';
     if (compact.contains('책') || compact.contains('독서')) return '독서';
-    if (compact.contains('산책')) return '산책';
+    if (compact.contains('산책')) return '골목 탐방';
     return null;
   }
 
-  static TasteKeyword _keywordFromJson(Map<String, dynamic> json) {
-    return TasteKeyword(
-      label: json['label'] as String,
-      type: _typeFromApi(json['type'] as String),
-      confidence: (json['confidence'] as num).toDouble(),
-      evidence: json['evidence'] as String,
-      status: _statusFromApi(json['status'] as String),
+  static TasteKeyword? _keywordFromJson(Map<String, dynamic> json) {
+    final label = _normalizeFinalLabel(
+      json['ui_keyword'] as String? ?? json['label'] as String? ?? '',
     );
+    if (label == null) return null;
+    final category = json['category'] as String? ?? _uiKeywordCategories[label];
+    final concepts = json['mapped_concepts'];
+    return TasteKeyword(
+      label: label,
+      type:
+          _typeFromCategory(category) ??
+          _typeFromApi(json['type'] as String? ?? 'preference'),
+      confidence: ((json['confidence'] as num?) ?? 0.8).toDouble(),
+      evidence: json['evidence'] as String? ?? '사진 분석 신호',
+      category: category,
+      mappedConcepts: concepts is List<dynamic>
+          ? [
+              for (final item in concepts)
+                if (item is String) item,
+            ]
+          : _uiKeywordConcepts[label] ?? const [],
+      status: _statusFromApi(json['status'] as String? ?? 'draft'),
+    );
+  }
+
+  static TasteKeyword _keywordFromUiLabel(
+    String label, {
+    double confidence = 0.9,
+    String evidence = '분석 신호',
+    TasteKeywordStatus status = TasteKeywordStatus.draft,
+  }) {
+    return TasteKeyword(
+      label: label,
+      type:
+          _typeFromCategory(_uiKeywordCategories[label]) ??
+          TasteKeywordType.preference,
+      confidence: confidence,
+      evidence: evidence,
+      category: _uiKeywordCategories[label],
+      mappedConcepts: _uiKeywordConcepts[label] ?? const [],
+      status: status,
+    );
+  }
+
+  static TasteKeywordType? _typeFromCategory(String? category) {
+    return switch (category) {
+      'FOOD' => TasteKeywordType.interest,
+      'FASHION' => TasteKeywordType.preference,
+      'SPACE' => TasteKeywordType.placeType,
+      'TRAVEL' => TasteKeywordType.context,
+      'ART' => TasteKeywordType.interest,
+      'MUSIC' => TasteKeywordType.interest,
+      'SPORTS' => TasteKeywordType.activity,
+      'LIFESTYLE' => TasteKeywordType.preference,
+      _ => null,
+    };
   }
 
   static TasteKeywordType _typeFromApi(String type) {
@@ -792,6 +1027,7 @@ class PhotoTasteAnalyzer {
   static TasteKeywordStatus _statusFromApi(String status) {
     return switch (status) {
       'draft' => TasteKeywordStatus.draft,
+      'uncertain' => TasteKeywordStatus.needsConfirmation,
       'needs_confirmation' => TasteKeywordStatus.needsConfirmation,
       'confirmed' => TasteKeywordStatus.confirmed,
       'removed' => TasteKeywordStatus.removed,
@@ -823,6 +1059,23 @@ class PhotoTasteAnalyzer {
     return null;
   }
 
+  static Map<String, dynamic> _decodeHttpObject(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is Map<String, dynamic>) return decoded;
+    throw const TasteAnalysisException('AI 응답 형식이 예상과 달라요.');
+  }
+
+  static Map<String, dynamic> _decodeObject(String text) {
+    final decoded = jsonDecode(text);
+    if (decoded is Map<String, dynamic>) return decoded;
+    if (decoded is List<dynamic> &&
+        decoded.isNotEmpty &&
+        decoded.first is Map<String, dynamic>) {
+      return decoded.first as Map<String, dynamic>;
+    }
+    throw const TasteAnalysisException('AI 분석 결과 형식이 예상과 달라요.');
+  }
+
   static String? _extractTextFromItems(dynamic items) {
     if (items is! List<dynamic>) return null;
     for (final item in items) {
@@ -843,7 +1096,11 @@ class PhotoTasteAnalyzer {
 
   static String _friendlyHttpError(http.Response response) {
     try {
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final decodedRaw = jsonDecode(response.body);
+      if (decodedRaw is! Map<String, dynamic>) {
+        return '이미지 분석 요청이 불안정해요. 잠시 뒤 다시 시도해주세요.';
+      }
+      final decoded = decodedRaw;
       final error = decoded['error'];
       if (error is Map<String, dynamic>) {
         final message = error['message'];
@@ -891,77 +1148,233 @@ class TasteAnalysisException implements Exception {
   String toString() => message;
 }
 
+const Map<String, String> _uiKeywordCategories = {
+  '카페': 'FOOD',
+  '커피': 'FOOD',
+  '디저트': 'FOOD',
+  '베이커리': 'FOOD',
+  '브런치': 'FOOD',
+  '전통차': 'FOOD',
+  '와인': 'FOOD',
+  '로컬 맛집': 'FOOD',
+  '미니멀': 'FASHION',
+  '빈티지': 'FASHION',
+  '스트릿': 'FASHION',
+  '클래식': 'FASHION',
+  '디자이너 브랜드': 'FASHION',
+  '스포츠웨어': 'FASHION',
+  '액세서리': 'FASHION',
+  '데일리룩': 'FASHION',
+  '인테리어': 'SPACE',
+  '가구': 'SPACE',
+  '한옥': 'SPACE',
+  '호텔': 'SPACE',
+  '전시 공간': 'SPACE',
+  '서점': 'SPACE',
+  '정원': 'SPACE',
+  '복합문화공간': 'SPACE',
+  '도시 여행': 'TRAVEL',
+  '해외 도시': 'TRAVEL',
+  '랜드마크': 'TRAVEL',
+  '골목 탐방': 'TRAVEL',
+  '자연': 'TRAVEL',
+  '숙소': 'TRAVEL',
+  '미식 여행': 'TRAVEL',
+  '스포츠 여행': 'TRAVEL',
+  '전시': 'ART',
+  '현대미술': 'ART',
+  '건축': 'ART',
+  '공예': 'ART',
+  '디자인': 'ART',
+  '일러스트': 'ART',
+  '사진': 'ART',
+  '아트페어': 'ART',
+  '인디': 'MUSIC',
+  '재즈': 'MUSIC',
+  '라이브 공연': 'MUSIC',
+  '페스티벌': 'MUSIC',
+  '플레이리스트': 'MUSIC',
+  '바이닐': 'MUSIC',
+  '사운드트랙': 'MUSIC',
+  '축구': 'SPORTS',
+  '야구': 'SPORTS',
+  '러닝': 'SPORTS',
+  '요가': 'SPORTS',
+  '클라이밍': 'SPORTS',
+  '스포츠 관람': 'SPORTS',
+  '경기장 투어': 'SPORTS',
+  '독서': 'LIFESTYLE',
+  '웰니스': 'LIFESTYLE',
+  '작업 루틴': 'LIFESTYLE',
+  '홈라이프': 'LIFESTYLE',
+  '반려생활': 'LIFESTYLE',
+  '취미 수집': 'LIFESTYLE',
+  '조용한 휴식': 'LIFESTYLE',
+  '로컬 탐방': 'LIFESTYLE',
+};
+
+const Map<String, List<String>> _uiKeywordConcepts = {
+  '카페': ['food_drink.cafe'],
+  '커피': ['food_drink.coffee'],
+  '디저트': ['food_drink.dessert'],
+  '베이커리': ['food_drink.bakery'],
+  '브런치': ['food_drink.brunch'],
+  '전통차': ['food_drink.tea'],
+  '와인': ['food_drink.wine'],
+  '로컬 맛집': ['food_drink.local_restaurant'],
+  '미니멀': ['fashion.minimal'],
+  '빈티지': ['fashion.vintage'],
+  '스트릿': ['fashion.street'],
+  '클래식': ['fashion.classic', 'music.classic'],
+  '디자이너 브랜드': ['fashion.designer_brand'],
+  '스포츠웨어': ['fashion.sportswear'],
+  '액세서리': ['fashion.accessory'],
+  '데일리룩': ['fashion.daily_look'],
+  '인테리어': ['space.interior'],
+  '가구': ['space.furniture'],
+  '한옥': ['space.hanok', 'culture.history_tradition'],
+  '호텔': ['space.hotel'],
+  '전시 공간': ['space.gallery_museum'],
+  '서점': ['space.bookstore'],
+  '정원': ['space.garden'],
+  '복합문화공간': ['space.cultural_complex'],
+  '도시 여행': ['travel.city_travel'],
+  '해외 도시': ['travel.overseas_city'],
+  '랜드마크': ['travel.landmark'],
+  '골목 탐방': ['travel.local_walk'],
+  '자연': ['travel.nature'],
+  '숙소': ['travel.stay'],
+  '미식 여행': ['travel.food_travel'],
+  '스포츠 여행': ['travel.sports_travel'],
+  '전시': ['art.exhibition'],
+  '현대미술': ['art.contemporary_art'],
+  '건축': ['art.architecture'],
+  '공예': ['art.craft'],
+  '디자인': ['art.design'],
+  '일러스트': ['art.illustration'],
+  '사진': ['art.photography'],
+  '아트페어': ['art.art_fair'],
+  '인디': ['music.indie'],
+  '재즈': ['music.jazz'],
+  '라이브 공연': ['music.live_performance'],
+  '페스티벌': ['music.festival'],
+  '플레이리스트': ['music.playlist'],
+  '바이닐': ['music.vinyl'],
+  '사운드트랙': ['music.soundtrack'],
+  '축구': ['sports.football'],
+  '야구': ['sports.baseball'],
+  '러닝': ['sports.running'],
+  '요가': ['sports.yoga'],
+  '클라이밍': ['sports.climbing'],
+  '스포츠 관람': ['sports.spectating'],
+  '경기장 투어': ['sports.stadium_tour'],
+  '독서': ['lifestyle.reading'],
+  '웰니스': ['lifestyle.wellness'],
+  '작업 루틴': ['lifestyle.work_routine'],
+  '홈라이프': ['lifestyle.home_life'],
+  '반려생활': ['lifestyle.pet_life'],
+  '취미 수집': ['lifestyle.hobby_collecting'],
+  '조용한 휴식': ['lifestyle.quiet_rest'],
+  '로컬 탐방': ['lifestyle.local_exploration'],
+};
+
+final Set<String> _allowedUiKeywords = _uiKeywordCategories.keys.toSet();
+
 const String _prompt = '''
-Use the Photo Taste Analyzer skill to analyze the user photos into confirmable taste keywords for LOGZINE, an editorial magazine recommendation app.
+Use the Photo Taste Analyzer skill to analyze user photos for LOGZINE, an editorial magazine recommendation app.
 
 Rules:
+- Output ONLY UI keywords from this allowed vocabulary:
+FOOD: 카페, 커피, 디저트, 베이커리, 브런치, 전통차, 와인, 로컬 맛집
+FASHION: 미니멀, 빈티지, 스트릿, 클래식, 디자이너 브랜드, 스포츠웨어, 액세서리, 데일리룩
+SPACE: 인테리어, 가구, 한옥, 호텔, 전시 공간, 서점, 정원, 복합문화공간
+TRAVEL: 도시 여행, 해외 도시, 랜드마크, 골목 탐방, 자연, 숙소, 미식 여행, 스포츠 여행
+ART: 전시, 현대미술, 건축, 공예, 디자인, 일러스트, 사진, 아트페어
+MUSIC: 인디, 재즈, 라이브 공연, 페스티벌, 플레이리스트, 바이닐, 클래식, 사운드트랙
+SPORTS: 축구, 야구, 러닝, 요가, 클라이밍, 스포츠 관람, 경기장 투어, 스포츠 여행
+LIFESTYLE: 독서, 웰니스, 작업 루틴, 홈라이프, 반려생활, 취미 수집, 조용한 휴식, 로컬 탐방
+- Do not create free labels outside the vocabulary.
 - Do not list every visible object. Keep only recommendation-relevant taste signals.
 - Ignore accidental background noise, passersby, small clutter, and sensitive personal attributes.
 - Do not infer identity, exact location, home/workplace proximity, wealth, health, religion, politics, relationship, age, gender, or ethnicity.
 - Prefer experience-level meanings over raw object labels.
-- Mark uncertain context as "needs_confirmation".
-- Return 3 representative draft keywords, 3-5 secondary draft keywords, and at most 2 needs_confirmation keywords.
-- Use Korean labels when natural for the user's likely UI, but short English labels are allowed for established editorial moods.
-- The result is a draft the user can edit, not a final diagnosis.
+- Return 2-5 strong keywords in "keywords".
+- Return 4-8 weaker candidates in "more_signals" when possible; each must also be from the allowed vocabulary and must not overlap keywords.
+- Use status "draft" for normal candidates and "uncertain" only when context is weak.
+- recommended_question is a short Korean prompt asking the user to keep only fitting candidates.
 
-Keyword types:
-object, place_type, activity, mood, interest, context, preference, negative_signal.
-
-Taxonomy examples:
-- culture_art: history/tradition, architecture/design, museum/gallery, craft/object
-- travel_place: slow travel, local walk, tourist site, hidden place, scenic spot
-- lifestyle: quiet rest, daily leisure, study/work, routine record, aesthetic collection
-- food_drink: coffee, tea, dessert, bakery, casual dining
-- nature_outdoor: walk, park, waterfront, forest, seasonal view
-- urban_local: neighborhood, bookstore, market, street scene, local brand
+Examples:
+- Hanok cafe photo: keywords 한옥, 카페, 커피; more_signals 조용한 휴식, 골목 탐방.
+- Football stadium trip photo: keywords 축구, 경기장 투어; more_signals 스포츠 관람, 스포츠 여행, 랜드마크.
+- Jazz bar performance photo: keywords 재즈, 라이브 공연; more_signals 바이닐, 와인.
 ''';
 
 const String _refinerPrompt = '''
-Use the Taste Keyword Refiner skill to merge photo-analysis keywords, selected chips, deselected chips, and free-text feedback into final recommendation keywords for LOGZINE.
+Use the Taste Keyword Refiner skill to merge photo keywords, selected chips, deselected chips, and free-text feedback into final recommendation keywords for LOGZINE.
 
 Rules:
-- You are the only component that decides final user taste keywords from free_text_feedback. The app will only render your display_keywords/final_keywords.
+- You are the only component that decides final user taste keywords from free_text_feedback. The app will render and save only main_keywords.
+- Output ONLY UI keywords from this allowed vocabulary:
+FOOD: 카페, 커피, 디저트, 베이커리, 브런치, 전통차, 와인, 로컬 맛집
+FASHION: 미니멀, 빈티지, 스트릿, 클래식, 디자이너 브랜드, 스포츠웨어, 액세서리, 데일리룩
+SPACE: 인테리어, 가구, 한옥, 호텔, 전시 공간, 서점, 정원, 복합문화공간
+TRAVEL: 도시 여행, 해외 도시, 랜드마크, 골목 탐방, 자연, 숙소, 미식 여행, 스포츠 여행
+ART: 전시, 현대미술, 건축, 공예, 디자인, 일러스트, 사진, 아트페어
+MUSIC: 인디, 재즈, 라이브 공연, 페스티벌, 플레이리스트, 바이닐, 클래식, 사운드트랙
+SPORTS: 축구, 야구, 러닝, 요가, 클라이밍, 스포츠 관람, 경기장 투어, 스포츠 여행
+LIFESTYLE: 독서, 웰니스, 작업 루틴, 홈라이프, 반려생활, 취미 수집, 조용한 휴식, 로컬 탐방
 - Do semantic interpretation, not word matching. Understand whether a sentence means preference, dislike, fear/avoidance, correction, context, or explanation.
 - User free-text feedback always has higher priority than AI guesses and chip state.
-- If the user explicitly dislikes or negates a keyword, remove it from final_keywords and include it in excluded_keywords.
-- If the user says they fear or avoid something, do not make that phrase a keyword. Convert it into excluded_keywords or downweighted_keywords for the relevant taste category.
-- If the user adds a new interest in Korean or English, normalize it into short Korean recommendation keywords.
-- Snap free-text meanings to the closest recommendation taxonomy label when possible: 여행, 조용한 분위기, 조용한 휴식, 카페/커피, 건축/디자인, 전시/예술, 자연 풍경, 자연/아웃도어, 공부/작업, 문화/건축, 독서, 산책.
-- Expand concrete interests only a little: 2-4 closely related keywords at most.
+- If the user explicitly dislikes, negates, fears, or avoids a meaning, do not make that phrase a keyword. Put the closest UI keyword in excluded_keywords or downweighted_keywords.
+- If a sentence says "A보다는 B", A is downweighted/excluded and B is the positive focus.
+- If the user adds a new interest in Korean or English, snap it to the closest allowed UI keyword.
+- Expand concrete interests only a little: 1-4 closely related UI keywords at most.
 - Do not create sensitive personal traits or infer identity, home, wealth, health, religion, politics, age, gender, ethnicity, or relationships.
-- Keep final keywords short, natural, and useful for magazine/content recommendation.
-- display_keywords is the only list used as UI chips. It must contain complete noun phrases only.
-- Never put raw free text, reasons, negative sentences, first-person phrases, clipped text, or labels ending with particles into display_keywords.
-- Comparative Korean feedback means the phrase before "보다는/보다/말고" is downweighted or excluded, and the phrase after it is the positive focus.
 - Remove duplicates and merge overly similar keywords.
 - If a selected chip conflicts with free text, follow the free text.
 - If a deselected broad keyword conflicts with a specific positive free-text preference, keep the specific preference and exclude or downweight the broad one.
+- Do not use more_signals as final chips after free-text refinement. main_keywords only.
 
 Example:
 free_text_feedback: "나는 활동적인 것보다는 조용한분위기를 좋아해. 여행도 좋아하긴해."
-Correct display_keywords: ["조용한 분위기", "여행"]
-Correct excluded_keywords or downweighted_keywords: ["활동적인 취향"]
-Wrong display_keywords: ["것보다는 사실 조용한 분위기", "여행도", "여행도 좋아하긴해"]
+Correct main_keywords: ["조용한 휴식", "도시 여행"]
+Correct excluded_keywords/downweighted_keywords: [] or a matching UI keyword only if present.
+Wrong main_keywords: ["것보다는 사실 조용한 분위기", "여행도", "여행도 좋아하긴해"]
 
 Example:
 free_text_feedback: "나 벌레를 무서워해서 자연은 싫어."
-Correct display_keywords: []
-Correct excluded_keywords: ["자연/아웃도어", "자연 풍경", "자연휴식"]
-Wrong display_keywords: ["나 벌레를 무서워", "벌레", "자연"]
+Correct main_keywords: []
+Correct excluded_keywords: ["자연"]
+Wrong main_keywords: ["나 벌레를 무서워", "벌레", "자연"]
+
+Example:
+free_text_feedback: "I also like playing soccer."
+Correct main_keywords: ["축구"]
+
+Example:
+free_text_feedback: "문화생활은 좋은데 등산은 별로야."
+Correct main_keywords: ["전시", "전시 공간", "복합문화공간"]
+Correct excluded_keywords/downweighted_keywords: ["자연"]
 
 Output:
-- display_keywords: final UI chip labels only.
-- final_keywords: confirmed interest/profile keywords to show and save.
-- excluded_keywords: labels to avoid in future recommendations.
-- downweighted_keywords: labels to reduce but not fully remove.
+- main_keywords: final UI keyword objects to show and save.
+- more_signals: optional weak UI keyword strings; the app will not show these on the final profile.
+- user_text: the original free_text_feedback.
+- excluded_keywords: UI keyword objects to avoid in future recommendations.
+- downweighted_keywords: UI keyword objects to reduce but not fully remove.
 - profile_update_summary: one concise Korean sentence.
-- clarifying_question: null unless a short question is truly needed.
 ''';
 
 const Map<String, dynamic> _schema = {
   'type': 'object',
   'additionalProperties': false,
-  'required': ['summary', 'keywords', 'recommended_question', 'privacy_notes'],
+  'required': [
+    'summary',
+    'keywords',
+    'more_signals',
+    'recommended_question',
+    'privacy_notes',
+  ],
   'properties': {
     'summary': {'type': 'string'},
     'keywords': {
@@ -969,30 +1382,45 @@ const Map<String, dynamic> _schema = {
       'items': {
         'type': 'object',
         'additionalProperties': false,
-        'required': ['label', 'type', 'confidence', 'evidence', 'status'],
+        'required': [
+          'ui_keyword',
+          'category',
+          'mapped_concepts',
+          'confidence',
+          'evidence',
+          'status',
+        ],
         'properties': {
-          'label': {'type': 'string'},
-          'type': {
+          'ui_keyword': {'type': 'string'},
+          'category': {
             'type': 'string',
             'enum': [
-              'object',
-              'place_type',
-              'activity',
-              'mood',
-              'interest',
-              'context',
-              'preference',
-              'negative_signal',
+              'FOOD',
+              'FASHION',
+              'SPACE',
+              'TRAVEL',
+              'ART',
+              'MUSIC',
+              'SPORTS',
+              'LIFESTYLE',
             ],
+          },
+          'mapped_concepts': {
+            'type': 'array',
+            'items': {'type': 'string'},
           },
           'confidence': {'type': 'number'},
           'evidence': {'type': 'string'},
           'status': {
             'type': 'string',
-            'enum': ['draft', 'needs_confirmation', 'confirmed', 'removed'],
+            'enum': ['draft', 'uncertain'],
           },
         },
       },
+    },
+    'more_signals': {
+      'type': 'array',
+      'items': {'type': 'string'},
     },
     'recommended_question': {'type': 'string'},
     'privacy_notes': {
@@ -1006,37 +1434,45 @@ const Map<String, dynamic> _refinerSchema = {
   'type': 'object',
   'additionalProperties': false,
   'required': [
-    'display_keywords',
-    'final_keywords',
+    'main_keywords',
+    'more_signals',
+    'user_text',
     'excluded_keywords',
     'downweighted_keywords',
     'profile_update_summary',
-    'clarifying_question',
   ],
   'properties': {
-    'display_keywords': {
-      'type': 'array',
-      'items': {'type': 'string'},
-    },
-    'final_keywords': {
+    'main_keywords': {
       'type': 'array',
       'items': {
         'type': 'object',
         'additionalProperties': false,
-        'required': ['label', 'type', 'source', 'confidence', 'reason'],
+        'required': [
+          'ui_keyword',
+          'category',
+          'mapped_concepts',
+          'source',
+          'confidence',
+          'reason',
+        ],
         'properties': {
-          'label': {'type': 'string'},
-          'type': {
+          'ui_keyword': {'type': 'string'},
+          'category': {
             'type': 'string',
             'enum': [
-              'interest',
-              'activity',
-              'place_type',
-              'mood',
-              'content',
-              'preference',
-              'negative_signal',
+              'FOOD',
+              'FASHION',
+              'SPACE',
+              'TRAVEL',
+              'ART',
+              'MUSIC',
+              'SPORTS',
+              'LIFESTYLE',
             ],
+          },
+          'mapped_concepts': {
+            'type': 'array',
+            'items': {'type': 'string'},
           },
           'source': {'type': 'string'},
           'confidence': {'type': 'number'},
@@ -1044,14 +1480,30 @@ const Map<String, dynamic> _refinerSchema = {
         },
       },
     },
+    'more_signals': {
+      'type': 'array',
+      'items': {'type': 'string'},
+    },
+    'user_text': {'type': 'string'},
     'excluded_keywords': {
       'type': 'array',
       'items': {
         'type': 'object',
         'additionalProperties': false,
-        'required': ['label', 'source', 'reason'],
+        'required': [
+          'ui_keyword',
+          'category',
+          'mapped_concepts',
+          'source',
+          'reason',
+        ],
         'properties': {
-          'label': {'type': 'string'},
+          'ui_keyword': {'type': 'string'},
+          'category': {'type': 'string'},
+          'mapped_concepts': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
           'source': {'type': 'string'},
           'reason': {'type': 'string'},
         },
@@ -1062,16 +1514,13 @@ const Map<String, dynamic> _refinerSchema = {
       'items': {
         'type': 'object',
         'additionalProperties': false,
-        'required': ['label', 'reason'],
+        'required': ['ui_keyword', 'reason'],
         'properties': {
-          'label': {'type': 'string'},
+          'ui_keyword': {'type': 'string'},
           'reason': {'type': 'string'},
         },
       },
     },
     'profile_update_summary': {'type': 'string'},
-    'clarifying_question': {
-      'type': ['string', 'null'],
-    },
   },
 };

@@ -238,40 +238,6 @@ class _HomePageState extends State<HomePage> {
                           'YOUR TASTE',
                           style: eyebrowStyle(color: AppColors.ink),
                         ),
-                        const Spacer(),
-                        InkWell(
-                          onTap: () async {
-                            await Navigator.pushNamed(
-                              context,
-                              '/taste',
-                              arguments: 'edit',
-                            );
-                            if (mounted) {
-                              final next = _loadHome();
-                              setState(() {
-                                _homeFuture = next;
-                                _selectedTasteLabel = null;
-                              });
-                            }
-                          },
-                          child: const Row(
-                            children: [
-                              Text(
-                                'Refine',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.forest,
-                                ),
-                              ),
-                              Icon(
-                                Icons.chevron_right,
-                                size: 16,
-                                color: AppColors.forest,
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
