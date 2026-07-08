@@ -11,6 +11,7 @@ import '../services/reading_stats_service.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/motion_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
 typedef _MarkItem = ({
@@ -425,89 +426,112 @@ class _ArchivePageState extends State<ArchivePage> {
                         const SizedBox(height: 6),
                         const PageTitleHeader(title: 'Archive'),
                         const SizedBox(height: 18),
-                        _ProfileHeader(
-                          avatarUrl: _avatarUrl,
-                          userName: userName,
+                        FadeSlideIn(
+                          delay: FadeSlideIn.stagger(0),
+                          child: _ProfileHeader(
+                            avatarUrl: _avatarUrl,
+                            userName: userName,
+                          ),
                         ),
                         const SizedBox(height: 24),
-                        const SectionHeader(title: 'This week'),
-                        const SizedBox(height: 10),
-                        _SurfaceCard(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: IntrinsicHeight(
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: InkWell(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const _ReadingStatsPage(),
+                        FadeSlideIn(
+                          delay: FadeSlideIn.stagger(1),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SectionHeader(title: 'This week'),
+                              const SizedBox(height: 10),
+                              _SurfaceCard(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  child: IntrinsicHeight(
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: InkWell(
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const _ReadingStatsPage(),
+                                                ),
+                                              );
+                                            },
+                                            child: _StatItem(
+                                              label: 'Time read',
+                                              value: timeRead,
+                                              icon: Icons.schedule,
+                                            ),
                                           ),
-                                        );
-                                      },
-                                      child: _StatItem(
-                                        label: 'Time read',
-                                        value: timeRead,
-                                        icon: Icons.schedule,
-                                      ),
+                                        ),
+                                        const VerticalDivider(
+                                          color: AppColors.border,
+                                          width: 1,
+                                        ),
+                                        Expanded(
+                                          child: InkWell(
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      _MarksPage(items: marks),
+                                                ),
+                                              );
+                                            },
+                                            child: _StatItem(
+                                              label: 'Marks',
+                                              value: '$marksCount',
+                                              icon: Icons.edit_outlined,
+                                              highlight: true,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const VerticalDivider(
-                                    color: AppColors.border,
-                                    width: 1,
-                                  ),
-                                  Expanded(
-                                    child: InkWell(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                _MarksPage(items: marks),
-                                          ),
-                                        );
-                                      },
-                                      child: _StatItem(
-                                        label: 'Marks',
-                                        value: '$marksCount',
-                                        icon: Icons.edit_outlined,
-                                        highlight: true,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 22),
-                        SectionHeader(
-                          title: 'Recently viewed',
-                          onViewAll: recentViewed.isEmpty
-                              ? null
-                              : () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => _RecentViewedPage(
-                                        items: recentViewed,
-                                      ),
-                                    ),
-                                  );
-                                },
+                        FadeSlideIn(
+                          delay: FadeSlideIn.stagger(2),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SectionHeader(
+                                title: 'Recently viewed',
+                                onViewAll: recentViewed.isEmpty
+                                    ? null
+                                    : () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => _RecentViewedPage(
+                                              items: recentViewed,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                              ),
+                              const SizedBox(height: 10),
+                              if (recentViewed.isEmpty)
+                                const _EmptyStateCard(
+                                  message:
+                                      '아직 최근 본 매거진이 없어요.\n매거진 상세나 리더를 열면 여기에 기록돼요.',
+                                )
+                              else
+                                _RecentShelf(
+                                  items: recentViewed.take(6).toList(),
+                                ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 10),
-                        if (recentViewed.isEmpty)
-                          const _EmptyStateCard(
-                            message:
-                                '아직 최근 본 매거진이 없어요.\n매거진 상세나 리더를 열면 여기에 기록돼요.',
-                          )
-                        else
-                          _RecentShelf(items: recentViewed.take(6).toList()),
                         const SizedBox(height: 24),
                       ],
                     ),

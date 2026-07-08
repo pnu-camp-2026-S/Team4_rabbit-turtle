@@ -7,6 +7,7 @@ import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/logzine_bookmark.dart';
+import '../widgets/motion_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
 /// 검색 화면 데이터 — 매거진 전체 + 사용자 취향(일치 태그 강조용).
@@ -230,12 +231,15 @@ class _DiscoverPageState extends State<DiscoverPage> {
                           ),
                         ),
                       ),
-                    for (final magazine in results) ...[
-                      _SearchResultCard(
-                        magazine: magazine,
-                        matched: RecommendationService.matchedTags(
-                          data.taste,
-                          magazine,
+                    for (int i = 0; i < results.length; i++) ...[
+                      FadeSlideIn(
+                        delay: FadeSlideIn.stagger(i),
+                        child: _SearchResultCard(
+                          magazine: results[i],
+                          matched: RecommendationService.matchedTags(
+                            data.taste,
+                            results[i],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
