@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/article.dart';
+import '../models/reader_args.dart';
 import '../services/article_text_size_service.dart';
 import '../services/auth_service.dart';
 import '../services/magazine_service.dart';
@@ -19,7 +20,20 @@ typedef _SavedArticleItem = ({
   String date,
   String imageUrl,
 });
-typedef _MarkItem = ({String quote, String source, String note, Color color});
+typedef _MarkItem = ({
+  String quote,
+  String articleTitle,
+  String magazineTitle,
+  String source,
+  String note,
+  Color color,
+  String type,
+  String articleId,
+  String magazineId,
+  String coverUrl,
+  String savedAt,
+});
+typedef _MagazineMeta = ({String title, String coverUrl});
 
 /// Archive 화면 데이터 묶음. 폴백 정책(library_page와 동일):
 /// 비로그인 → 데모 유지. 로그인 → 항상 실데이터, 빈 값/실패도 데모가 아닌
@@ -60,12 +74,23 @@ String _weekdayLabelFor(String yyyyMMdd) {
 }
 
 const List<String> _monthNames = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 /// "July 2026" 형식 — 통계 페이지 "This month" 섹션 라벨용.
-String _monthYearLabel(DateTime date) => '${_monthNames[date.month - 1]} ${date.year}';
+String _monthYearLabel(DateTime date) =>
+    '${_monthNames[date.month - 1]} ${date.year}';
 
 class ArchivePage extends StatefulWidget {
   const ArchivePage({super.key});
@@ -101,21 +126,42 @@ class _ArchivePageState extends State<ArchivePage> {
     (
       quote:
           'When light, texture, and proportion align, the quiet becomes a language.',
+      articleTitle: 'Quiet Materials',
+      magazineTitle: 'Openhouse',
       source: 'Quiet Materials · p.4',
       note: '좋아하는 공간감 표현',
       color: Color(0xFFE9C46A),
+      type: 'highlight',
+      articleId: '',
+      magazineId: '',
+      coverUrl: '',
+      savedAt: '2026.07.08',
     ),
     (
       quote: 'Objects matter most when they become part of a daily ritual.',
+      articleTitle: 'ROOM NOTE',
+      magazineTitle: 'ROOM NOTE',
       source: 'ROOM NOTE · p.12',
       note: '마이페이지 문장 보관함에 넣고 싶은 문장',
-      color: Color(0xFFA3C9A8),
+      color: AppColors.ink,
+      type: 'underline',
+      articleId: '',
+      magazineId: '',
+      coverUrl: '',
+      savedAt: '2026.07.07',
     ),
     (
       quote: 'A soft room is often made by restraint, not by abundance.',
+      articleTitle: 'A soft room',
+      magazineTitle: 'Openhouse',
       source: 'Openhouse · p.7',
       note: '취향 키워드와 연결됨',
       color: Color(0xFFC98B9B),
+      type: 'memo',
+      articleId: '',
+      magazineId: '',
+      coverUrl: '',
+      savedAt: '2026.07.06',
     ),
   ];
 
@@ -143,16 +189,27 @@ class _ArchivePageState extends State<ArchivePage> {
       );
     }
 
+    final magazineService = MagazineService();
+    Map<String, _MagazineMeta> magazineMeta = const {};
+    try {
+      final magazines = await magazineService.fetchMagazines();
+      magazineMeta = {
+        for (final magazine in magazines)
+          magazine.id: (title: magazine.title, coverUrl: magazine.coverUrl),
+      };
+    } catch (_) {
+      magazineMeta = const {};
+    }
+
     List<_SavedArticleItem> savedArticles = const [];
     try {
       final docs = await SavedService().fetchSaved(limit: 20);
       // 저장 당시 coverUrl이 리더 기본 이미지였던 과거 데이터 보정 —
       // magazineId로 실제 매거진 표지를 우선 사용한다.
-      Map<String, String> coverOf = const {};
-      try {
-        final mags = await MagazineService().fetchMagazines();
-        coverOf = {for (final m in mags) m.id: m.coverUrl};
-      } catch (_) {}
+      final coverOf = {
+        for (final entry in magazineMeta.entries)
+          entry.key: entry.value.coverUrl,
+      };
       savedArticles = [for (final doc in docs) _savedItemFromDoc(doc, coverOf)];
     } catch (_) {
       savedArticles = const [];
@@ -168,7 +225,7 @@ class _ArchivePageState extends State<ArchivePage> {
     List<_MarkItem> marks = const [];
     try {
       final records = await MarkService().fetchRecentMarks(limit: 20);
-      marks = await _resolveMarks(records);
+      marks = await _resolveMarks(records, magazineMeta);
     } catch (_) {
       marks = const [];
     }
@@ -210,7 +267,10 @@ class _ArchivePageState extends State<ArchivePage> {
   /// 마크 레코드들을 인용문 카드로 해석. 같은 아티클을 참조하는 마크가
   /// 여러 개여도 아티클 조회는 한 번만(캐시) 하도록 순차 처리한다.
   /// 좌표가 가리키는 문장을 찾을 수 없으면(아티클 삭제 등) 그 마크는 건너뛴다.
-  static Future<List<_MarkItem>> _resolveMarks(List<MarkRecord> records) async {
+  static Future<List<_MarkItem>> _resolveMarks(
+    List<MarkRecord> records,
+    Map<String, _MagazineMeta> magazineMeta,
+  ) async {
     final Map<String, Article?> articleCache = {};
     final List<_MarkItem> items = [];
 
@@ -243,6 +303,8 @@ class _ArchivePageState extends State<ArchivePage> {
       final String articleTitle = article.title.isNotEmpty
           ? article.title
           : '(제목 없음)';
+      final meta = magazineMeta[record.magazineId];
+      final String magazineTitle = meta?.title ?? 'LOGZINE';
       final String note =
           (record.memoText != null && record.memoText!.isNotEmpty)
           ? record.memoText!
@@ -250,9 +312,18 @@ class _ArchivePageState extends State<ArchivePage> {
 
       items.add((
         quote: segments[record.segmentIdx],
-        source: '$articleTitle · 문단 ${record.paragraphIdx + 1}',
+        articleTitle: articleTitle,
+        magazineTitle: magazineTitle,
+        source: '$magazineTitle · 문단 ${record.paragraphIdx + 1}',
         note: note,
         color: _colorFromHex(record.color),
+        type: record.type,
+        articleId: record.articleId,
+        magazineId: record.magazineId,
+        coverUrl: meta?.coverUrl ?? '',
+        savedAt: record.createdAt == null
+            ? '최근 저장'
+            : _formatDate(record.createdAt!),
       ));
     }
     return items;
@@ -301,8 +372,9 @@ class _ArchivePageState extends State<ArchivePage> {
                   final marks = data?.marks ?? _demoMarks;
                   final int marksCount = data?.marksCount ?? _demoMarksCount;
                   final int todaySeconds = data?.todaySeconds ?? 0;
-                  final String timeRead =
-                      isLoggedIn ? _formatReadTime(todaySeconds) : '1h 24m';
+                  final String timeRead = isLoggedIn
+                      ? _formatReadTime(todaySeconds)
+                      : '1h 24m';
 
                   return SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -987,13 +1059,44 @@ class _SavedArticlesPage extends StatelessWidget {
   }
 }
 
-class _MarksPage extends StatelessWidget {
+class _MarksPage extends StatefulWidget {
   const _MarksPage({required this.items});
 
   final List<_MarkItem> items;
 
   @override
+  State<_MarksPage> createState() => _MarksPageState();
+}
+
+class _MarksPageState extends State<_MarksPage> {
+  String _filter = 'all';
+
+  List<_MarkItem> get _visibleItems {
+    if (_filter == 'all') return widget.items;
+    return [
+      for (final item in widget.items)
+        if (item.type == _filter) item,
+    ];
+  }
+
+  void _openReader(_MarkItem item) {
+    Navigator.pushNamed(
+      context,
+      '/reader',
+      arguments: ReaderArgs(
+        title: item.articleTitle,
+        publisher: item.magazineTitle,
+        magazineId: item.magazineId.isEmpty ? null : item.magazineId,
+        articleId: item.articleId.isEmpty ? null : item.articleId,
+        coverUrl: item.coverUrl.isEmpty ? null : item.coverUrl,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final visibleItems = _visibleItems;
+
     return Scaffold(
       backgroundColor: AppColors.screen,
       body: SafeArea(
@@ -1001,75 +1104,292 @@ class _MarksPage extends StatelessWidget {
           children: [
             const LogzineTopBar(showBack: true, showBell: false),
             Expanded(
-              child: items.isEmpty
+              child: widget.items.isEmpty
                   ? const Padding(
                       padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
                       child: _EmptyStateCard(
                         message: '아직 저장한 문장이 없어요.\n리더에서 하이라이트를 남겨보세요.',
                       ),
                     )
-                  : ListView.separated(
+                  : ListView(
                       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                      itemCount: items.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final item = items[index];
-                        return _SurfaceCard(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 5,
-                                  height: 72,
-                                  decoration: BoxDecoration(
-                                    color: item.color,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Marked sentences',
+                                style: logoStyle(
+                                  size: 28,
+                                  weight: FontWeight.w500,
+                                  letterSpacingEm: 0.0,
+                                  color: AppColors.ink,
                                 ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item.quote,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          height: 1.5,
-                                          color: AppColors.ink,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        item.source,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        item.note,
-                                        style: const TextStyle(
-                                          fontSize: 12.5,
-                                          color: AppColors.body,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                              ),
+                            ),
+                            _CountPill(
+                              label:
+                                  '${visibleItems.length}/${widget.items.length}',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SegmentedButton<String>(
+                            segments: const [
+                              ButtonSegment(value: 'all', label: Text('All')),
+                              ButtonSegment(
+                                value: 'underline',
+                                label: Text('Underline'),
+                              ),
+                              ButtonSegment(
+                                value: 'highlight',
+                                label: Text('Highlight'),
+                              ),
+                              ButtonSegment(value: 'memo', label: Text('Memo')),
+                            ],
+                            selected: {_filter},
+                            showSelectedIcon: false,
+                            onSelectionChanged: (selection) {
+                              setState(() => _filter = selection.first);
+                            },
+                            style: ButtonStyle(
+                              visualDensity: VisualDensity.compact,
+                              side: WidgetStateProperty.resolveWith(
+                                (_) =>
+                                    const BorderSide(color: AppColors.border),
+                              ),
+                              backgroundColor: WidgetStateProperty.resolveWith(
+                                (states) =>
+                                    states.contains(WidgetState.selected)
+                                    ? AppColors.forest
+                                    : AppColors.card,
+                              ),
+                              foregroundColor: WidgetStateProperty.resolveWith(
+                                (states) =>
+                                    states.contains(WidgetState.selected)
+                                    ? AppColors.card
+                                    : AppColors.ink,
+                              ),
+                              textStyle: const WidgetStatePropertyAll(
+                                TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              ],
+                              ),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                        const SizedBox(height: 14),
+                        if (visibleItems.isEmpty)
+                          const _EmptyStateCard(message: '해당 유형의 저장 문장이 없어요.')
+                        else
+                          for (int i = 0; i < visibleItems.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 12),
+                            _MarkedSentenceCard(
+                              item: visibleItems[i],
+                              onTap: () => _openReader(visibleItems[i]),
+                            ),
+                          ],
+                      ],
                     ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CountPill extends StatelessWidget {
+  const _CountPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.forest,
+        ),
+      ),
+    );
+  }
+}
+
+class _MarkedSentenceCard extends StatelessWidget {
+  const _MarkedSentenceCard({required this.item, required this.onTap});
+
+  final _MarkItem item;
+  final VoidCallback onTap;
+
+  String get _typeLabel {
+    switch (item.type) {
+      case 'underline':
+        return 'Underline';
+      case 'memo':
+        return 'Memo';
+      default:
+        return 'Highlight';
+    }
+  }
+
+  IconData get _typeIcon {
+    switch (item.type) {
+      case 'underline':
+        return Icons.format_underlined;
+      case 'memo':
+        return Icons.sticky_note_2_outlined;
+      default:
+        return Icons.border_color_outlined;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = item.type == 'underline' ? AppColors.ink : item.color;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: _SurfaceCard(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 4,
+                height: 116,
+                decoration: BoxDecoration(
+                  color: accentColor,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          height: 26,
+                          padding: const EdgeInsets.symmetric(horizontal: 9),
+                          decoration: BoxDecoration(
+                            color: AppColors.sageSoft,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _typeIcon,
+                                size: 14,
+                                color: AppColors.forest,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                _typeLabel,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.forest,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          item.savedAt,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      item.quote,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.55,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.menu_book_outlined,
+                          size: 15,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${item.articleTitle} · ${item.source}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: AppColors.textMuted,
+                        ),
+                      ],
+                    ),
+                    if (item.note.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.screen,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Text(
+                          item.note,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            height: 1.4,
+                            color: AppColors.body,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1143,8 +1463,10 @@ class _ReadingStatsPageState extends State<_ReadingStatsPage> {
                     );
                   }
 
-                  final int weeklyTotal =
-                      data.weekly.fold(0, (total, r) => total + r.secondsRead);
+                  final int weeklyTotal = data.weekly.fold(
+                    0,
+                    (total, r) => total + r.secondsRead,
+                  );
                   final int weeklyMax = data.weekly
                       .map((r) => r.secondsRead)
                       .fold(1, (a, b) => b > a ? b : a);
@@ -1216,7 +1538,15 @@ class _MonthlyCalendar extends StatelessWidget {
 
   final List<MonthlyReadingRecord> records;
 
-  static const List<String> _weekdayHeaders = ['월', '화', '수', '목', '금', '토', '일'];
+  static const List<String> _weekdayHeaders = [
+    '월',
+    '화',
+    '수',
+    '목',
+    '금',
+    '토',
+    '일',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -1280,9 +1610,13 @@ class _CalendarDayCell extends StatelessWidget {
     final bool hasRead = record.secondsRead > 0;
     return Container(
       decoration: BoxDecoration(
-        color: hasRead ? AppColors.forest.withValues(alpha: 0.16) : Colors.transparent,
+        color: hasRead
+            ? AppColors.forest.withValues(alpha: 0.16)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: isToday ? Border.all(color: AppColors.forest, width: 1.4) : null,
+        border: isToday
+            ? Border.all(color: AppColors.forest, width: 1.4)
+            : null,
       ),
       alignment: Alignment.center,
       child: Text(
@@ -1305,15 +1639,17 @@ class _WeeklyBarRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double ratio =
-        maxSeconds == 0 ? 0 : record.secondsRead / maxSeconds;
+    final double ratio = maxSeconds == 0 ? 0 : record.secondsRead / maxSeconds;
     return Row(
       children: [
         SizedBox(
           width: 36,
           child: Text(
             _weekdayLabelFor(record.date),
-            style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -1334,7 +1670,10 @@ class _WeeklyBarRow extends StatelessWidget {
           child: Text(
             _formatReadTime(record.secondsRead),
             textAlign: TextAlign.end,
-            style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],
