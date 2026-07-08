@@ -34,6 +34,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
   int _homeRefreshToken = 0;
+  int _libraryRefreshToken = 0;
   bool _argsApplied = false;
 
   @override
@@ -50,6 +51,7 @@ class _MainShellState extends State<MainShell> {
     setState(() {
       _index = index;
       if (index == 0) _homeRefreshToken++;
+      if (index == 2) _libraryRefreshToken++;
     });
   }
 
@@ -64,7 +66,7 @@ class _MainShellState extends State<MainShell> {
         children: [
           HomePage(refreshToken: _homeRefreshToken),
           const DiscoverPage(),
-          const LibraryPage(),
+          LibraryPage(refreshToken: _libraryRefreshToken),
           ArchivePage(),
         ],
       ),

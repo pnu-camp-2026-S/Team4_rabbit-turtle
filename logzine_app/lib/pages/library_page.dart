@@ -12,7 +12,9 @@ import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
 class LibraryPage extends StatefulWidget {
-  const LibraryPage({super.key});
+  const LibraryPage({super.key, this.refreshToken = 0});
+
+  final int refreshToken;
 
   @override
   State<LibraryPage> createState() => _LibraryPageState();
@@ -147,6 +149,19 @@ class _LibraryPageState extends State<LibraryPage> {
   static const int _demoFollowsCount = 8;
 
   late Future<_LibraryData> _libraryFuture = _loadLibrary();
+
+  @override
+  void didUpdateWidget(covariant LibraryPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      _refreshLibrary();
+    }
+  }
+
+  void _refreshLibrary() {
+    if (!mounted) return;
+    setState(() => _libraryFuture = _loadLibrary());
+  }
 
   static Future<_LibraryData> _loadLibrary() async {
     List<Magazine> magazines;
@@ -354,6 +369,7 @@ class _LibraryPageState extends State<LibraryPage> {
                             savedArticles: savedArticles,
                             onPublisherTap: (publisher) =>
                                 _openPublisher(context, publisher),
+                            onSavedArticleReturn: _refreshLibrary,
                           ),
                         ),
                         const SizedBox(height: 26),
@@ -550,6 +566,7 @@ class _LibraryDetailPanel extends StatelessWidget {
     required this.publishers,
     required this.savedArticles,
     required this.onPublisherTap,
+    required this.onSavedArticleReturn,
   });
 
   final _LibrarySummary selected;
@@ -557,6 +574,7 @@ class _LibraryDetailPanel extends StatelessWidget {
   final List<_PublisherItem> publishers;
   final List<_SavedArticleItem> savedArticles;
   final ValueChanged<_PublisherItem> onPublisherTap;
+  final VoidCallback onSavedArticleReturn;
 
   @override
   Widget build(BuildContext context) {
@@ -605,7 +623,10 @@ class _LibraryDetailPanel extends StatelessWidget {
             children: [
               for (int i = 0; i < savedArticles.length; i++) ...[
                 if (i > 0) const Divider(color: AppColors.border, height: 1),
-                _SavedArticleTile(item: savedArticles[i]),
+                _SavedArticleTile(
+                  item: savedArticles[i],
+                  onReturn: onSavedArticleReturn,
+                ),
               ],
             ],
           ),
@@ -771,14 +792,18 @@ class _PublisherBubble extends StatelessWidget {
 }
 
 class _SavedArticleTile extends StatelessWidget {
-  const _SavedArticleTile({required this.item});
+  const _SavedArticleTile({required this.item, this.onReturn});
 
   final _SavedArticleItem item;
+  final VoidCallback? onReturn;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Navigator.pushNamed(context, '/reader'),
+      onTap: () async {
+        await Navigator.pushNamed(context, '/reader');
+        onReturn?.call();
+      },
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
