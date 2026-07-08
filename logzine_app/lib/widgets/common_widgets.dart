@@ -10,6 +10,7 @@ class LogzineTopBar extends StatelessWidget {
     this.showBack = false,
     this.showBell = true,
     this.showSettings = false,
+    this.showDivider = false,
     this.onBellTap,
     this.onSettingsTap,
   });
@@ -17,44 +18,71 @@ class LogzineTopBar extends StatelessWidget {
   final bool showBack;
   final bool showBell;
   final bool showSettings;
+  final bool showDivider;
   final VoidCallback? onBellTap;
   final VoidCallback? onSettingsTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(showBack ? 8 : 24, 6, 12, 0),
-      child: Row(
-        children: [
-          if (showBack) ...[
-            IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-            ),
-            const SizedBox(width: 2),
-          ],
-          const LogzineLogo(height: 28),
-          const Spacer(),
-          if (showBell)
-            IconButton(
-              onPressed: onBellTap ?? () => _showNotifications(context),
-              icon: const Icon(
-                Icons.notifications_none,
-                size: 23,
-                color: AppColors.ink,
-              ),
-            ),
-          if (showSettings)
-            IconButton(
-              onPressed: onSettingsTap ?? () {},
-              icon: const Icon(
-                Icons.settings_outlined,
-                size: 23,
-                color: AppColors.ink,
-              ),
-            ),
+    final BoxConstraints? iconConstraints = showDivider
+        ? const BoxConstraints.tightFor(width: 36, height: 36)
+        : null;
+    final EdgeInsetsGeometry? iconPadding =
+        showDivider ? EdgeInsets.zero : null;
+    final Widget topBarRow = Row(
+      children: [
+        if (showBack) ...[
+          IconButton(
+            constraints: iconConstraints,
+            padding: iconPadding,
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back, color: AppColors.ink),
+          ),
+          const SizedBox(width: 2),
         ],
-      ),
+        const LogzineLogo(height: 28),
+        const Spacer(),
+        if (showBell)
+          IconButton(
+            constraints: iconConstraints,
+            padding: iconPadding,
+            onPressed: onBellTap ?? () => _showNotifications(context),
+            icon: const Icon(
+              Icons.notifications_none,
+              size: 23,
+              color: AppColors.ink,
+            ),
+          ),
+        if (showSettings)
+          IconButton(
+            constraints: iconConstraints,
+            padding: iconPadding,
+            onPressed: onSettingsTap ?? () {},
+            icon: const Icon(
+              Icons.settings_outlined,
+              size: 23,
+              color: AppColors.ink,
+            ),
+          ),
+      ],
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(showBack ? 8 : 24, 6, 12, 0),
+          child: showDivider
+              ? SizedBox(height: 36, child: topBarRow)
+              : topBarRow,
+        ),
+        if (showDivider)
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Divider(height: 1, thickness: 0.8, color: AppColors.border),
+          ),
+      ],
     );
   }
 }
