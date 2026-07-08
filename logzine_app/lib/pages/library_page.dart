@@ -444,30 +444,46 @@ class _SummaryItem extends StatelessWidget {
               : const [],
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+            SizedBox(
+              height: 32,
+              child: Center(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                    color: active ? AppColors.forest : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 30,
+              child: Center(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: active ? AppColors.forest : AppColors.ink,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 20,
+              child: Icon(
+                icon,
+                size: 17,
                 color: active ? AppColors.forest : AppColors.textSecondary,
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: active ? AppColors.forest : AppColors.ink,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Icon(
-              icon,
-              size: 17,
-              color: active ? AppColors.forest : AppColors.textSecondary,
             ),
           ],
         ),
