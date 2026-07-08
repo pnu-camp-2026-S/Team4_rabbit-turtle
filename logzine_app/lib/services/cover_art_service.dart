@@ -32,9 +32,8 @@ class CoverArtService {
   /// 매거진 표지 생성 규칙 — 실제 잡지(VOGUE·Gourmet Traveller·EHOUSING)
   /// 표지 문법을 코드화한 프롬프트. 규칙 전문: .agents/skills/logzine-cover/SKILL.md
   static String _coverPrompt(List<String> taste) {
-    final interests = taste.isEmpty
-        ? 'quiet interiors, slow living'
-        : taste.take(4).join(', ');
+    final interests =
+        taste.isEmpty ? 'quiet interiors, slow living' : taste.take(4).join(', ');
     return '''
 Create a premium printed magazine FRONT COVER, portrait orientation.
 
@@ -105,17 +104,14 @@ RULES (follow all):
       }
 
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-      final parts =
-          ((decoded['candidates'] as List?)?.first['content']
-                  as Map<String, dynamic>?)?['parts']
-              as List<dynamic>?;
+      final parts = ((decoded['candidates'] as List?)?.first['content']
+          as Map<String, dynamic>?)?['parts'] as List<dynamic>?;
       if (parts == null) return null;
       for (final p in parts) {
         final inline = (p as Map<String, dynamic>)['inlineData'];
         if (inline is Map<String, dynamic>) {
-          final bytes = Uint8List.fromList(
-            base64Decode(inline['data'] as String),
-          );
+          final bytes =
+              Uint8List.fromList(base64Decode(inline['data'] as String));
           _memoryCache = bytes;
           _memoryKey = key;
           if (!kIsWeb && file != null) {
