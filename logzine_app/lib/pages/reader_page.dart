@@ -104,18 +104,6 @@ class _ReaderPageState extends State<ReaderPage> {
   String? _magazineId;
   String? _articleId;
 
-  String get _heroImage {
-    final coverUrl = _args.coverUrl;
-    if (coverUrl != null && coverUrl.isNotEmpty) return coverUrl;
-    return _heroUrl;
-  }
-
-  String get _keyword {
-    final keyword = _args.keyword;
-    if (keyword != null && keyword.isNotEmpty) return keyword;
-    return '사진';
-  }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -206,15 +194,14 @@ class _ReaderPageState extends State<ReaderPage> {
           _rebuildRecognizers(article.paragraphs);
           _paragraphs = article.paragraphs;
           if (article.pageCount > 0) _totalPages = article.pageCount;
-          _paragraphPages = _computeParagraphPages(
-            _paragraphs.length,
-            _totalPages,
-          );
+          _paragraphPages =
+              _computeParagraphPages(_paragraphs.length, _totalPages);
         }
         _saved = saved;
         for (final r in marks) {
           _marks[(r.paragraphIdx, r.segmentIdx)] = _Mark(
-            color: r.type == 'underline' ? kInkSwatch : _colorFromHex(r.color),
+            color:
+                r.type == 'underline' ? kInkSwatch : _colorFromHex(r.color),
             memo: r.memoText,
           );
         }
@@ -243,8 +230,8 @@ class _ReaderPageState extends State<ReaderPage> {
         type: mark.memo != null
             ? 'memo'
             : mark.isUnderline
-            ? 'underline'
-            : 'highlight',
+                ? 'underline'
+                : 'highlight',
         colorHex: _hex(mark.color),
         memoText: mark.memo,
       );
@@ -270,9 +257,7 @@ class _ReaderPageState extends State<ReaderPage> {
       // _loadRemote()가 아직 끝나지 않아 대상 아티클을 모르는 상태.
       // 예전에는 이 경우 조용히 스킵하면서도 "저장했어요" 스낵바를 그대로
       // 띄워서 실제로는 저장되지 않았는데 성공한 것처럼 보였다.
-      debugPrint(
-        '[ReaderPage] _toggleSaved skipped: article ids not loaded yet',
-      );
+      debugPrint('[ReaderPage] _toggleSaved skipped: article ids not loaded yet');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('아직 불러오는 중이에요. 잠시 후 다시 시도해주세요')),
       );
@@ -298,9 +283,9 @@ class _ReaderPageState extends State<ReaderPage> {
       debugPrint('[ReaderPage] _toggleSaved failed: $e');
       if (!mounted) return;
       setState(() => _saved = !nowSaved);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('저장 중 문제가 발생했어요')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('저장 중 문제가 발생했어요')),
+      );
       return;
     }
 
@@ -334,7 +319,8 @@ class _ReaderPageState extends State<ReaderPage> {
 
   // ── 마크 조작 ──────────────────────────────────────────────
 
-  void _pushHistory() => _history.add(Map<(int, int), _Mark>.from(_marks));
+  void _pushHistory() =>
+      _history.add(Map<(int, int), _Mark>.from(_marks));
 
   void _undo() {
     if (_history.isEmpty) return;
@@ -464,11 +450,9 @@ class _ReaderPageState extends State<ReaderPage> {
       });
     if (_query.isEmpty) return entries;
     return entries
-        .where(
-          (e) => _paragraphs[e.key.$1][e.key.$2].toLowerCase().contains(
-            _query.toLowerCase(),
-          ),
-        )
+        .where((e) => _paragraphs[e.key.$1][e.key.$2]
+            .toLowerCase()
+            .contains(_query.toLowerCase()))
         .toList();
   }
 
@@ -504,17 +488,18 @@ class _ReaderPageState extends State<ReaderPage> {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(
-              Icons.arrow_back_ios_new,
-              size: 19,
-              color: AppColors.ink,
+            icon: const Icon(Icons.arrow_back_ios_new,
+                size: 19, color: AppColors.ink),
+          ),
+          const Expanded(
+            child: Center(
+              child: LogzineLogo(height: 22),
             ),
           ),
-          const Expanded(child: Center(child: LogzineLogo(height: 22))),
           IconButton(
-            onPressed: () => ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('본문 검색은 준비 중이에요'))),
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('본문 검색은 준비 중이에요')),
+            ),
             icon: const Icon(Icons.search, size: 22, color: AppColors.ink),
           ),
           IconButton(
@@ -540,7 +525,7 @@ class _ReaderPageState extends State<ReaderPage> {
           SizedBox(
             height: 230,
             width: double.infinity,
-            child: NetworkPhoto(url: _heroImage, radius: 0),
+            child: NetworkPhoto(url: _heroUrl, radius: 0),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
@@ -578,30 +563,26 @@ class _ReaderPageState extends State<ReaderPage> {
                 // 오늘의 키워드 칩
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 9,
-                  ),
+                      horizontal: 14, vertical: 9),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.wb_sunny_outlined,
-                        size: 15,
-                        color: Color(0xFFE0A83C),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
+                      Icon(Icons.wb_sunny_outlined,
+                          size: 15, color: Color(0xFFE0A83C)),
+                      SizedBox(width: 8),
+                      Text(
                         "Today's keyword: ",
-                        style: TextStyle(fontSize: 13, color: AppColors.body),
+                        style: TextStyle(
+                            fontSize: 13, color: AppColors.body),
                       ),
                       Text(
-                        _keyword,
-                        style: const TextStyle(
+                        'Light',
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppColors.ink,
@@ -622,7 +603,7 @@ class _ReaderPageState extends State<ReaderPage> {
                     SizedBox(
                       height: 210,
                       width: double.infinity,
-                      child: NetworkPhoto(url: _heroImage, radius: 8),
+                      child: NetworkPhoto(url: kMoodPhotos[2], radius: 8),
                     ),
                     const SizedBox(height: 20),
                   ] else if (p != _paragraphs.length - 1)
@@ -633,7 +614,8 @@ class _ReaderPageState extends State<ReaderPage> {
                   const SizedBox(height: 14),
                   const Text(
                     '문장을 탭하면 선택한 색으로 표시돼요',
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(
+                        fontSize: 12, color: AppColors.textMuted),
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -735,19 +717,14 @@ class _ReaderPageState extends State<ReaderPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Studio Log',
-              style: logoStyle(size: 22, letterSpacingEm: 0.04),
-            ),
+            Text('Studio Log',
+                style: logoStyle(size: 22, letterSpacingEm: 0.04)),
             const SizedBox(height: 8),
             const Text(
               '공간과 사물의 온도를 기록하는 에디토리얼 스튜디오. '
               '조용한 인테리어와 오래 쓰는 물건 이야기를 다룹니다.',
               style: TextStyle(
-                fontSize: 13.5,
-                height: 1.6,
-                color: AppColors.body,
-              ),
+                  fontSize: 13.5, height: 1.6, color: AppColors.body),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -757,8 +734,7 @@ class _ReaderPageState extends State<ReaderPage> {
                   backgroundColor: AppColors.forest,
                   minimumSize: const Size.fromHeight(46),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
                 onPressed: () => Navigator.pop(context),
                 child: const Text('발행사 팔로우'),
@@ -782,10 +758,9 @@ class _ReaderPageState extends State<ReaderPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
         boxShadow: [
           BoxShadow(
-            color: Color(0x1F000000),
-            blurRadius: 16,
-            offset: Offset(0, -4),
-          ),
+              color: Color(0x1F000000),
+              blurRadius: 16,
+              offset: Offset(0, -4)),
         ],
       ),
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
@@ -800,11 +775,8 @@ class _ReaderPageState extends State<ReaderPage> {
                 borderRadius: BorderRadius.circular(6),
                 child: const Padding(
                   padding: EdgeInsets.all(4),
-                  child: Icon(
-                    Icons.keyboard_arrow_down,
-                    size: 22,
-                    color: AppColors.ink,
-                  ),
+                  child: Icon(Icons.keyboard_arrow_down,
+                      size: 22, color: AppColors.ink),
                 ),
               ),
               const SizedBox(width: 6),
@@ -842,7 +814,8 @@ class _ReaderPageState extends State<ReaderPage> {
                         color: c,
                         shape: BoxShape.circle,
                         border: _activeColor == c
-                            ? Border.all(color: AppColors.ink, width: 1.8)
+                            ? Border.all(
+                                color: AppColors.ink, width: 1.8)
                             : null,
                       ),
                     ),
@@ -859,11 +832,8 @@ class _ReaderPageState extends State<ReaderPage> {
                       shape: BoxShape.circle,
                       border: Border.all(color: AppColors.border),
                     ),
-                    child: const Icon(
-                      Icons.add,
-                      size: 13,
-                      color: AppColors.textSecondary,
-                    ),
+                    child: const Icon(Icons.add,
+                        size: 13, color: AppColors.textSecondary),
                   ),
                 ),
               ),
@@ -893,14 +863,9 @@ class _ReaderPageState extends State<ReaderPage> {
                   decoration: InputDecoration(
                     hintText: 'Search marks',
                     hintStyle: const TextStyle(
-                      fontSize: 12.5,
-                      color: AppColors.textMuted,
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      size: 16,
-                      color: AppColors.textMuted,
-                    ),
+                        fontSize: 12.5, color: AppColors.textMuted),
+                    prefixIcon: const Icon(Icons.search,
+                        size: 16, color: AppColors.textMuted),
                     contentPadding: EdgeInsets.zero,
                     isDense: true,
                     filled: true,
@@ -929,7 +894,8 @@ class _ReaderPageState extends State<ReaderPage> {
               padding: EdgeInsets.symmetric(vertical: 14),
               child: Text(
                 '아직 표시한 문장이 없어요. 본문 문장을 탭해 보세요.',
-                style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                style:
+                    TextStyle(fontSize: 12.5, color: AppColors.textMuted),
               ),
             )
           else ...[
@@ -950,11 +916,8 @@ class _ReaderPageState extends State<ReaderPage> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: AppColors.forest,
-                    ),
+                    const Icon(Icons.chevron_right,
+                        size: 16, color: AppColors.forest),
                   ],
                 ),
               ),
@@ -1007,9 +970,7 @@ class _ReaderPageState extends State<ReaderPage> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 11.5,
-                        color: AppColors.textSecondary,
-                      ),
+                          fontSize: 11.5, color: AppColors.textSecondary),
                     ),
                   ),
               ],
@@ -1023,15 +984,10 @@ class _ReaderPageState extends State<ReaderPage> {
                 Text(
                   'p.${_paragraphPages[e.key.$1]}',
                   style: const TextStyle(
-                    fontSize: 11.5,
-                    color: AppColors.textSecondary,
-                  ),
+                      fontSize: 11.5, color: AppColors.textSecondary),
                 ),
-                const Icon(
-                  Icons.chevron_right,
-                  size: 15,
-                  color: AppColors.textSecondary,
-                ),
+                const Icon(Icons.chevron_right,
+                    size: 15, color: AppColors.textSecondary),
               ],
             ),
           ),
@@ -1082,9 +1038,7 @@ class _ReaderPageState extends State<ReaderPage> {
           child: Text(
             '$page / $_totalPages',
             style: const TextStyle(
-              fontSize: 12.5,
-              color: AppColors.textSecondary,
-            ),
+                fontSize: 12.5, color: AppColors.textSecondary),
           ),
         ),
         Expanded(
@@ -1105,11 +1059,9 @@ class _ReaderPageState extends State<ReaderPage> {
                 setState(() => _page = v);
                 if (_scroll.hasClients &&
                     _scroll.position.maxScrollExtent > 0) {
-                  _scroll.jumpTo(
-                    _scroll.position.maxScrollExtent *
-                        (v - 1) /
-                        (_totalPages - 1),
-                  );
+                  _scroll.jumpTo(_scroll.position.maxScrollExtent *
+                      (v - 1) /
+                      (_totalPages - 1));
                 }
               },
               onChangeEnd: (_) {
@@ -1125,9 +1077,7 @@ class _ReaderPageState extends State<ReaderPage> {
             '$percent%',
             textAlign: TextAlign.end,
             style: const TextStyle(
-              fontSize: 12.5,
-              color: AppColors.textSecondary,
-            ),
+                fontSize: 12.5, color: AppColors.textSecondary),
           ),
         ),
       ],
@@ -1162,7 +1112,8 @@ class _ActionItem extends StatelessWidget {
           children: [
             Icon(icon, size: 21, color: color),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(fontSize: 11.5, color: color)),
+            Text(label,
+                style: TextStyle(fontSize: 11.5, color: color)),
           ],
         ),
       ),
@@ -1191,8 +1142,8 @@ class _ToolButton extends StatelessWidget {
     final color = !enabled
         ? AppColors.textMuted
         : selected
-        ? AppColors.ink
-        : AppColors.textSecondary;
+            ? AppColors.ink
+            : AppColors.textSecondary;
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(6),
@@ -1209,7 +1160,8 @@ class _ToolButton extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight:
+                        selected ? FontWeight.w600 : FontWeight.w400,
                     color: color,
                   ),
                 ),

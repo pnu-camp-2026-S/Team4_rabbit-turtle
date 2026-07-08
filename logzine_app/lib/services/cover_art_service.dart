@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-import 'gemini_proxy_client.dart';
+import 'gemini_proxy_service.dart';
 
 /// "이번 주 나의 표지" 커버 아트 — Gemini 이미지 생성.
 /// 주 1회(취향이 같으면) 생성해 로컬 캐시하고,
@@ -32,9 +32,8 @@ class CoverArtService {
   /// 매거진 표지 생성 규칙 — 실제 잡지(VOGUE·Gourmet Traveller·EHOUSING)
   /// 표지 문법을 코드화한 프롬프트. 규칙 전문: .agents/skills/logzine-cover/SKILL.md
   static String _coverPrompt(List<String> taste) {
-    final interests = taste.isEmpty
-        ? 'quiet interiors, slow living'
-        : taste.take(4).join(', ');
+    final interests =
+        taste.isEmpty ? 'quiet interiors, slow living' : taste.take(4).join(', ');
     return '''
 Create a premium printed magazine FRONT COVER, portrait orientation.
 
@@ -67,8 +66,6 @@ RULES (follow all):
       }
     }
 
-    if (!GeminiProxyClient.isConfigured) return null;
-
     // 최근 실패(쿼터 소진 등) 후 쿨다운 동안은 재시도하지 않음
     if (_lastFailAt != null &&
         DateTime.now().difference(_lastFailAt!) < _failCooldown) {
@@ -76,9 +73,9 @@ RULES (follow all):
     }
 
     try {
-      final response = await GeminiProxyClient.generateContent(
+      final response = await GeminiProxyService.generateContent(
         model: _model,
-        timeout: const Duration(seconds: 45),
+        timeout: const Duration(seconds: 50),
         body: {
           'contents': [
             {
@@ -98,17 +95,14 @@ RULES (follow all):
       }
 
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-      final parts =
-          ((decoded['candidates'] as List?)?.first['content']
-                  as Map<String, dynamic>?)?['parts']
-              as List<dynamic>?;
+      final parts = ((decoded['candidates'] as List?)?.first['content']
+          as Map<String, dynamic>?)?['parts'] as List<dynamic>?;
       if (parts == null) return null;
       for (final p in parts) {
         final inline = (p as Map<String, dynamic>)['inlineData'];
         if (inline is Map<String, dynamic>) {
-          final bytes = Uint8List.fromList(
-            base64Decode(inline['data'] as String),
-          );
+          final bytes =
+              Uint8List.fromList(base64Decode(inline['data'] as String));
           _memoryCache = bytes;
           _memoryKey = key;
           if (!kIsWeb && file != null) {

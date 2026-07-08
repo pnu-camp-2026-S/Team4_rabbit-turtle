@@ -44,12 +44,16 @@ class _HomeData {
 
 class _HomePageState extends State<HomePage> {
   static const int _maxStandMagazines = 6;
-  static const List<String> _defaultTasteLabels = ['인테리어', '조용한 휴식', '디자인'];
+  static const List<String> _defaultTasteLabels = [
+    'Warm wood',
+    'Quiet rooms',
+    'Editorial mood',
+  ];
 
   static const Map<String, List<String>> _defaultTasteQueries = {
-    '인테리어': ['인테리어', '가구', '빈티지', '홈라이프'],
-    '조용한 휴식': ['조용한 휴식', '전시 공간', '작업 루틴'],
-    '디자인': ['디자인', '전시', '현대미술', '바이닐', '재즈', '인디'],
+    'Warm wood': ['인테리어', '가구', '빈티지', '집밥'],
+    'Quiet rooms': ['인테리어', '조용한 휴식', '전시 공간', '작업 루틴'],
+    'Editorial mood': ['디자인', '전시', '현대미술', '바이닐', '재즈', '인디'],
   };
 
   Future<_HomeData> _homeFuture = _loadHome();

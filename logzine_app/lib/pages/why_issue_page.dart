@@ -44,8 +44,6 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
       ? _tasteBasisArg!
       : _taste;
 
-  _IssueProfile get _profile => _IssueProfile.from(_magazine, _articles);
-
   /// 이 매거진의 실제 아티클 목록 (In this issue 목차).
   List<Article> _articles = const [];
 
@@ -89,38 +87,11 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
       context,
       '/reader',
       arguments: ReaderArgs(
-        category: _profile.category,
-        title: article.title,
+        title: _magazine.title,
         publisher: _magazine.issue,
-        minutes: _profile.minutes,
         magazineId: _magazine.id,
         articleId: article.id,
         coverUrl: _magazine.coverUrl,
-        keyword: _profile.keyword,
-      ),
-    );
-  }
-
-  Future<void> _openFirstArticle() async {
-    final articles = _articles.isNotEmpty || _magazine.id.isEmpty
-        ? _articles
-        : await MagazineService().fetchArticles(_magazine.id);
-    if (articles.isNotEmpty) {
-      _openArticle(articles.first);
-      return;
-    }
-    if (!mounted) return;
-    Navigator.pushNamed(
-      context,
-      '/reader',
-      arguments: ReaderArgs(
-        category: _profile.category,
-        title: _magazine.title,
-        publisher: _magazine.issue,
-        minutes: _profile.minutes,
-        magazineId: _magazine.id.isEmpty ? null : _magazine.id,
-        coverUrl: _magazine.coverUrl,
-        keyword: _profile.keyword,
       ),
     );
   }
@@ -212,17 +183,17 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                                   color: AppColors.border,
                                 ),
                                 const SizedBox(height: 12),
-                                Row(
+                                const Row(
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.schedule,
                                       size: 15,
                                       color: AppColors.textSecondary,
                                     ),
-                                    const SizedBox(width: 6),
+                                    SizedBox(width: 6),
                                     Text(
-                                      '${_profile.minutes} min read',
-                                      style: const TextStyle(
+                                      '18 min read',
+                                      style: TextStyle(
                                         fontSize: 12.5,
                                         color: AppColors.textSecondary,
                                       ),
@@ -234,7 +205,19 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                                   children: [
                                     Expanded(
                                       child: FilledButton(
-                                        onPressed: _openFirstArticle,
+                                        onPressed: () => Navigator.pushNamed(
+                                          context,
+                                          '/reader',
+                                          arguments: ReaderArgs(
+                                            title: _magazine.title,
+                                            publisher: _magazine.issue,
+                                            // 이 매거진의 아티클을 리더에 로드
+                                            magazineId: _magazine.id.isEmpty
+                                                ? null
+                                                : _magazine.id,
+                                            coverUrl: _magazine.coverUrl,
+                                          ),
+                                        ),
                                         style: FilledButton.styleFrom(
                                           backgroundColor: AppColors.forest,
                                           foregroundColor: Colors.white,
@@ -311,11 +294,11 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Expanded(
+                          const Expanded(
                             child: _ReasonCard(
                               icon: Icons.menu_book_outlined,
                               title: 'Reading style',
-                              subtitle: _profile.readingStyle,
+                              subtitle: '비주얼 에세이,\n짧은 호흡의 글',
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -354,7 +337,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              _profile.quote,
+                              _magazine.tagline,
                               style: const TextStyle(
                                 fontSize: 13.5,
                                 height: 1.5,
@@ -366,10 +349,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                           SizedBox(
                             width: 64,
                             height: 64,
-                            child: NetworkPhoto(
-                              url: _magazine.coverUrl,
-                              radius: 8,
-                            ),
+                            child: NetworkPhoto(url: kMoodPhotos[3], radius: 8),
                           ),
                         ],
                       ),
@@ -440,7 +420,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                         // 이 매거진의 태그 — 내 취향과 일치하면 선택 상태로 강조
                         for (final tag
                             in _magazine.tags.isEmpty
-                                ? const ['인테리어', '가구', '사진', '취미 수집']
+                                ? const ['Interior', 'Wood', 'Light', 'Objects']
                                 : _magazine.tags)
                           TasteChip(
                             label: tag,
@@ -495,98 +475,6 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
         ),
       ),
     );
-  }
-}
-
-class _IssueProfile {
-  const _IssueProfile({
-    required this.category,
-    required this.keyword,
-    required this.minutes,
-    required this.readingStyle,
-    required this.quote,
-  });
-
-  final String category;
-  final String keyword;
-  final int minutes;
-  final String readingStyle;
-  final String quote;
-
-  factory _IssueProfile.from(Magazine magazine, List<Article> articles) {
-    final tags = magazine.tags;
-    final keyword = tags.isEmpty ? '디자인' : tags.first;
-    final second = tags.length > 1 ? tags[1] : keyword;
-    final articleTitle = articles.isEmpty
-        ? magazine.tagline
-        : articles.first.title;
-    final minutes = articles.isEmpty
-        ? 18
-        : articles
-              .fold<int>(0, (sum, article) => sum + article.pageCount)
-              .clamp(8, 28)
-              .toInt();
-
-    final category = _categoryFor(keyword);
-    return _IssueProfile(
-      category: category,
-      keyword: keyword,
-      minutes: minutes,
-      readingStyle: _readingStyleFor(keyword, second),
-      quote: _quoteFor(magazine, articleTitle, keyword, second),
-    );
-  }
-
-  static String _categoryFor(String keyword) {
-    const byKeyword = {
-      '카페': 'Coffee Cities',
-      '디저트': 'Food & Still Life',
-      '와인': 'Table Culture',
-      '브런치': 'Food & Still Life',
-      '로컬 맛집': 'Local Taste',
-      '미니멀': 'Quiet Design',
-      '빈티지': 'Collected Style',
-      '스트릿': 'Street Notes',
-      '디자이너 브랜드': 'Style Study',
-      '데일리룩': 'Everyday Style',
-      '인테리어': 'Rooms & Objects',
-      '가구': 'Rooms & Objects',
-      '호텔': 'Stays & Retreats',
-      '전시 공간': 'Cultural Spaces',
-      '서점': 'Reading Rooms',
-      '건축': 'Architecture',
-      '도시 여행': 'Slow Travel',
-      '숙소': 'Stays & Retreats',
-      '자연': 'Green Retreats',
-      '자연휴식': 'Green Retreats',
-      '축구': 'Matchday Culture',
-      '러닝': 'Movement Journal',
-      '요가': 'Wellness Notes',
-      '전시': 'Art Review',
-      '현대미술': 'Art Review',
-      '공예': 'Craft Notes',
-      '디자인': 'Design Culture',
-      '사진': 'Photo Essay',
-      '인디': 'Listening Notes',
-      '재즈': 'Listening Notes',
-      '바이닐': 'Record Culture',
-      '라이브 공연': 'Live Culture',
-    };
-    return byKeyword[keyword] ?? 'Editorial Journal';
-  }
-
-  static String _readingStyleFor(String keyword, String second) {
-    return '$keyword 중심의\n$second 에세이';
-  }
-
-  static String _quoteFor(
-    Magazine magazine,
-    String articleTitle,
-    String keyword,
-    String second,
-  ) {
-    return '${magazine.title}의 "$articleTitle"는 $keyword와 $second를 '
-        '하나의 장면처럼 엮어, 지금의 취향이 어디에 머무는지 또렷하게 보여줘요.';
   }
 }
 

@@ -9,7 +9,6 @@ class ReaderArgs {
     this.magazineId,
     this.articleId,
     this.coverUrl,
-    this.keyword,
   });
 
   final String category;
@@ -25,7 +24,4 @@ class ReaderArgs {
 
   /// 매거진 표지 URL — Save 시 저장 목록 썸네일로 쓰인다. null이면 리더 기본 이미지.
   final String? coverUrl;
-
-  /// 리더 상단의 Today's keyword 칩에 표시할 대표 키워드.
-  final String? keyword;
 }

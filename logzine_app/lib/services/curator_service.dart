@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'gemini_proxy_client.dart';
+import 'gemini_proxy_service.dart';
 
 /// AI 큐레이터 — 사용자 취향과 오늘의 픽으로 홈 상단의 에디터 한 줄을 만든다.
 /// Gemini 실패/프록시 없음/비로그인 시 로컬 템플릿 폴백 (앱은 항상 동작).
@@ -22,12 +22,12 @@ class CuratorService {
     if (_cacheKey == key && _cachedLine != null) return _cachedLine!;
 
     final String fallback = _fallbackLine(taste: taste, topPick: topPick);
-    if (!GeminiProxyClient.isConfigured || topPick.isEmpty) return fallback;
+    if (topPick.isEmpty) return fallback;
 
     try {
-      final response = await GeminiProxyClient.generateContent(
+      final response = await GeminiProxyService.generateContent(
         model: _model,
-        timeout: const Duration(seconds: 8),
+        timeout: const Duration(seconds: 10),
         body: {
           'contents': [
             {
