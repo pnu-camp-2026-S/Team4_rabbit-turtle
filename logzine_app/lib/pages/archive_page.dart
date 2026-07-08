@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/article_text_size_service.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
@@ -408,7 +409,12 @@ class _SettingsPageState extends State<_SettingsPage> {
   bool _readingReminder = false;
   bool _privateHighlights = true;
   bool _autoSaveMarks = true;
-  double _textScale = 1.0;
+  int _textSizeStep = ArticleTextSizeService.currentStep;
+
+  void _setTextSizeStep(int step) {
+    setState(() => _textSizeStep = step);
+    ArticleTextSizeService.setStep(step);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -451,8 +457,8 @@ class _SettingsPageState extends State<_SettingsPage> {
                         ),
                         const Divider(color: AppColors.border, height: 1),
                         _SliderTile(
-                          value: _textScale,
-                          onChanged: (value) => setState(() => _textScale = value),
+                          value: _textSizeStep,
+                          onChanged: _setTextSizeStep,
                         ),
                       ],
                     ),
@@ -571,8 +577,8 @@ class _SwitchTile extends StatelessWidget {
 class _SliderTile extends StatelessWidget {
   const _SliderTile({required this.value, required this.onChanged});
 
-  final double value;
-  final ValueChanged<double> onChanged;
+  final int value;
+  final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -599,12 +605,31 @@ class _SliderTile extends StatelessWidget {
             ),
           ),
           Slider(
-            value: value,
-            min: 0.9,
-            max: 1.3,
-            divisions: 4,
+            value: value.toDouble(),
+            min: ArticleTextSizeService.minStep.toDouble(),
+            max: ArticleTextSizeService.maxStep.toDouble(),
+            divisions:
+                ArticleTextSizeService.maxStep - ArticleTextSizeService.minStep,
+            label: '$value단계',
             activeColor: AppColors.forest,
-            onChanged: onChanged,
+            onChanged: (next) => onChanged(next.round()),
+          ),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '1 작게',
+                style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+              ),
+              Text(
+                '2 기본',
+                style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+              ),
+              Text(
+                '3 크게',
+                style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+              ),
+            ],
           ),
         ],
       ),
