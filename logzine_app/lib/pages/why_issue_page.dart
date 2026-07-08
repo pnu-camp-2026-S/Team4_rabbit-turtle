@@ -95,8 +95,8 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 상단 바 (뒤로가기 + 로고 + 알림)
-            const LogzineTopBar(showBack: true),
+            // 상단 바 (뒤로가기 + 로고)
+            const LogzineTopBar(showBack: true, showBell: false),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
