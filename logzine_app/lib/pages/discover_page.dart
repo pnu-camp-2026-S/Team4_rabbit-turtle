@@ -101,7 +101,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
     return FutureBuilder<_SearchData>(
       future: _dataFuture,
       builder: (context, snapshot) {
-        final data = snapshot.data ??
+        final data =
+            snapshot.data ??
             const _SearchData(magazines: kMagazines, taste: []);
         return _buildScaffold(context, data);
       },
@@ -111,8 +112,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
   Widget _buildScaffold(BuildContext context, _SearchData data) {
     final List<Magazine> results = _filter(data.magazines);
     final List<String> popularTags = _popularTagsOf(data.magazines);
-    final List<String> quickNames =
-        [for (final m in data.magazines.take(5)) m.title];
+    final List<String> quickNames = [
+      for (final m in data.magazines.take(5)) m.title,
+    ];
     return Scaffold(
       backgroundColor: AppColors.screen,
       body: SafeArea(
@@ -139,7 +141,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
                     const SizedBox(height: 8),
                     // 오늘의 키워드 = 카탈로그에서 가장 흔한 태그 (실데이터)
                     KeywordChip(
-                      keyword: popularTags.isEmpty ? 'Light' : popularTags.first,
+                      keyword: popularTags.isEmpty
+                          ? 'Light'
+                          : popularTags.first,
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -245,19 +249,12 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 잡지 러닝헤드 스타일 아이브로우 라벨
-    return Text(
-      text.toUpperCase(),
-      style: eyebrowStyle(color: AppColors.ink),
-    );
+    return Text(text.toUpperCase(), style: eyebrowStyle(color: AppColors.ink));
   }
 }
 
 class _OutlineChip extends StatelessWidget {
-  const _OutlineChip({
-    required this.label,
-    this.selected = false,
-    this.onTap,
-  });
+  const _OutlineChip({required this.label, this.selected = false, this.onTap});
 
   final String label;
   final bool selected;
@@ -265,9 +262,8 @@ class _OutlineChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 각진 사각 칩 → 부드러운 필 (딱딱함 제거)
     return Material(
-      color: selected ? AppColors.forest : Colors.white,
+      color: Colors.white,
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,
@@ -278,14 +274,15 @@ class _OutlineChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: selected ? AppColors.forest : AppColors.border,
+              width: selected ? 1.4 : 1,
             ),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontSize: 11.5,
-              fontWeight: FontWeight.w500,
-              color: selected ? Colors.white : AppColors.ink,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? AppColors.forest : AppColors.ink,
             ),
           ),
         ),
@@ -308,11 +305,8 @@ class _SearchResultCard extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: () => Navigator.pushNamed(
-          context,
-          '/discover/why',
-          arguments: magazine,
-        ),
+        onTap: () =>
+            Navigator.pushNamed(context, '/discover/why', arguments: magazine),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(12),
@@ -332,9 +326,7 @@ class _SearchResultCard extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       NetworkPhoto(url: magazine.coverUrl, radius: 4),
-                      Container(
-                        color: Colors.black.withValues(alpha: 0.08),
-                      ),
+                      Container(color: Colors.black.withValues(alpha: 0.08)),
                       Padding(
                         padding: const EdgeInsets.all(8),
                         child: Column(

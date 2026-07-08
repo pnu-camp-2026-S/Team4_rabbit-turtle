@@ -69,16 +69,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _watchCurator(Future<_HomeData> future) {
-    future.then((data) {
-      if (!mounted) return;
-      final int center = data.shelf.length > 2 ? 2 : 0;
-      final String topPick =
-          data.shelf.isEmpty ? '' : data.shelf[center].title;
-      setState(() {
-        _curatorFuture =
-            CuratorService.todayLine(taste: data.taste, topPick: topPick);
-      });
-    }).catchError((_) {});
+    future
+        .then((data) {
+          if (!mounted) return;
+          final int center = data.shelf.length > 2 ? 2 : 0;
+          final String topPick = data.shelf.isEmpty
+              ? ''
+              : data.shelf[center].title;
+          setState(() {
+            _curatorFuture = CuratorService.todayLine(
+              taste: data.taste,
+              topPick: topPick,
+            );
+          });
+        })
+        .catchError((_) {});
   }
 
   static Future<_HomeData> _loadHome() async {
@@ -159,12 +164,27 @@ class _HomePageState extends State<HomePage> {
   /// 오늘의 지면 날짜줄 — WEDNESDAY · JULY 8
   String get _dateLine {
     const weekdays = [
-      'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY',
-      'FRIDAY', 'SATURDAY', 'SUNDAY',
+      'MONDAY',
+      'TUESDAY',
+      'WEDNESDAY',
+      'THURSDAY',
+      'FRIDAY',
+      'SATURDAY',
+      'SUNDAY',
     ];
     const months = [
-      'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
-      'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+      'JANUARY',
+      'FEBRUARY',
+      'MARCH',
+      'APRIL',
+      'MAY',
+      'JUNE',
+      'JULY',
+      'AUGUST',
+      'SEPTEMBER',
+      'OCTOBER',
+      'NOVEMBER',
+      'DECEMBER',
     ];
     final now = DateTime.now();
     return '${weekdays[now.weekday - 1]} · ${months[now.month - 1]} ${now.day}';
@@ -254,8 +274,7 @@ class _HomePageState extends State<HomePage> {
                     FutureBuilder<String>(
                       future: _curatorFuture,
                       builder: (context, snapshot) {
-                        final String line =
-                            snapshot.data ?? '오늘의 가판대가 도착했어요';
+                        final String line = snapshot.data ?? '오늘의 가판대가 도착했어요';
                         return AnimatedSwitcher(
                           duration: const Duration(milliseconds: 500),
                           child: Text(
@@ -440,13 +459,17 @@ class _MyCoverBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.forest,
+      color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: () => Navigator.pushNamed(context, '/mycover'),
         borderRadius: BorderRadius.circular(14),
-        child: Padding(
+        child: Container(
           padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.forest, width: 1.4),
+          ),
           child: Row(
             children: [
               // 미니 타이포 표지
@@ -485,10 +508,7 @@ class _MyCoverBanner extends StatelessWidget {
                   children: [
                     Text(
                       'MY COVER',
-                      style: eyebrowStyle(
-                        size: 10,
-                        color: Colors.white.withValues(alpha: 0.75),
-                      ),
+                      style: eyebrowStyle(size: 10, color: AppColors.forest),
                     ),
                     const SizedBox(height: 4),
                     const Text(
@@ -496,13 +516,17 @@ class _MyCoverBanner extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        color: AppColors.ink,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, size: 20, color: Colors.white70),
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppColors.forest,
+              ),
             ],
           ),
         ),

@@ -20,8 +20,18 @@ class LibraryPage extends StatefulWidget {
 enum _LibrarySummary { magazines, publishers, saved }
 
 typedef _PublisherItem = ({String name, String imageUrl, String description});
-typedef _SavedArticleItem = ({String title, String publisher, String date, String imageUrl});
-typedef _RecentViewedItem = ({String title, String publisher, int progress, String imageUrl});
+typedef _SavedArticleItem = ({
+  String title,
+  String publisher,
+  String date,
+  String imageUrl,
+});
+typedef _RecentViewedItem = ({
+  String title,
+  String publisher,
+  int progress,
+  String imageUrl,
+});
 
 /// 라이브러리 화면 데이터 묶음 — 매거진 목록 + 저장 글 + 이어 읽기 + 저장 개수.
 class _LibraryData {
@@ -49,25 +59,29 @@ class _LibraryPageState extends State<LibraryPage> {
       name: 'Studio Log',
       imageUrl:
           'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=400&q=80',
-      description: 'Quiet interiors, lasting objects, and warm editorial photography.',
+      description:
+          'Quiet interiors, lasting objects, and warm editorial photography.',
     ),
     (
       name: 'Room Note',
       imageUrl:
           'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80',
-      description: 'A magazine about gentle rooms, slow mornings, and thoughtful living.',
+      description:
+          'A magazine about gentle rooms, slow mornings, and thoughtful living.',
     ),
     (
       name: 'Oak Paper',
       imageUrl:
           'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=400&q=80',
-      description: 'Independent print stories shaped around craft, paper, and tactile design.',
+      description:
+          'Independent print stories shaped around craft, paper, and tactile design.',
     ),
     (
       name: 'Still Life',
       imageUrl:
           'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
-      description: 'Minimal domestic scenes and essays on how objects settle into memory.',
+      description:
+          'Minimal domestic scenes and essays on how objects settle into memory.',
     ),
   ];
 
@@ -239,7 +253,8 @@ class _LibraryPageState extends State<LibraryPage> {
                 builder: (context, snapshot) {
                   final data = snapshot.data;
                   final magazines = data?.magazines ?? const <Magazine>[];
-                  final savedArticles = data?.savedArticles ?? _demoSavedArticles;
+                  final savedArticles =
+                      data?.savedArticles ?? _demoSavedArticles;
                   final recentViewed = data?.recentViewed ?? _demoRecentViewed;
                   final savedCount = data?.savedCount ?? _demoSavedCount;
                   final isLoggedIn = data?.isLoggedIn ?? false;
@@ -297,8 +312,9 @@ class _LibraryPageState extends State<LibraryPage> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) =>
-                                          _RecentViewedPage(items: recentViewed),
+                                      builder: (_) => _RecentViewedPage(
+                                        items: recentViewed,
+                                      ),
                                     ),
                                   );
                                 },
@@ -306,7 +322,8 @@ class _LibraryPageState extends State<LibraryPage> {
                         const SizedBox(height: 12),
                         if (recentViewed.isEmpty)
                           const _EmptyStateCard(
-                            message: '아직 읽은 글이 없어요.\n'
+                            message:
+                                '아직 읽은 글이 없어요.\n'
                                 '매거진을 펼쳐보면 여기에 기록이 남아요.',
                           )
                         else
@@ -410,10 +427,11 @@ class _SummaryItem extends StatelessWidget {
         margin: const EdgeInsets.all(6),
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFFF4FAF6) : Colors.transparent,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: active ? const Color(0xFFC4D9CB) : Colors.transparent,
+            color: active ? AppColors.forest : Colors.transparent,
+            width: active ? 1.4 : 1,
           ),
           boxShadow: active
               ? const [
@@ -589,11 +607,8 @@ class _SubscriptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Navigator.pushNamed(
-        context,
-        '/discover/why',
-        arguments: magazine,
-      ),
+      onTap: () =>
+          Navigator.pushNamed(context, '/discover/why', arguments: magazine),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
@@ -680,10 +695,7 @@ class _PublisherBubble extends StatelessWidget {
             Text(
               item.name,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 12.5,
-                color: AppColors.ink,
-              ),
+              style: const TextStyle(fontSize: 12.5, color: AppColors.ink),
             ),
           ],
         ),
@@ -742,11 +754,7 @@ class _SavedArticleTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.bookmark,
-              size: 18,
-              color: AppColors.ink,
-            ),
+            const Icon(Icons.bookmark, size: 18, color: AppColors.ink),
           ],
         ),
       ),
@@ -911,7 +919,8 @@ class _PublisherPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    for (final article in _LibraryPageState._demoSavedArticles) ...[
+                    for (final article
+                        in _LibraryPageState._demoSavedArticles) ...[
                       _SavedArticleTile(item: article),
                       const SizedBox(height: 10),
                     ],
@@ -943,7 +952,8 @@ class _RecentViewedPage extends StatelessWidget {
               child: ListView.separated(
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 itemCount: items.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final item = items[index];
                   return _SurfaceCard(
@@ -957,7 +967,10 @@ class _RecentViewedPage extends StatelessWidget {
                             SizedBox(
                               width: 58,
                               height: 78,
-                              child: NetworkPhoto(url: item.imageUrl, radius: 10),
+                              child: NetworkPhoto(
+                                url: item.imageUrl,
+                                radius: 10,
+                              ),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
