@@ -8,6 +8,7 @@ import '../services/user_service.dart';
 
 import '../theme.dart';
 import '../widgets/logzine_logo.dart';
+import '../widgets/onboarding_widgets.dart' show OnboardingBackButton;
 
 /// 이메일로 시작 화면 — 이메일 입력 + 소셜 로그인 + 하단 무드 이미지.
 class LoginEmailPage extends StatefulWidget {
@@ -18,10 +19,6 @@ class LoginEmailPage extends StatefulWidget {
 }
 
 class _LoginEmailPageState extends State<LoginEmailPage> {
-  static const String _footImageUrl =
-      'https://images.unsplash.com/photo-1519710164239-da123dc03ef4'
-      '?auto=format&fit=crop&w=1200&q=80';
-
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
@@ -76,133 +73,145 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 20),
-            const LogzineLogo(),
-            const SizedBox(height: 36),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Text(
-                      'Start with Email',
-                      style: logoStyle(
-                        size: 30,
-                        weight: FontWeight.w500,
-                        letterSpacingEm: 0.02,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      hintText: 'Email address',
-                      prefixIcon: Icon(
-                        Icons.mail_outline,
-                        size: 20,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Password',
-                      prefixIcon: Icon(
-                        Icons.lock_outline,
-                        size: 20,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: _loading ? null : () => _submit(isSignUp: false),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.forest,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(52),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    child: _loading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Continue'),
-                  ),
-                  TextButton(
-                    onPressed: _loading ? null : () => _submit(isSignUp: true),
-                    child: const Text(
-                      '처음이신가요? 이 이메일로 가입하기',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const _OrDivider(),
-                  const SizedBox(height: 22),
-                  // 소셜 로그인은 실제 인증 미구현 — 별도 이슈로 진행.
-                  _SocialButton(
-                    icon: const _KakaoIcon(),
-                    label: 'Continue with Kakao',
-                    onPressed: () =>
-                        Navigator.pushNamed(context, '/onboarding'),
-                  ),
-                  const SizedBox(height: 12),
-                  _SocialButton(
-                    icon: const Icon(
-                      Icons.apple,
-                      size: 24,
-                      color: Colors.black,
-                    ),
-                    label: 'Continue with Apple',
-                    onPressed: () =>
-                        Navigator.pushNamed(context, '/onboarding'),
-                  ),
-                  const SizedBox(height: 12),
-                  _SocialButton(
-                    icon: const _GoogleIcon(),
-                    label: 'Continue with Google',
-                    onPressed: () =>
-                        Navigator.pushNamed(context, '/onboarding'),
-                  ),
-                ],
+            const SizedBox(height: 8),
+            // 뒤로가기 — 웰컴 화면으로 복귀
+            const Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: OnboardingBackButton(),
               ),
             ),
-            const SizedBox(height: 24),
+            // 로고 + 폼을 화면 세로 중앙에
             Expanded(
-              child: Image.network(
-                _footImageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                errorBuilder: (context, error, stackTrace) =>
-                    const ColoredBox(color: AppColors.placeholder),
-                loadingBuilder: (context, child, progress) => progress == null
-                    ? child
-                    : const ColoredBox(color: AppColors.placeholder),
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const LogzineLogo(),
+                      const SizedBox(height: 36),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Center(
+                              child: Text(
+                                'Start with Email',
+                                style: logoStyle(
+                                  size: 30,
+                                  weight: FontWeight.w500,
+                                  letterSpacingEm: 0.02,
+                                  color: AppColors.ink,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            TextField(
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: const InputDecoration(
+                                hintText: 'Email address',
+                                prefixIcon: Icon(
+                                  Icons.mail_outline,
+                                  size: 20,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _passwordController,
+                              obscureText: true,
+                              decoration: const InputDecoration(
+                                hintText: 'Password',
+                                prefixIcon: Icon(
+                                  Icons.lock_outline,
+                                  size: 20,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton(
+                              onPressed: _loading
+                                  ? null
+                                  : () => _submit(isSignUp: false),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.forest,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size.fromHeight(52),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              child: _loading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Continue'),
+                            ),
+                            TextButton(
+                              onPressed: _loading
+                                  ? null
+                                  : () => _submit(isSignUp: true),
+                              child: const Text(
+                                '처음이신가요? 이 이메일로 가입하기',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            const _OrDivider(),
+                            const SizedBox(height: 22),
+                            // 소셜 로그인은 실제 인증 미구현 — 별도 이슈로 진행.
+                            _SocialButton(
+                              icon: const _KakaoIcon(),
+                              label: 'Continue with Kakao',
+                              onPressed: () =>
+                                  Navigator.pushNamed(context, '/onboarding'),
+                            ),
+                            const SizedBox(height: 12),
+                            _SocialButton(
+                              icon: const Icon(
+                                Icons.apple,
+                                size: 24,
+                                color: Colors.black,
+                              ),
+                              label: 'Continue with Apple',
+                              onPressed: () =>
+                                  Navigator.pushNamed(context, '/onboarding'),
+                            ),
+                            const SizedBox(height: 12),
+                            _SocialButton(
+                              icon: const _GoogleIcon(),
+                              label: 'Continue with Google',
+                              onPressed: () =>
+                                  Navigator.pushNamed(context, '/onboarding'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
