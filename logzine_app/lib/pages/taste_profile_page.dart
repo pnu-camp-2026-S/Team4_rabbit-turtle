@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/taste_analysis.dart';
+import '../services/photo_taste_analyzer.dart';
 import '../theme.dart';
 import '../widgets/onboarding_widgets.dart'
     show OnboardingHeader, OnboardingTopBar;
