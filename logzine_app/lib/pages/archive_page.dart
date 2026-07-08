@@ -11,6 +11,7 @@ import '../services/reading_stats_service.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/motion_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
 typedef _MarkItem = ({
@@ -425,89 +426,113 @@ class _ArchivePageState extends State<ArchivePage> {
                         const SizedBox(height: 6),
                         const PageTitleHeader(title: 'Archive'),
                         const SizedBox(height: 18),
-                        _ProfileHeader(
-                          avatarUrl: _avatarUrl,
-                          userName: userName,
+                        FadeSlideIn(
+                          delay: FadeSlideIn.stagger(0),
+                          child: _ProfileHeader(
+                            avatarUrl: _avatarUrl,
+                            userName: userName,
+                          ),
                         ),
                         const SizedBox(height: 24),
-                        const SectionHeader(title: 'This week'),
-                        const SizedBox(height: 10),
-                        _SurfaceCard(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: IntrinsicHeight(
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: InkWell(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const _ReadingStatsPage(),
+                        FadeSlideIn(
+                          delay: FadeSlideIn.stagger(1),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SectionHeader(title: 'This week'),
+                              const SizedBox(height: 10),
+                              _SurfaceCard(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  child: IntrinsicHeight(
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: InkWell(
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const _ReadingStatsPage(),
+                                                ),
+                                              );
+                                            },
+                                            child: _StatItem(
+                                              label: 'Time read',
+                                              value: timeRead,
+                                              icon: Icons.schedule,
+                                            ),
                                           ),
-                                        );
-                                      },
-                                      child: _StatItem(
-                                        label: 'Time read',
-                                        value: timeRead,
-                                        icon: Icons.schedule,
-                                      ),
+                                        ),
+                                        const VerticalDivider(
+                                          color: AppColors.border,
+                                          width: 1,
+                                        ),
+                                        Expanded(
+                                          child: InkWell(
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      _MarksPage(items: marks),
+                                                ),
+                                              );
+                                            },
+                                            child: _StatItem(
+                                              label: 'Marks',
+                                              value: '$marksCount',
+                                              countUpValue: marksCount,
+                                              icon: Icons.edit_outlined,
+                                              highlight: true,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const VerticalDivider(
-                                    color: AppColors.border,
-                                    width: 1,
-                                  ),
-                                  Expanded(
-                                    child: InkWell(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                _MarksPage(items: marks),
-                                          ),
-                                        );
-                                      },
-                                      child: _StatItem(
-                                        label: 'Marks',
-                                        value: '$marksCount',
-                                        icon: Icons.edit_outlined,
-                                        highlight: true,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 22),
-                        SectionHeader(
-                          title: 'Recently viewed',
-                          onViewAll: recentViewed.isEmpty
-                              ? null
-                              : () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => _RecentViewedPage(
-                                        items: recentViewed,
-                                      ),
-                                    ),
-                                  );
-                                },
+                        FadeSlideIn(
+                          delay: FadeSlideIn.stagger(2),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SectionHeader(
+                                title: 'Recently viewed',
+                                onViewAll: recentViewed.isEmpty
+                                    ? null
+                                    : () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => _RecentViewedPage(
+                                              items: recentViewed,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                              ),
+                              const SizedBox(height: 10),
+                              if (recentViewed.isEmpty)
+                                const _EmptyStateCard(
+                                  message:
+                                      '아직 최근 본 매거진이 없어요.\n매거진 상세나 리더를 열면 여기에 기록돼요.',
+                                )
+                              else
+                                _RecentShelf(
+                                  items: recentViewed.take(6).toList(),
+                                ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 10),
-                        if (recentViewed.isEmpty)
-                          const _EmptyStateCard(
-                            message:
-                                '아직 최근 본 매거진이 없어요.\n매거진 상세나 리더를 열면 여기에 기록돼요.',
-                          )
-                        else
-                          _RecentShelf(items: recentViewed.take(6).toList()),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -732,76 +757,78 @@ class _RecentShelf extends StatelessWidget {
         separatorBuilder: (context, index) => const SizedBox(width: 14),
         itemBuilder: (context, index) {
           final item = items[index];
-          return InkWell(
-            onTap: () => _openRecentViewed(context, item),
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: 150,
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: SizedBox(
-                      width: 150,
-                      height: 250,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          NetworkPhoto(url: item.imageUrl, radius: 12),
-                          const DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Color(0x5A000000),
-                                  Color(0x10000000),
-                                  Color(0x00000000),
-                                ],
+          return PressableScale(
+            child: InkWell(
+              onTap: () => _openRecentViewed(context, item),
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 150,
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        width: 150,
+                        height: 250,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            NetworkPhoto(url: item.imageUrl, radius: 12),
+                            const DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Color(0x5A000000),
+                                    Color(0x10000000),
+                                    Color(0x00000000),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              item.title,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: logoStyle(
-                                size: 17,
-                                weight: FontWeight.w600,
-                                letterSpacingEm: 0.06,
-                                color: Colors.white,
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                item.title,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: logoStyle(
+                                  size: 17,
+                                  weight: FontWeight.w600,
+                                  letterSpacingEm: 0.06,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 10,
-                    right: 10,
-                    bottom: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        _progressLabel(item.progress),
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.body,
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      left: 10,
+                      right: 10,
+                      bottom: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          _progressLabel(item.progress),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.body,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -918,6 +945,7 @@ class _StatItem extends StatelessWidget {
     required this.value,
     required this.icon,
     this.highlight = false,
+    this.countUpValue,
   });
 
   final String label;
@@ -925,8 +953,17 @@ class _StatItem extends StatelessWidget {
   final IconData icon;
   final bool highlight;
 
+  /// 순수 정수 값이면 여기에 넘겨 0에서 카운트업. (Time read 같은 포맷 문자열은
+  /// 넘기지 않고 value만 사용)
+  final int? countUpValue;
+
   @override
   Widget build(BuildContext context) {
+    final TextStyle valueStyle = TextStyle(
+      fontSize: 24,
+      fontWeight: FontWeight.w700,
+      color: highlight ? AppColors.forest : AppColors.ink,
+    );
     return Column(
       children: [
         Text(
@@ -937,14 +974,10 @@ class _StatItem extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: highlight ? AppColors.forest : AppColors.ink,
-          ),
-        ),
+        if (countUpValue != null)
+          CountUpText(value: countUpValue!, style: valueStyle)
+        else
+          Text(value, style: valueStyle),
         const SizedBox(height: 6),
         Icon(
           icon,

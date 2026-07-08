@@ -7,6 +7,7 @@ import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/logzine_bookmark.dart';
+import '../widgets/motion_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
 /// 검색 화면 데이터 — 매거진 전체 + 사용자 취향(일치 태그 강조용).
@@ -145,8 +146,10 @@ class _DiscoverPageState extends State<DiscoverPage> {
                           padding: EdgeInsets.only(left: 14, right: 10),
                           child: LogzineBookmark(height: 20),
                         ),
-                        prefixIconConstraints:
-                            const BoxConstraints(minWidth: 0, minHeight: 0),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 0,
+                          minHeight: 0,
+                        ),
                         // 포커스 전에는 오늘의 키워드를 연하게 안내, 탭하면 사라짐
                         hintText: _searchFocus.hasFocus
                             ? '매거진, 키워드, 발행사 검색...'
@@ -155,13 +158,17 @@ class _DiscoverPageState extends State<DiscoverPage> {
                         // 테두리를 딥그린(forest)으로
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: AppColors.forest, width: 1.2),
+                          borderSide: const BorderSide(
+                            color: AppColors.forest,
+                            width: 1.2,
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: AppColors.forest, width: 1.6),
+                          borderSide: const BorderSide(
+                            color: AppColors.forest,
+                            width: 1.6,
+                          ),
                         ),
                       ),
                     ),
@@ -230,12 +237,17 @@ class _DiscoverPageState extends State<DiscoverPage> {
                           ),
                         ),
                       ),
-                    for (final magazine in results) ...[
-                      _SearchResultCard(
-                        magazine: magazine,
-                        matched: RecommendationService.matchedTags(
-                          data.taste,
-                          magazine,
+                    for (int i = 0; i < results.length; i++) ...[
+                      FadeSlideIn(
+                        delay: FadeSlideIn.stagger(i),
+                        child: PressableScale(
+                          child: _SearchResultCard(
+                            magazine: results[i],
+                            matched: RecommendationService.matchedTags(
+                              data.taste,
+                              results[i],
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),

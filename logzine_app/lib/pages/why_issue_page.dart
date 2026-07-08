@@ -26,6 +26,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
   bool _argsApplied = false;
   List<String> _taste = const [];
   List<String> _tasteBasis = const [];
+  TasteJourneyContext? _journey;
 
   /// 선반/검색에서 탭한 매거진. 인자 없으면 데모(ROOM NOTE) 폴백.
   Magazine get _magazine => _magazineArg ?? kMagazines[2];
@@ -113,6 +114,28 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
     } catch (_) {
       // 비로그인 — 일치 근거 없이 표시
     }
+    final journey = await UserService().fetchTasteJourney();
+    if (mounted && journey != null && !journey.isEmpty) {
+      setState(() => _journey = journey);
+    }
+  }
+
+  /// 여정 인용 — 일치 태그 중 사진 근거가 저장된 첫 태그.
+  /// 여정 데이터가 없으면(수동 선택·구버전 프로필) null → 카드 숨김.
+  ({String tag, String evidence, String? question})? get _journeyCue {
+    final journey = _journey;
+    if (journey == null) return null;
+    for (final tag in _matched) {
+      final evidence = journey.evidenceByTag[tag];
+      if (evidence != null && evidence.isNotEmpty) {
+        return (
+          tag: tag,
+          evidence: evidence,
+          question: journey.questions.isEmpty ? null : journey.questions.first,
+        );
+      }
+    }
+    return null;
   }
 
   @override
@@ -296,6 +319,12 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     ),
                     const SizedBox(height: 16),
 
+                    // 취향 여정 인용 — "이 질문에 고른 사진 때문에" 추천 근거
+                    if (_journeyCue != null) ...[
+                      _JourneyCueCard(cue: _journeyCue!),
+                      const SizedBox(height: 12),
+                    ],
+
                     _EditorialCueCard(tagline: _magazine.tagline),
                     const SizedBox(height: 24),
 
@@ -472,6 +501,90 @@ class _ReasonCard extends StatelessWidget {
               fontSize: 11.5,
               height: 1.38,
               color: AppColors.body,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 취향 여정 인용 카드 — 온보딩 질문에 고른 사진이 이 추천으로 이어졌음을 보여준다.
+class _JourneyCueCard extends StatelessWidget {
+  const _JourneyCueCard({required this.cue});
+
+  final ({String tag, String evidence, String? question}) cue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 3,
+            height: 76,
+            decoration: BoxDecoration(
+              color: AppColors.wine,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'FROM YOUR JOURNEY',
+                  style: eyebrowStyle(size: 10, color: AppColors.wine),
+                ),
+                const SizedBox(height: 8),
+                if (cue.question != null) ...[
+                  Text(
+                    '“${cue.question}”',
+                    style: serifHeading(
+                      size: 17,
+                      weight: FontWeight.w500,
+                      letterSpacing: 0,
+                      color: AppColors.ink,
+                    ).copyWith(height: 1.35),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '이 질문에 고른 사진에서 ‘${cue.tag}’ 취향을 읽었어요 — ${cue.evidence}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.45,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ] else ...[
+                  Text(
+                    '“${cue.evidence}”',
+                    style: serifHeading(
+                      size: 17,
+                      weight: FontWeight.w500,
+                      letterSpacing: 0,
+                      color: AppColors.ink,
+                    ).copyWith(height: 1.35),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '사진에서 읽은 ‘${cue.tag}’ 취향이 이 매거진과 만났어요.',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.45,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
