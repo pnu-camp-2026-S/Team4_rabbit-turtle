@@ -218,8 +218,8 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 7),
                     Text(_dateLine, style: eyebrowStyle()),
-                    const SizedBox(height: 14),
-                    // AI 큐레이터의 문장 = 오늘의 커버 헤드라인
+                    const SizedBox(height: 12),
+                    // AI 큐레이터의 한 줄 — 보일 듯 말 듯, 조용하게
                     FutureBuilder<String>(
                       future: _curatorFuture,
                       builder: (context, snapshot) {
@@ -230,17 +230,17 @@ class _HomePageState extends State<HomePage> {
                           child: Text(
                             line,
                             key: ValueKey(line),
-                            style: serifHeading(
-                              size: 21,
-                              weight: FontWeight.w600,
-                              letterSpacing: -0.2,
-                              color: AppColors.ink,
-                            ).copyWith(height: 1.42),
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              height: 1.55,
+                              fontStyle: FontStyle.italic,
+                              color: AppColors.textMuted,
+                            ),
                           ),
                         );
                       },
                     ),
-                    const SizedBox(height: 26),
+                    const SizedBox(height: 24),
                     SectionHeader(
                       title: 'Today\'s stand',
                       onViewAll: () => Navigator.pushNamed(context, '/stand'),
