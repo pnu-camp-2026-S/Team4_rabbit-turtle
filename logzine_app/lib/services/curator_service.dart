@@ -1,11 +1,10 @@
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
+import 'gemini_proxy_service.dart';
 
 /// AI 큐레이터 — 사용자 취향과 오늘의 픽으로 홈 상단의 에디터 한 줄을 만든다.
 /// Gemini 실패/키 없음/비로그인 시 로컬 템플릿 폴백 (앱은 항상 동작).
 class CuratorService {
-  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
   static const String _model = 'gemini-flash-latest';
 
   /// 같은 날 + 같은 취향 + 같은 픽이면 재호출하지 않는다 (세션 캐시).
@@ -22,35 +21,28 @@ class CuratorService {
     if (_cacheKey == key && _cachedLine != null) return _cachedLine!;
 
     final String fallback = _fallbackLine(taste: taste, topPick: topPick);
-    if (_apiKey.isEmpty || topPick.isEmpty) return fallback;
+    if (topPick.isEmpty) return fallback;
 
     try {
-      final response = await http
-          .post(
-            Uri.parse(
-              'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent',
-            ),
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': _apiKey,
-            },
-            body: jsonEncode({
-              'contents': [
-                {
-                  'role': 'user',
-                  'parts': [
-                    {'text': _prompt(taste: taste, topPick: topPick, now: now)},
-                  ],
-                },
+      final response = await GeminiProxyService.generateContent(
+        model: _model,
+        timeout: const Duration(seconds: 10),
+        body: {
+          'contents': [
+            {
+              'role': 'user',
+              'parts': [
+                {'text': _prompt(taste: taste, topPick: topPick, now: now)},
               ],
-              'generationConfig': {
-                'temperature': 0.85,
-                'maxOutputTokens': 120,
-                'thinkingConfig': {'thinkingBudget': 0},
-              },
-            }),
-          )
-          .timeout(const Duration(seconds: 8));
+            },
+          ],
+          'generationConfig': {
+            'temperature': 0.85,
+            'maxOutputTokens': 120,
+            'thinkingConfig': {'thinkingBudget': 0},
+          },
+        },
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return fallback;
       }
