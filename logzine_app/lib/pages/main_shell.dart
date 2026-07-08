@@ -33,6 +33,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+  int _homeRefreshToken = 0;
   bool _argsApplied = false;
 
   @override
@@ -45,7 +46,12 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  void _select(int index) => setState(() => _index = index);
+  void _select(int index) {
+    setState(() {
+      _index = index;
+      if (index == 0) _homeRefreshToken++;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +62,7 @@ class _MainShellState extends State<MainShell> {
         // 만들어져 didUpdateWidget이 불리고, 마이페이지가 최신 데이터로 갱신된다.
         // (State는 유지되므로 스크롤/선반 위치는 보존)
         children: [
-          const HomePage(),
+          HomePage(refreshToken: _homeRefreshToken),
           const DiscoverPage(),
           const LibraryPage(),
           ArchivePage(),

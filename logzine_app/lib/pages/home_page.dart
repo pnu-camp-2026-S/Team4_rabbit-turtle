@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/magazine.dart';
+import '../models/recommendation_route_args.dart';
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
 import '../services/recommendation_service.dart';
@@ -23,7 +24,9 @@ class _RecentMarkInfo {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.refreshToken = 0});
+
+  final int refreshToken;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -56,7 +59,19 @@ class _HomePageState extends State<HomePage> {
 
   Future<_HomeData> _homeFuture = _loadHome();
   late final Future<_RecentMarkInfo> _recentMarkFuture = _loadRecentMark();
+  final MagazineShelfController _shelfController = MagazineShelfController();
   String? _selectedTasteLabel;
+
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      setState(() {
+        _selectedTasteLabel = null;
+        _homeFuture = _loadHome();
+      });
+    }
+  }
 
   static Future<_HomeData> _loadHome() async {
     List<Magazine> magazines;
@@ -82,17 +97,13 @@ class _HomePageState extends State<HomePage> {
       ];
     }
 
-    final ranked = RecommendationService.rank(
+    final shelf = RecommendationService.buildInitialShelf(
       taste,
       magazines,
       daySeed: RecommendationService.todaySeed(),
     );
 
-    return _HomeData(
-      shelf: RecommendationService.arrangeForShelf(ranked),
-      taste: taste,
-      catalog: magazines,
-    );
+    return _HomeData(shelf: shelf, taste: taste, catalog: magazines);
   }
 
   static Future<_RecentMarkInfo> _loadRecentMark() async {
@@ -133,8 +144,16 @@ class _HomePageState extends State<HomePage> {
     return '${diff.inDays} d ago';
   }
 
-  Future<void> _openMagazine(BuildContext context, Magazine magazine) async {
-    await Navigator.pushNamed(context, '/discover/why', arguments: magazine);
+  Future<void> _openMagazine(
+    BuildContext context,
+    Magazine magazine,
+    List<String> tasteBasis,
+  ) async {
+    await Navigator.pushNamed(
+      context,
+      '/discover/why',
+      arguments: WhyIssueArgs(magazine: magazine, tasteBasis: tasteBasis),
+    );
     if (mounted) {
       final next = _loadHome();
       setState(() {
@@ -165,13 +184,24 @@ class _HomePageState extends State<HomePage> {
     return _defaultTasteQueries[selectedTaste] ?? <String>[selectedTaste];
   }
 
-  List<Magazine> _shelfForSelectedTaste(_HomeData data, String? selectedTaste) {
-    final ranked = RecommendationService.rank(
+  void _focusShelfForTaste(_HomeData data, String label) {
+    final index = RecommendationService.focusIndexForTaste(data.shelf, label);
+    if (index == null) return;
+    _shelfController.animateToPage(index);
+  }
+
+  String? _fallbackNotice(_HomeData data, String? selectedTaste) {
+    final result = RecommendationService.listForTaste(
       _queryForSelectedTaste(selectedTaste, data.taste),
       data.catalog,
       daySeed: RecommendationService.todaySeed(),
     );
-    return RecommendationService.arrangeForShelf(ranked);
+    if (result.kind != RecommendationMatchKind.fallback ||
+        result.basis.isEmpty) {
+      return null;
+    }
+    final label = result.basis.first;
+    return '$label 매거진은 아직 준비 중이에요.\n대신 가까운 취향의 매거진을 보여드릴게요.';
   }
 
   @override
@@ -198,7 +228,19 @@ class _HomePageState extends State<HomePage> {
                     PageTitleHeader(
                       title: 'Today\'s stand',
                       actionLabel: 'View all',
-                      onActionTap: () => Navigator.pushNamed(context, '/stand'),
+                      onActionTap: () async {
+                        await Navigator.pushNamed(
+                          context,
+                          '/stand',
+                          arguments: StandPageArgs(
+                            viewAll: true,
+                            selectedTaste: _selectedTasteLabel,
+                          ),
+                        );
+                        if (mounted) {
+                          setState(() => _homeFuture = _loadHome());
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -213,14 +255,19 @@ class _HomePageState extends State<HomePage> {
                   }
                   final labels = _chipLabels(data.taste);
                   final selectedTaste = _resolvedSelectedTaste(labels);
-                  final magazines = _shelfForSelectedTaste(data, selectedTaste);
+                  final magazines = data.shelf;
                   if (magazines.isEmpty) {
                     return const SizedBox(height: 320);
                   }
                   return MagazineShelf(
                     magazines: magazines,
+                    controller: _shelfController,
                     showTodaysPick: true,
-                    onCenterTap: (magazine) => _openMagazine(context, magazine),
+                    onCenterTap: (magazine) => _openMagazine(
+                      context,
+                      magazine,
+                      _queryForSelectedTaste(selectedTaste, data.taste),
+                    ),
                   );
                 },
               ),
@@ -244,24 +291,40 @@ class _HomePageState extends State<HomePage> {
                     FutureBuilder<_HomeData>(
                       future: _homeFuture,
                       builder: (context, snapshot) {
-                        final taste = snapshot.data?.taste ?? const <String>[];
+                        final data = snapshot.data;
+                        final taste = data?.taste ?? const <String>[];
                         final labels = _chipLabels(taste);
                         final selectedTaste = _resolvedSelectedTaste(labels);
-                        return Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
+                        final notice = data == null
+                            ? null
+                            : _fallbackNotice(data, selectedTaste);
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            for (var i = 0; i < labels.length; i++)
-                              TasteChip(
-                                label: labels[i],
-                                selected: labels[i] == selectedTaste,
-                                onTap: () {
-                                  if (labels[i] == selectedTaste) return;
-                                  setState(() {
-                                    _selectedTasteLabel = labels[i];
-                                  });
-                                },
-                              ),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                for (var i = 0; i < labels.length; i++)
+                                  TasteChip(
+                                    label: labels[i],
+                                    selected: labels[i] == selectedTaste,
+                                    onTap: () {
+                                      if (labels[i] == selectedTaste) return;
+                                      setState(() {
+                                        _selectedTasteLabel = labels[i];
+                                      });
+                                      if (data != null) {
+                                        _focusShelfForTaste(data, labels[i]);
+                                      }
+                                    },
+                                  ),
+                              ],
+                            ),
+                            if (notice != null) ...[
+                              const SizedBox(height: 14),
+                              _HomeFallbackNotice(message: notice),
+                            ],
                           ],
                         );
                       },
@@ -284,6 +347,33 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeFallbackNotice extends StatelessWidget {
+  const _HomeFallbackNotice({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(
+          fontSize: 13,
+          height: 1.45,
+          color: AppColors.body,
         ),
       ),
     );

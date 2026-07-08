@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/article.dart';
 import '../models/magazine.dart';
 import '../models/reader_args.dart';
+import '../models/recommendation_route_args.dart';
 import '../services/magazine_service.dart';
 import '../services/recommendation_service.dart';
 import '../services/user_service.dart';
@@ -23,6 +24,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
   Magazine? _magazineArg;
   bool _argsApplied = false;
   List<String> _taste = const [];
+  List<String> _tasteBasis = const [];
 
   /// 선반/검색에서 탭한 매거진. 인자 없으면 데모(ROOM NOTE) 폴백.
   Magazine get _magazine => _magazineArg ?? kMagazines[2];
@@ -40,7 +42,12 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
     if (_argsApplied) return;
     _argsApplied = true;
     final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is Magazine) _magazineArg = args;
+    if (args is WhyIssueArgs) {
+      _magazineArg = args.magazine;
+      _tasteBasis = args.tasteBasis;
+    } else if (args is Magazine) {
+      _magazineArg = args;
+    }
     _loadTaste();
     _loadArticles();
   }
@@ -81,7 +88,10 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
   Future<void> _loadTaste() async {
     try {
       final tags = await UserService().fetchTasteTags();
-      if (mounted && tags != null) setState(() => _taste = tags);
+      if (!mounted || tags == null) return;
+      setState(() {
+        _taste = _tasteBasis.isEmpty ? tags : _tasteBasis;
+      });
     } catch (_) {
       // 비로그인 — 일치 근거 없이 표시
     }
