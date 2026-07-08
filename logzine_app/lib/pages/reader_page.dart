@@ -10,6 +10,7 @@ import '../widgets/onboarding_widgets.dart';
 import '../services/magazine_service.dart';
 import '../services/article_text_size_service.dart';
 import '../services/mark_service.dart';
+import '../services/publisher_service.dart';
 import '../services/saved_service.dart';
 
 /// 하이라이트/메모 마크.
@@ -704,6 +705,18 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
+  /// [폴백] 리더가 보고 있는 매거진(_args)과 library_page._publishers 데모
+  /// 목록(id: studio-log/room-note/oak-paper/still-life)을 잇는 매핑 규칙이
+  /// 아직 코드에 없다 (Magazine 모델에 발행사 필드 자체가 없음). 그래서 표시는
+  /// 기존과 동일하게 'Studio Log' 고정이지만, publisherId는 그 데모 목록의
+  /// 'studio-log' 슬러그를 그대로 써서 실제 팔로우 상태만큼은 라이브러리와
+  /// 동기화되도록 한다. 매핑이 추가되면 이 상수들을 _args 기반 값으로 교체할 것.
+  static const String _publisherId = 'studio-log';
+  static const String _publisherName = 'Studio Log';
+  static const String _publisherLogoUrl =
+      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e'
+      '?auto=format&fit=crop&w=400&q=80';
+
   void _showPublisher() {
     showModalBottomSheet<void>(
       context: context,
@@ -717,7 +730,7 @@ class _ReaderPageState extends State<ReaderPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Studio Log',
+            Text(_publisherName,
                 style: logoStyle(size: 22, letterSpacingEm: 0.04)),
             const SizedBox(height: 8),
             const Text(
@@ -727,18 +740,10 @@ class _ReaderPageState extends State<ReaderPage> {
                   fontSize: 13.5, height: 1.6, color: AppColors.body),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.forest,
-                  minimumSize: const Size.fromHeight(46),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () => Navigator.pop(context),
-                child: const Text('발행사 팔로우'),
-              ),
+            const _PublisherFollowButton(
+              publisherId: _publisherId,
+              publisherName: _publisherName,
+              logoUrl: _publisherLogoUrl,
             ),
           ],
         ),
@@ -1081,6 +1086,94 @@ class _ReaderPageState extends State<ReaderPage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 발행사 팔로우 토글 버튼. library_page._FollowButton과 동일한 패턴
+/// (초기 상태 로드 → 탭 시 낙관적 갱신 + 실패 롤백/스낵바).
+class _PublisherFollowButton extends StatefulWidget {
+  const _PublisherFollowButton({
+    required this.publisherId,
+    required this.publisherName,
+    required this.logoUrl,
+  });
+
+  final String publisherId;
+  final String publisherName;
+  final String logoUrl;
+
+  @override
+  State<_PublisherFollowButton> createState() =>
+      _PublisherFollowButtonState();
+}
+
+class _PublisherFollowButtonState extends State<_PublisherFollowButton> {
+  bool _following = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFollowing();
+  }
+
+  Future<void> _loadFollowing() async {
+    final following = await PublisherService().isFollowing(widget.publisherId);
+    if (!mounted) return;
+    setState(() => _following = following);
+  }
+
+  Future<void> _toggle() async {
+    final bool nowFollowing = !_following;
+    setState(() => _following = nowFollowing);
+    try {
+      if (nowFollowing) {
+        await PublisherService().follow(
+          publisherId: widget.publisherId,
+          publisherName: widget.publisherName,
+          logoUrl: widget.logoUrl,
+        );
+      } else {
+        await PublisherService().unfollow(widget.publisherId);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _following = !nowFollowing);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('처리 중 문제가 발생했어요')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_following) {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton(
+          onPressed: _toggle,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.ink,
+            side: const BorderSide(color: AppColors.border),
+            minimumSize: const Size.fromHeight(46),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+          ),
+          child: const Text('팔로잉'),
+        ),
+      );
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: _toggle,
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.forest,
+          minimumSize: const Size.fromHeight(46),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        child: const Text('발행사 팔로우'),
+      ),
     );
   }
 }
