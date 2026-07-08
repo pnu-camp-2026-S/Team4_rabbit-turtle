@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import '../models/article.dart';
 import '../models/article_seeds.dart';
 import '../models/magazine.dart';
+import '../models/ui_keyword_vocabulary.dart';
 
 /// 매거진 데이터 접근 서비스.
 /// 화면은 Firestore를 직접 만지지 말고 이 클래스만 사용할 것.
@@ -13,11 +14,33 @@ class MagazineService {
 
   /// 매거진 전체 목록 (선반 순서대로)
   Future<List<Magazine>> fetchMagazines() async {
-    final snapshot = await _db
-        .collection('magazines')
-        .orderBy('order')
-        .get();
-    return snapshot.docs.map(_fromDoc).toList();
+    final snapshot = await _db.collection('magazines').orderBy('order').get();
+    return _dedupeByTitle(snapshot.docs.map(_fromDoc).toList());
+  }
+
+  /// Firestore에 과거 시드와 새 demo 시드가 같이 있을 수 있다.
+  /// 같은 제목은 하나만 노출하고, 새 demo-* 문서를 우선한다.
+  List<Magazine> _dedupeByTitle(List<Magazine> magazines) {
+    final byTitle = <String, Magazine>{};
+    for (final magazine in magazines) {
+      final key = magazine.title.trim().toLowerCase();
+      if (key.isEmpty) continue;
+      final existing = byTitle[key];
+      if (existing == null || _preferMagazine(magazine, existing)) {
+        byTitle[key] = magazine;
+      }
+    }
+    return byTitle.values.toList();
+  }
+
+  bool _preferMagazine(Magazine candidate, Magazine existing) {
+    final candidateIsDemo = candidate.id.startsWith('demo-');
+    final existingIsDemo = existing.id.startsWith('demo-');
+    if (candidateIsDemo != existingIsDemo) return candidateIsDemo;
+    if (candidate.tags.length != existing.tags.length) {
+      return candidate.tags.length > existing.tags.length;
+    }
+    return candidate.coverUrl.isNotEmpty && existing.coverUrl.isEmpty;
   }
 
   Magazine _fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
@@ -28,7 +51,9 @@ class MagazineService {
       tagline: data['tagline'] as String? ?? '',
       issue: data['issue'] as String? ?? '',
       coverUrl: data['coverUrl'] as String? ?? '',
-      tags: List<String>.from(data['tags'] as List<dynamic>? ?? const []),
+      tags: UiKeywordVocabulary.filter(
+        (data['tags'] as List<dynamic>? ?? const []).whereType<String>(),
+      ),
     );
   }
 
@@ -97,8 +122,9 @@ class MagazineService {
           });
           writes++;
         } else {
-          final tags =
-              List<String>.from(existing.data()['tags'] as List<dynamic>? ?? const []);
+          final tags = List<String>.from(
+            existing.data()['tags'] as List<dynamic>? ?? const [],
+          );
           if (tags.isEmpty) {
             batch.update(existing.reference, {'tags': m.tags, 'order': i});
             writes++;
@@ -123,6 +149,7 @@ class MagazineService {
       final snapshot = await _db.collection('magazines').get();
       var writes = 0;
       for (final doc in snapshot.docs) {
+        if (doc.id.startsWith('demo-')) continue;
         final String title = doc.data()['title'] as String? ?? '';
         final seeds = <ArticleSeed>[
           if (kArticleSeeds[title] != null) kArticleSeeds[title]!,
@@ -138,9 +165,9 @@ class MagazineService {
         var nextOrder = existing.docs.isEmpty
             ? 0
             : existing.docs
-                    .map((d) => (d.data()['order'] as num?)?.toInt() ?? 0)
-                    .reduce((a, b) => a > b ? a : b) +
-                1;
+                      .map((d) => (d.data()['order'] as num?)?.toInt() ?? 0)
+                      .reduce((a, b) => a > b ? a : b) +
+                  1;
 
         for (final seed in seeds) {
           if (existingTitles.contains(seed.title)) continue;
@@ -206,10 +233,12 @@ class MagazineService {
         .collection('articles')
         .doc(articleId)
         .get();
-    final List<dynamic>? paragraphs = doc.data()?['paragraphs'] as List<dynamic>?;
+    final List<dynamic>? paragraphs =
+        doc.data()?['paragraphs'] as List<dynamic>?;
     if (paragraphs == null) return null;
     return paragraphs.map((p) {
-      final segments = (p as Map<String, dynamic>)['segments'] as List<dynamic>?;
+      final segments =
+          (p as Map<String, dynamic>)['segments'] as List<dynamic>?;
       return List<String>.from(segments ?? const []);
     }).toList();
   }
@@ -217,8 +246,11 @@ class MagazineService {
   /// [임시] 리더 데모 아티클의 ID — 첫 매거진의 첫 아티클.
   /// 리더 콘텐츠 동적화(로드맵) 전까지 marks/progress의 대상 지정용.
   Future<({String magazineId, String articleId})?> fetchDemoArticleIds() async {
-    final mag =
-        await _db.collection('magazines').orderBy('order').limit(1).get();
+    final mag = await _db
+        .collection('magazines')
+        .orderBy('order')
+        .limit(1)
+        .get();
     if (mag.docs.isEmpty) return null;
     final String magId = mag.docs.first.id;
     final art = await _db
@@ -236,11 +268,13 @@ class MagazineService {
   /// ⚠️ 본문은 reader_page.dart의 _paragraphs와 반드시 동일해야
   /// (paragraphIdx, segmentIdx) 좌표가 성립한다.
   Future<void> seedDemoArticleIfEmpty() async {
-    final mag =
-        await _db.collection('magazines').orderBy('order').limit(1).get();
+    final mag = await _db
+        .collection('magazines')
+        .orderBy('order')
+        .limit(1)
+        .get();
     if (mag.docs.isEmpty) return;
-    final articles =
-        mag.docs.first.reference.collection('articles');
+    final articles = mag.docs.first.reference.collection('articles');
     final existing = await articles.limit(1).get();
     if (existing.docs.isNotEmpty) return;
 

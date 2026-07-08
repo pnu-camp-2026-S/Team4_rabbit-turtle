@@ -8,6 +8,8 @@ class ReaderArgs {
     this.minutes = 18,
     this.magazineId,
     this.articleId,
+    this.coverUrl,
+    this.keyword,
   });
 
   final String category;
@@ -20,4 +22,10 @@ class ReaderArgs {
 
   /// 지정되면(목차에서 진입) 이 아티클을 로드한다. null이면 매거진의 첫 아티클.
   final String? articleId;
+
+  /// 지정되면 리더 상단/중간 이미지에 선택한 매거진 표지를 사용한다.
+  final String? coverUrl;
+
+  /// 리더 상단의 Today's keyword 칩에 표시할 대표 키워드.
+  final String? keyword;
 }
