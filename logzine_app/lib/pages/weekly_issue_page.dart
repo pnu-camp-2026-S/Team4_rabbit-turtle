@@ -82,7 +82,14 @@ class _WeeklyIssuePageState extends State<WeeklyIssuePage> {
                   return PageView(
                     controller: _controller,
                     children: [
-                      _Sheet(child: _CoverSheet(data: data, name: name)),
+                      // 표지 탭 → MY COVER 전체 보기 (기존 기능 보존)
+                      _Sheet(
+                        child: GestureDetector(
+                          onTap: () =>
+                              Navigator.pushNamed(context, '/mycover'),
+                          child: _CoverSheet(data: data, name: name),
+                        ),
+                      ),
                       _Sheet(child: _ContentsSheet(data: data)),
                       _Sheet(child: _EditorSheet(data: data)),
                       _Sheet(dark: true, child: _BackCoverSheet(data: data)),

@@ -330,11 +330,8 @@ class _HomePageState extends State<HomePage> {
                       },
                     ),
                     const SizedBox(height: 18),
-                    // 나의 주간 이슈 — 한 주의 취향 활동이 발행된 한 권
-                    const _WeeklyIssueBanner(),
-                    const SizedBox(height: 14),
-                    // 이번 주 나의 표지 — 취향으로 만든 커버 아트 입구
-                    const _MyCoverBanner(),
+                    // 나만의 취향 매거진 — 표지(MY COVER)와 주간 이슈를 한 입구로
+                    const _MyMagazineBanner(),
                     const SizedBox(height: 14),
                     FutureBuilder<_RecentMarkInfo>(
                       future: _recentMarkFuture,
@@ -383,23 +380,28 @@ class _HomeFallbackNotice extends StatelessWidget {
   }
 }
 
-/// "나의 주간 이슈" 입구 배너 — 한 주의 활동이 발행된 매거진 한 권.
-class _WeeklyIssueBanner extends StatelessWidget {
-  const _WeeklyIssueBanner();
+/// "나만의 취향 매거진" 입구 배너 — 표지(1면)부터 주간 이슈까지 한 권으로 통합.
+/// 톤은 기존 MY COVER 배너와 동일 (흰 카드 + 포레스트 테두리).
+class _MyMagazineBanner extends StatelessWidget {
+  const _MyMagazineBanner();
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.ink,
+      color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: () => Navigator.pushNamed(context, '/weekly'),
         borderRadius: BorderRadius.circular(14),
-        child: Padding(
+        child: Container(
           padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.forest, width: 1.4),
+          ),
           child: Row(
             children: [
-              // 미니 지면 묶음 — 표지 위로 살짝 겹친 낱장
+              // 미니 지면 묶음 — 표지 뒤로 살짝 겹친 낱장 (한 권 느낌)
               SizedBox(
                 width: 52,
                 height: 62,
@@ -412,8 +414,9 @@ class _WeeklyIssueBanner extends StatelessWidget {
                         width: 46,
                         height: 62,
                         decoration: BoxDecoration(
-                          color: Colors.white24,
+                          color: AppColors.placeholder,
                           borderRadius: BorderRadius.circular(3),
+                          border: Border.all(color: AppColors.border),
                         ),
                       ),
                     ),
@@ -424,12 +427,13 @@ class _WeeklyIssueBanner extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: AppColors.screen,
                         borderRadius: BorderRadius.circular(3),
+                        border: Border.all(color: AppColors.border),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'W.',
+                            'L.',
                             style: logoStyle(
                               size: 13,
                               weight: FontWeight.w700,
@@ -451,95 +455,12 @@ class _WeeklyIssueBanner extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'LOGZINE WEEKLY',
-                      style: eyebrowStyle(size: 10, color: Colors.white70),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      '나의 주간 이슈가 발행됐어요',
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: Colors.white70,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// "이번 주 나의 표지" 입구 배너 — 미니 표지 + 카피, 탭하면 전체 보기.
-class _MyCoverBanner extends StatelessWidget {
-  const _MyCoverBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: () => Navigator.pushNamed(context, '/mycover'),
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.forest, width: 1.4),
-          ),
-          child: Row(
-            children: [
-              // 미니 타이포 표지
-              Hero(
-                tag: 'my-weekly-cover',
-                child: Container(
-                  width: 46,
-                  height: 62,
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.screen,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'L.',
-                        style: logoStyle(
-                          size: 13,
-                          weight: FontWeight.w700,
-                          letterSpacingEm: 0.0,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      const Spacer(),
-                      Container(width: 14, height: 2, color: AppColors.wine),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'MY COVER',
+                      'MY MAGAZINE',
                       style: eyebrowStyle(size: 10, color: AppColors.forest),
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      '이번 주 나의 표지가 준비됐어요',
+                      '나만의 취향 매거진이 생성되었어요',
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w600,
