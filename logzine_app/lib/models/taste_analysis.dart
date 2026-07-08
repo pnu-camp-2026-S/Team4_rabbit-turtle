@@ -5,8 +5,6 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
-import 'ui_keyword_vocabulary.dart';
-
 enum TasteKeywordType {
   object,
   placeType,
@@ -127,9 +125,8 @@ class TasteProfileDraft {
   final List<TastePhoto> photos;
   final String feedback;
 
-  List<String> get displayTags => UiKeywordVocabulary.filter(
-    preferenceProfile.map((keyword) => keyword.label),
-  ).take(6).toList();
+  List<String> get displayTags =>
+      preferenceProfile.map((keyword) => keyword.label).take(6).toList();
 }
 
 class PhotoTasteAnalyzer {
@@ -1151,10 +1148,137 @@ class TasteAnalysisException implements Exception {
   String toString() => message;
 }
 
-final Map<String, String> _uiKeywordCategories = UiKeywordVocabulary.categories;
-final Map<String, List<String>> _uiKeywordConcepts =
-    UiKeywordVocabulary.concepts;
-final Set<String> _allowedUiKeywords = UiKeywordVocabulary.allowed;
+const Map<String, String> _uiKeywordCategories = {
+  '카페': 'FOOD',
+  '커피': 'FOOD',
+  '디저트': 'FOOD',
+  '베이커리': 'FOOD',
+  '브런치': 'FOOD',
+  '전통차': 'FOOD',
+  '와인': 'FOOD',
+  '로컬 맛집': 'FOOD',
+  '미니멀': 'FASHION',
+  '빈티지': 'FASHION',
+  '스트릿': 'FASHION',
+  '클래식': 'FASHION',
+  '디자이너 브랜드': 'FASHION',
+  '스포츠웨어': 'FASHION',
+  '액세서리': 'FASHION',
+  '데일리룩': 'FASHION',
+  '인테리어': 'SPACE',
+  '가구': 'SPACE',
+  '한옥': 'SPACE',
+  '호텔': 'SPACE',
+  '전시 공간': 'SPACE',
+  '서점': 'SPACE',
+  '정원': 'SPACE',
+  '복합문화공간': 'SPACE',
+  '도시 여행': 'TRAVEL',
+  '해외 도시': 'TRAVEL',
+  '랜드마크': 'TRAVEL',
+  '골목 탐방': 'TRAVEL',
+  '자연': 'TRAVEL',
+  '숙소': 'TRAVEL',
+  '미식 여행': 'TRAVEL',
+  '스포츠 여행': 'TRAVEL',
+  '전시': 'ART',
+  '현대미술': 'ART',
+  '건축': 'ART',
+  '공예': 'ART',
+  '디자인': 'ART',
+  '일러스트': 'ART',
+  '사진': 'ART',
+  '아트페어': 'ART',
+  '인디': 'MUSIC',
+  '재즈': 'MUSIC',
+  '라이브 공연': 'MUSIC',
+  '페스티벌': 'MUSIC',
+  '플레이리스트': 'MUSIC',
+  '바이닐': 'MUSIC',
+  '사운드트랙': 'MUSIC',
+  '축구': 'SPORTS',
+  '야구': 'SPORTS',
+  '러닝': 'SPORTS',
+  '요가': 'SPORTS',
+  '클라이밍': 'SPORTS',
+  '스포츠 관람': 'SPORTS',
+  '경기장 투어': 'SPORTS',
+  '독서': 'LIFESTYLE',
+  '웰니스': 'LIFESTYLE',
+  '작업 루틴': 'LIFESTYLE',
+  '홈라이프': 'LIFESTYLE',
+  '반려생활': 'LIFESTYLE',
+  '취미 수집': 'LIFESTYLE',
+  '조용한 휴식': 'LIFESTYLE',
+  '로컬 탐방': 'LIFESTYLE',
+};
+
+const Map<String, List<String>> _uiKeywordConcepts = {
+  '카페': ['food_drink.cafe'],
+  '커피': ['food_drink.coffee'],
+  '디저트': ['food_drink.dessert'],
+  '베이커리': ['food_drink.bakery'],
+  '브런치': ['food_drink.brunch'],
+  '전통차': ['food_drink.tea'],
+  '와인': ['food_drink.wine'],
+  '로컬 맛집': ['food_drink.local_restaurant'],
+  '미니멀': ['fashion.minimal'],
+  '빈티지': ['fashion.vintage'],
+  '스트릿': ['fashion.street'],
+  '클래식': ['fashion.classic', 'music.classic'],
+  '디자이너 브랜드': ['fashion.designer_brand'],
+  '스포츠웨어': ['fashion.sportswear'],
+  '액세서리': ['fashion.accessory'],
+  '데일리룩': ['fashion.daily_look'],
+  '인테리어': ['space.interior'],
+  '가구': ['space.furniture'],
+  '한옥': ['space.hanok', 'culture.history_tradition'],
+  '호텔': ['space.hotel'],
+  '전시 공간': ['space.gallery_museum'],
+  '서점': ['space.bookstore'],
+  '정원': ['space.garden'],
+  '복합문화공간': ['space.cultural_complex'],
+  '도시 여행': ['travel.city_travel'],
+  '해외 도시': ['travel.overseas_city'],
+  '랜드마크': ['travel.landmark'],
+  '골목 탐방': ['travel.local_walk'],
+  '자연': ['travel.nature'],
+  '숙소': ['travel.stay'],
+  '미식 여행': ['travel.food_travel'],
+  '스포츠 여행': ['travel.sports_travel'],
+  '전시': ['art.exhibition'],
+  '현대미술': ['art.contemporary_art'],
+  '건축': ['art.architecture'],
+  '공예': ['art.craft'],
+  '디자인': ['art.design'],
+  '일러스트': ['art.illustration'],
+  '사진': ['art.photography'],
+  '아트페어': ['art.art_fair'],
+  '인디': ['music.indie'],
+  '재즈': ['music.jazz'],
+  '라이브 공연': ['music.live_performance'],
+  '페스티벌': ['music.festival'],
+  '플레이리스트': ['music.playlist'],
+  '바이닐': ['music.vinyl'],
+  '사운드트랙': ['music.soundtrack'],
+  '축구': ['sports.football'],
+  '야구': ['sports.baseball'],
+  '러닝': ['sports.running'],
+  '요가': ['sports.yoga'],
+  '클라이밍': ['sports.climbing'],
+  '스포츠 관람': ['sports.spectating'],
+  '경기장 투어': ['sports.stadium_tour'],
+  '독서': ['lifestyle.reading'],
+  '웰니스': ['lifestyle.wellness'],
+  '작업 루틴': ['lifestyle.work_routine'],
+  '홈라이프': ['lifestyle.home_life'],
+  '반려생활': ['lifestyle.pet_life'],
+  '취미 수집': ['lifestyle.hobby_collecting'],
+  '조용한 휴식': ['lifestyle.quiet_rest'],
+  '로컬 탐방': ['lifestyle.local_exploration'],
+};
+
+final Set<String> _allowedUiKeywords = _uiKeywordCategories.keys.toSet();
 
 const String _prompt = '''
 Use the Photo Taste Analyzer skill to analyze user photos for LOGZINE, an editorial magazine recommendation app.

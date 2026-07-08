@@ -51,18 +51,8 @@ class _MyCoverPageState extends State<MyCoverPage> {
   }
 
   static const List<String> _months = [
-    'JANUARY',
-    'FEBRUARY',
-    'MARCH',
-    'APRIL',
-    'MAY',
-    'JUNE',
-    'JULY',
-    'AUGUST',
-    'SEPTEMBER',
-    'OCTOBER',
-    'NOVEMBER',
-    'DECEMBER',
+    'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+    'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
   ];
 
   @override
@@ -70,9 +60,10 @@ class _MyCoverPageState extends State<MyCoverPage> {
     final now = DateTime.now();
     final String issueLine =
         '${_months[now.month - 1]} ${now.day}, ${now.year}';
-    final String name = (AuthService().currentUserName ?? 'YOUR').toUpperCase();
+    final String name =
+        (AuthService().currentUserName ?? 'YOUR').toUpperCase();
     final tags = _taste.isEmpty
-        ? const ['인테리어', '조용한 휴식', '디자인']
+        ? const ['따뜻한 나무 결', '조용한 방', '에디토리얼 무드']
         : _taste.take(4).toList();
 
     return Scaffold(
@@ -90,7 +81,10 @@ class _MyCoverPageState extends State<MyCoverPage> {
                     icon: const Icon(Icons.close, color: Colors.white70),
                   ),
                   const Spacer(),
-                  Text('MY COVER', style: eyebrowStyle(color: Colors.white54)),
+                  Text(
+                    'MY COVER',
+                    style: eyebrowStyle(color: Colors.white54),
+                  ),
                 ],
               ),
             ),
@@ -133,8 +127,8 @@ class _MyCoverPageState extends State<MyCoverPage> {
                 _loading
                     ? 'AI가 이번 주 표지를 그리는 중...'
                     : (_art != null
-                          ? 'Gemini가 당신의 취향으로 그린 이번 주 표지예요'
-                          : '취향 태그로 조판한 이번 주 표지예요'),
+                        ? 'Gemini가 당신의 취향으로 그린 이번 주 표지예요'
+                        : '취향 태그로 조판한 이번 주 표지예요'),
                 style: const TextStyle(fontSize: 12.5, color: Colors.white60),
               ),
             ),
@@ -259,7 +253,10 @@ class _CoverArtwork extends StatelessWidget {
                     children: [
                       Text(issueLine, style: eyebrowStyle(size: 9.5)),
                       const Spacer(),
-                      Text('취향으로 엮은 한 장', style: eyebrowStyle(size: 9.5)),
+                      Text(
+                        '취향으로 엮은 한 장',
+                        style: eyebrowStyle(size: 9.5),
+                      ),
                     ],
                   ),
                 ),

@@ -33,9 +33,8 @@ class LogzineTopBar extends StatelessWidget {
     final BoxConstraints? iconConstraints = showDivider
         ? const BoxConstraints.tightFor(width: 36, height: 36)
         : null;
-    final EdgeInsetsGeometry? iconPadding = showDivider
-        ? EdgeInsets.zero
-        : null;
+    final EdgeInsetsGeometry? iconPadding =
+        showDivider ? EdgeInsets.zero : null;
     final Widget topBarRow = Row(
       children: [
         if (showBack) ...[
@@ -179,14 +178,20 @@ class SectionHeader extends StatelessWidget {
     return Row(
       children: [
         // 잡지 러닝헤드처럼 — 작은 대문자 아이브로우 라벨
-        Text(title.toUpperCase(), style: eyebrowStyle(color: AppColors.ink)),
+        Text(
+          title.toUpperCase(),
+          style: eyebrowStyle(color: AppColors.ink),
+        ),
         const Spacer(),
         if (onViewAll != null)
           InkWell(
             onTap: onViewAll,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text('VIEW ALL', style: eyebrowStyle(size: 10)),
+              child: Text(
+                'VIEW ALL',
+                style: eyebrowStyle(size: 10),
+              ),
             ),
           ),
       ],
@@ -196,7 +201,7 @@ class SectionHeader extends StatelessWidget {
 
 /// ☀ Today's keyword 칩 (홈·리더 공용).
 class KeywordChip extends StatelessWidget {
-  const KeywordChip({super.key, this.keyword = '사진'});
+  const KeywordChip({super.key, this.keyword = 'Light'});
 
   final String keyword;
 

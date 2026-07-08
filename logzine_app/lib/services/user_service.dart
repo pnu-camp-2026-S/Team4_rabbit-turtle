@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../models/ui_keyword_vocabulary.dart';
-
 /// users/{uid} 문서 관련 로직. 스키마: DB_SCHEMA.md § users/{uid}
 class UserService {
   final _db = FirebaseFirestore.instance;
@@ -30,7 +28,7 @@ class UserService {
 
   /// 온보딩 취향 태그 저장 (전체 교체)
   Future<void> saveTasteTags(List<String> tags) {
-    return _userRef.update({'tasteTags': UiKeywordVocabulary.filter(tags)});
+    return _userRef.update({'tasteTags': tags});
   }
 
   /// 저장된 취향 태그 읽기. 로그인 안 됨/문서 없음/실패 시 null.
@@ -38,9 +36,7 @@ class UserService {
     try {
       final snap = await _userRef.get();
       final raw = snap.data()?['tasteTags'];
-      if (raw is List) {
-        return UiKeywordVocabulary.filter(raw.whereType<String>());
-      }
+      if (raw is List) return raw.cast<String>();
       return null;
     } catch (_) {
       return null; // 비로그인 등 — 호출부에서 폴백 처리
