@@ -48,7 +48,7 @@ class OnboardingTopBar extends StatelessWidget {
                       context,
                       '/main',
                       (route) => false,
-                      arguments: 1,
+                      arguments: 0, // 온보딩 완료 → Stand(홈) 탭
                     ),
             style: TextButton.styleFrom(
               foregroundColor: AppColors.textSecondary,

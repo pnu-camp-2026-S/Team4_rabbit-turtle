@@ -129,12 +129,12 @@ class _TastePickerPageState extends State<TastePickerPage>
     if (_editMode) {
       Navigator.pop(context); // 마이페이지로 복귀 → 갱신됨
     } else {
-      // 온보딩 완료 → 디스커버 탭으로 (스택 초기화)
+      // 온보딩 완료 → Stand(홈) 탭으로 (스택 초기화)
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/main',
         (route) => false,
-        arguments: 1,
+        arguments: 0,
       );
     }
   }

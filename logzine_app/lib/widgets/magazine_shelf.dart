@@ -136,6 +136,7 @@ class _MagazineShelfState extends State<MagazineShelf> {
                             margin: const EdgeInsets.only(bottom: 16),
                             height: 264,
                             child: Stack(
+                              clipBehavior: Clip.none,
                               children: [
                                 _PhysicalMagazine(
                                   magazine: widget.magazines[index],
@@ -265,21 +266,66 @@ class MagazineCover extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double h = constraints.maxHeight;
-        final double pad = h * 0.05;
+        final double pad = h * 0.06;
         return Container(
           decoration: BoxDecoration(
-            color: AppColors.card,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: AppColors.border, width: 0.8),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                // 제호 (종이에 인쇄된 제목/태그라인)
-                Padding(
-                  padding: EdgeInsets.fromLTRB(pad, h * 0.042, pad, h * 0.03),
+                // 표지 사진 — 전면(풀블리드)
+                NetworkPhoto(url: magazine.coverUrl, radius: 0),
+
+                // 상단 밝은 스크림 — 제호 가독성
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: h * 0.46,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.9),
+                          Colors.white.withValues(alpha: 0.0),
+                        ],
+                        stops: const [0.0, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 하단 발행 정보용 옅은 스크림
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: h * 0.2,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.28),
+                          Colors.black.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 제호 (사진 위 상단)
+                Positioned(
+                  left: pad,
+                  right: pad,
+                  top: h * 0.05,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -287,40 +333,32 @@ class MagazineCover extends StatelessWidget {
                         magazine.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: logoStyle(
-                          size: h * 0.068,
-                          weight: FontWeight.w600,
-                          letterSpacingEm: 0.05,
+                        style: serifHeading(
+                          size: h * 0.088,
+                          weight: FontWeight.w700,
                           color: AppColors.ink,
                         ),
                       ),
-                      SizedBox(height: h * 0.012),
+                      SizedBox(height: h * 0.014),
                       Text(
                         magazine.tagline,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: h * 0.034,
-                          height: 1.2,
-                          color: AppColors.textSecondary,
-                        ),
+                        style: serifHeading(
+                          size: h * 0.038,
+                          weight: FontWeight.w500,
+                          color: AppColors.ink,
+                        ).copyWith(height: 1.25),
                       ),
                     ],
                   ),
                 ),
-                // 표지 사진
-                Expanded(
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: NetworkPhoto(url: magazine.coverUrl, radius: 0),
-                  ),
-                ),
-                // 발행 정보
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: pad,
-                    vertical: h * 0.026,
-                  ),
+
+                // 발행 정보 (사진 위 하단)
+                Positioned(
+                  left: pad,
+                  right: pad,
+                  bottom: h * 0.035,
                   child: Text(
                     magazine.issue,
                     maxLines: 1,
@@ -328,7 +366,8 @@ class MagazineCover extends StatelessWidget {
                     style: TextStyle(
                       fontSize: h * 0.03,
                       letterSpacing: 0.5,
-                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.92),
                     ),
                   ),
                 ),
