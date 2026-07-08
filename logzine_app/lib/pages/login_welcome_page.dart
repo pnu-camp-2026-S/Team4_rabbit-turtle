@@ -77,7 +77,7 @@ class LoginWelcomePage extends StatelessWidget {
                   context,
                   '/main',
                   (route) => false,
-                  arguments: 1, // 게스트는 디스커버 탭에서 시작
+                  arguments: 0, // 게스트도 Stand(홈) 탭에서 시작
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.ink,
