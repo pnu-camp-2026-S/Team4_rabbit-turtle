@@ -52,10 +52,13 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [
-          HomePage(),
-          DiscoverPage(),
-          LibraryPage(),
+        // const를 쓰지 않는다 — 탭 전환(setState)마다 자식 위젯이 새로
+        // 만들어져 didUpdateWidget이 불리고, 마이페이지가 최신 데이터로 갱신된다.
+        // (State는 유지되므로 스크롤/선반 위치는 보존)
+        children: [
+          const HomePage(),
+          const DiscoverPage(),
+          const LibraryPage(),
           ArchivePage(),
         ],
       ),
