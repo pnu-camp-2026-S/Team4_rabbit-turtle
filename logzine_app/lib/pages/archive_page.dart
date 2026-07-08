@@ -144,7 +144,7 @@ class _ArchivePageState extends State<ArchivePage> {
       source: 'ROOM NOTE · p.12',
       note: '마이페이지 문장 보관함에 넣고 싶은 문장',
       color: AppColors.ink,
-      type: 'underline',
+      type: 'memo',
       articleId: '',
       magazineId: '',
       coverUrl: '',
@@ -305,10 +305,14 @@ class _ArchivePageState extends State<ArchivePage> {
           : '(제목 없음)';
       final meta = magazineMeta[record.magazineId];
       final String magazineTitle = meta?.title ?? 'LOGZINE';
-      final String note =
-          (record.memoText != null && record.memoText!.isNotEmpty)
-          ? record.memoText!
-          : (record.type == 'underline' ? '밑줄 표시' : '하이라이트 표시');
+      final String memoText = record.memoText?.trim() ?? '';
+      final bool hasMemo = memoText.isNotEmpty;
+      final String markType = hasMemo || record.type == 'memo'
+          ? 'memo'
+          : 'highlight';
+      final String note = hasMemo
+          ? memoText
+          : (record.type == 'memo' ? '메모 표시' : '하이라이트 표시');
 
       items.add((
         quote: segments[record.segmentIdx],
@@ -317,7 +321,7 @@ class _ArchivePageState extends State<ArchivePage> {
         source: '$magazineTitle · 문단 ${record.paragraphIdx + 1}',
         note: note,
         color: _colorFromHex(record.color),
-        type: record.type,
+        type: markType,
         articleId: record.articleId,
         magazineId: record.magazineId,
         coverUrl: meta?.coverUrl ?? '',
@@ -1140,10 +1144,6 @@ class _MarksPageState extends State<_MarksPage> {
                             segments: const [
                               ButtonSegment(value: 'all', label: Text('All')),
                               ButtonSegment(
-                                value: 'underline',
-                                label: Text('Underline'),
-                              ),
-                              ButtonSegment(
                                 value: 'highlight',
                                 label: Text('Highlight'),
                               ),
@@ -1238,8 +1238,6 @@ class _MarkedSentenceCard extends StatelessWidget {
 
   String get _typeLabel {
     switch (item.type) {
-      case 'underline':
-        return 'Underline';
       case 'memo':
         return 'Memo';
       default:
@@ -1249,8 +1247,6 @@ class _MarkedSentenceCard extends StatelessWidget {
 
   IconData get _typeIcon {
     switch (item.type) {
-      case 'underline':
-        return Icons.format_underlined;
       case 'memo':
         return Icons.sticky_note_2_outlined;
       default:
@@ -1260,7 +1256,7 @@ class _MarkedSentenceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = item.type == 'underline' ? AppColors.ink : item.color;
+    final accentColor = item.color;
 
     return InkWell(
       onTap: onTap,
