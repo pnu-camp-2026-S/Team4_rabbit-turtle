@@ -138,7 +138,7 @@ class PhotoTasteAnalyzer {
     'GEMINI_MODEL',
     defaultValue: 'gemini-2.5-flash',
   );
-  static const String _fallbackModel = 'gemini-2.0-flash';
+  static const String _fallbackModel = 'gemini-flash-latest';
   static const int _maxAttemptsPerModel = 2;
   static const int _maxPhotosPerAnalysis = 6;
 
