@@ -53,6 +53,8 @@ users/{uid}                          사용자 (본인만 읽기/쓰기)
 |---|---|---|
 | email | string | 가입 이메일 |
 | tasteTags | array<string> | 온보딩에서 선택한 취향 태그 (저장 시 전체 교체) |
+| journeyQuestions | array<string> | 취향 여정에서 사진으로 답한 질문들 (AI 온보딩 저장 시 전체 교체, 수동 픽커 저장 시 비움) — Why 페이지 인용용 |
+| tasteEvidence | map<string,string> | 취향 태그 → AI가 사진에서 읽은 근거 문장 (journeyQuestions와 같은 시점에 교체/비움) |
 | createdAt | timestamp | 가입 시각 |
 
 ## users/{uid}/marks/{markId}

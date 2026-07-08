@@ -150,6 +150,12 @@ class _TastePickerPageState extends State<TastePickerPage>
     setState(() => _saving = true);
     try {
       await UserService().saveTasteTags(_selected.toList());
+      // 수동 선택은 사진 근거가 없으므로 여정 인용 컨텍스트를 비운다
+      // (Why 페이지가 이전 온보딩의 근거를 잘못 인용하지 않게).
+      await UserService().saveTasteJourney(
+        questions: const [],
+        evidenceByTag: const {},
+      );
     } catch (_) {
       // 비로그인 등 — 저장 실패해도 흐름은 계속 (데모 안전)
     }
