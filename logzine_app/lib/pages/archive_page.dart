@@ -66,6 +66,7 @@ class ArchivePage extends StatelessWidget {
             LogzineTopBar(
               showBell: true,
               showSettings: true,
+              showDivider: true,
               onSettingsTap: () {
                 Navigator.push(
                   context,

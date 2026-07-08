@@ -81,7 +81,7 @@ class SignupPage extends StatelessWidget {
                   // 다음으로
                   ElevatedButton(
                     onPressed: () =>
-                        Navigator.pushNamed(context, '/interest'),
+                        Navigator.pushNamed(context, '/onboarding'),
                     child: const Text('다음'),
                   ),
                   const SizedBox(height: 16),
@@ -92,10 +92,7 @@ class SignupPage extends StatelessWidget {
                         '이미 계정이 있으신가요?',
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
-                      TextButton(
-                        onPressed: () {},
-                        child: const Text('로그인'),
-                      ),
+                      TextButton(onPressed: () {}, child: const Text('로그인')),
                     ],
                   ),
                 ],

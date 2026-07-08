@@ -114,7 +114,11 @@ class _LibraryPageState extends State<LibraryPage> {
         child: Column(
           children: [
             const SizedBox(height: 4),
-            const LogzineTopBar(showBell: false, showSettings: false),
+            const LogzineTopBar(
+              showBell: false,
+              showSettings: false,
+              showDivider: true,
+            ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),

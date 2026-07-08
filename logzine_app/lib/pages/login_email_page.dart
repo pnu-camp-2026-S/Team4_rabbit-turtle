@@ -56,8 +56,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
         await UserService().ensureUserDoc();
       } catch (_) {} // 문서 생성 실패가 로그인 완료를 막지 않게
       if (!mounted) return;
-      Navigator.pushNamed(context, '/onboarding/upload');
-
+      Navigator.pushNamed(context, '/onboarding');
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       _showMessage(AuthService.messageFor(e));
@@ -67,8 +66,9 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -127,8 +127,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                   ),
                   const SizedBox(height: 16),
                   FilledButton(
-                    onPressed:
-                        _loading ? null : () => _submit(isSignUp: false),
+                    onPressed: _loading ? null : () => _submit(isSignUp: false),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.forest,
                       foregroundColor: Colors.white,
@@ -153,8 +152,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                         : const Text('Continue'),
                   ),
                   TextButton(
-                    onPressed:
-                        _loading ? null : () => _submit(isSignUp: true),
+                    onPressed: _loading ? null : () => _submit(isSignUp: true),
                     child: const Text(
                       '처음이신가요? 이 이메일로 가입하기',
                       style: TextStyle(
@@ -171,7 +169,7 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                     icon: const _KakaoIcon(),
                     label: 'Continue with Kakao',
                     onPressed: () =>
-                        Navigator.pushNamed(context, '/onboarding/upload'),
+                        Navigator.pushNamed(context, '/onboarding'),
                   ),
                   const SizedBox(height: 12),
                   _SocialButton(
@@ -182,14 +180,14 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
                     ),
                     label: 'Continue with Apple',
                     onPressed: () =>
-                        Navigator.pushNamed(context, '/onboarding/upload'),
+                        Navigator.pushNamed(context, '/onboarding'),
                   ),
                   const SizedBox(height: 12),
                   _SocialButton(
                     icon: const _GoogleIcon(),
                     label: 'Continue with Google',
                     onPressed: () =>
-                        Navigator.pushNamed(context, '/onboarding/upload'),
+                        Navigator.pushNamed(context, '/onboarding'),
                   ),
                 ],
               ),
@@ -257,9 +255,7 @@ class _SocialButton extends StatelessWidget {
         backgroundColor: Colors.white,
         minimumSize: const Size.fromHeight(52),
         side: const BorderSide(color: AppColors.border),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -293,11 +289,7 @@ class _KakaoIcon extends StatelessWidget {
         color: Color(0xFFFEE500),
         shape: BoxShape.circle,
       ),
-      child: const Icon(
-        Icons.chat_bubble,
-        size: 11,
-        color: Color(0xFF191919),
-      ),
+      child: const Icon(Icons.chat_bubble, size: 11, color: Color(0xFF191919)),
     );
   }
 }
@@ -308,10 +300,7 @@ class _GoogleIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CustomPaint(
-      size: Size(20, 20),
-      painter: _GoogleLogoPainter(),
-    );
+    return const CustomPaint(size: Size(20, 20), painter: _GoogleLogoPainter());
   }
 }
 
