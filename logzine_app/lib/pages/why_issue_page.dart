@@ -254,7 +254,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     const SizedBox(height: 24),
 
                     Text(
-                      'Recommended Because',
+                      'Why it fits you',
                       style: eyebrowStyle(
                         color: AppColors.ink,
                       ).copyWith(fontWeight: FontWeight.w700),
@@ -267,10 +267,10 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                           Expanded(
                             child: _ReasonCard(
                               icon: Icons.spa_outlined,
-                              title: 'Taste match',
+                              title: 'Taste cue',
                               // 실제 일치 태그 + 일치율 — 없으면 새로운 발견으로 안내
                               subtitle: _matched.isEmpty
-                                  ? '당신을 위한\n새로운 발견'
+                                  ? 'A quiet\nnew find'
                                   : '${_matched.take(2).join(', ')}\n'
                                         '${RecommendationService.matchPercent(_taste, _magazine)}% 일치',
                             ),
@@ -279,16 +279,16 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                           const Expanded(
                             child: _ReasonCard(
                               icon: Icons.menu_book_outlined,
-                              title: 'Reading style',
-                              subtitle: '비주얼 에세이,\n짧은 호흡의 글',
+                              title: 'Reading mood',
+                              subtitle: 'Visual essays\nshort-form pace',
                             ),
                           ),
                           const SizedBox(width: 10),
                           const Expanded(
                             child: _ReasonCard(
                               icon: Icons.refresh,
-                              title: 'Updated from activity',
-                              subtitle: '최근 다듬은\n취향 반영',
+                              title: 'Recent signal',
+                              subtitle: 'Reflects your\nlatest activity',
                             ),
                           ),
                         ],
@@ -296,46 +296,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 인용 카드
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            '“',
-                            style: logoStyle(
-                              size: 40,
-                              weight: FontWeight.w600,
-                              letterSpacingEm: 0.0,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _magazine.tagline,
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                height: 1.5,
-                                color: AppColors.body,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            width: 64,
-                            height: 64,
-                            child: NetworkPhoto(url: kMoodPhotos[3], radius: 8),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _EditorialCueCard(tagline: _magazine.tagline),
                     const SizedBox(height: 24),
 
                     // 이번 호 목차
@@ -475,33 +436,112 @@ class _ReasonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      constraints: const BoxConstraints(minHeight: 132),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 13),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: AppColors.ink),
-          const SizedBox(height: 10),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppColors.sageSoft,
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Icon(icon, size: 18, color: AppColors.forest),
+          ),
+          const SizedBox(height: 14),
           Text(
             title,
             style: const TextStyle(
               fontSize: 12.5,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: AppColors.ink,
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           Text(
             subtitle,
             style: const TextStyle(
               fontSize: 11.5,
-              height: 1.35,
-              color: AppColors.ink,
+              height: 1.38,
+              color: AppColors.body,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 추천 이유 아래의 에디토리얼 큐 카드.
+class _EditorialCueCard extends StatelessWidget {
+  const _EditorialCueCard({required this.tagline});
+
+  final String tagline;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 3,
+            height: 76,
+            decoration: BoxDecoration(
+              color: AppColors.forest,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'EDITOR\'S CUE',
+                  style: eyebrowStyle(size: 10, color: AppColors.forest),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '“$tagline”',
+                  style: serifHeading(
+                    size: 18,
+                    weight: FontWeight.w500,
+                    letterSpacing: 0,
+                    color: AppColors.ink,
+                  ).copyWith(height: 1.35),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Chosen from this issue’s tone and your recent reading signals.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.45,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          SizedBox(
+            width: 68,
+            height: 76,
+            child: NetworkPhoto(url: kMoodPhotos[3], radius: 12),
           ),
         ],
       ),
