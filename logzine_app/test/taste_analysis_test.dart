@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logzine_app/models/taste_analysis.dart';
+import 'package:logzine_app/services/photo_taste_analyzer.dart';
 
 TasteKeyword _keyword(String label) => TasteKeyword(
   label: label,
