@@ -193,67 +193,39 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: FilledButton(
-                                        onPressed: () => Navigator.pushNamed(
-                                          context,
-                                          '/reader',
-                                          arguments: ReaderArgs(
-                                            title: _magazine.title,
-                                            publisher: _magazine.issue,
-                                            // 이 매거진의 아티클을 리더에 로드
-                                            magazineId: _magazine.id.isEmpty
-                                                ? null
-                                                : _magazine.id,
-                                            coverUrl: _magazine.coverUrl,
-                                          ),
-                                        ),
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor: AppColors.forest,
-                                          foregroundColor: Colors.white,
-                                          minimumSize: const Size.fromHeight(
-                                            44,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          textStyle: const TextStyle(
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        child: const Text('Start reading'),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton(
+                                    onPressed: () => Navigator.pushNamed(
+                                      context,
+                                      '/reader',
+                                      arguments: ReaderArgs(
+                                        title: _magazine.title,
+                                        publisher: _magazine.issue,
+                                        // 이 매거진의 아티클을 리더에 로드
+                                        magazineId: _magazine.id.isEmpty
+                                            ? null
+                                            : _magazine.id,
+                                        coverUrl: _magazine.coverUrl,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton(
-                                      onPressed: () {},
-                                      style: OutlinedButton.styleFrom(
-                                        minimumSize: const Size(44, 44),
-                                        padding: EdgeInsets.zero,
-                                        side: const BorderSide(
-                                          color: AppColors.border,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: AppColors.forest,
+                                      foregroundColor: Colors.white,
+                                      minimumSize: const Size.fromHeight(44),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
                                       ),
-                                      child: const Icon(
-                                        Icons.bookmark_border,
-                                        size: 19,
-                                        color: AppColors.ink,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                  ],
+                                    child: const Text('Start reading'),
+                                  ),
                                 ),
                               ],
                             ),
