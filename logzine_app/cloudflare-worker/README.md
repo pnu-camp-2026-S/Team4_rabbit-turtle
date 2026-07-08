@@ -28,5 +28,7 @@ flutter build web --dart-define=GEMINI_PROXY_URL=https://logzine-gemini-proxy.lo
 
 - The Gemini API key stays in Cloudflare as a Worker secret.
 - No Firebase Blaze plan is required for this proxy.
+- The Worker accepts both `{ model, body }` envelope requests and Gemini
+  REST-like paths such as `/v1beta/models/gemini-2.0-flash:generateContent`.
 - This is suitable for demos and low-traffic class projects. A fully public
   production app should add stronger abuse controls.

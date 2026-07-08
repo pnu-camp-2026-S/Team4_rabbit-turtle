@@ -33,12 +33,30 @@ export default {
       return json({error: "Invalid JSON."}, 400, corsHeaders);
     }
 
-    const {model, body} = payload || {};
+    const {model, body} = normalizeRequest(request, payload);
     if (typeof model !== "string" || !ALLOWED_MODELS.has(model)) {
-      return json({error: "Unsupported Gemini model."}, 400, corsHeaders);
+      return json(
+        {
+          error: "Unsupported Gemini model.",
+          expected:
+            "POST / with { model, body } or POST /v1beta/models/{model}:generateContent with Gemini body.",
+          receivedPath: new URL(request.url).pathname,
+          receivedModel: model || null,
+        },
+        400,
+        corsHeaders,
+      );
     }
     if (!body || typeof body !== "object" || Array.isArray(body)) {
-      return json({error: "Gemini request body is required."}, 400, corsHeaders);
+      return json(
+        {
+          error: "Gemini request body is required.",
+          expected:
+            "Use { model, body } for proxy envelope requests, or send Gemini body directly on /v1beta/models/{model}:generateContent.",
+        },
+        400,
+        corsHeaders,
+      );
     }
 
     const url =
@@ -52,7 +70,16 @@ export default {
       body: JSON.stringify(body),
     });
 
-    return new Response(await geminiResponse.text(), {
+    const responseText = await geminiResponse.text();
+    const responseBody =
+      responseText ||
+      JSON.stringify({
+        error: "Gemini returned an empty response body.",
+        status: geminiResponse.status,
+        statusText: geminiResponse.statusText,
+      });
+
+    return new Response(responseBody, {
       status: geminiResponse.status,
       headers: {
         ...corsHeaders,
@@ -62,6 +89,26 @@ export default {
     });
   },
 };
+
+function normalizeRequest(request, payload) {
+  const pathModel = modelFromPath(new URL(request.url).pathname);
+  if (pathModel) {
+    return {
+      model: pathModel,
+      body: payload,
+    };
+  }
+
+  return {
+    model: payload?.model,
+    body: payload?.body,
+  };
+}
+
+function modelFromPath(pathname) {
+  const match = pathname.match(/^\/(?:v1beta\/)?models\/([^/]+):generateContent$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
 function json(data, status, headers) {
   return new Response(JSON.stringify(data), {

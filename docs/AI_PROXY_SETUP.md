@@ -35,6 +35,38 @@ flutter run --dart-define=GEMINI_PROXY_URL=https://logzine-gemini-proxy.logzine-
 The MY COVER image-generation flow was confirmed to work through the proxy
 after registering the Worker secret.
 
+## Supported request formats
+
+The Worker accepts both formats below so teammate branches can use either the
+shared Flutter proxy helper or a Gemini REST-like path.
+
+Proxy envelope:
+
+```http
+POST /
+```
+
+```json
+{
+  "model": "gemini-2.0-flash",
+  "body": {
+    "contents": []
+  }
+}
+```
+
+Gemini REST-like path:
+
+```http
+POST /v1beta/models/gemini-2.0-flash:generateContent
+```
+
+```json
+{
+  "contents": []
+}
+```
+
 ## How teammates run the app
 
 Create or update `logzine_app/env.json`:
