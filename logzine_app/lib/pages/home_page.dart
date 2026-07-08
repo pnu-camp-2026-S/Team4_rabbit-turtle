@@ -330,6 +330,9 @@ class _HomePageState extends State<HomePage> {
                       },
                     ),
                     const SizedBox(height: 18),
+                    // 나의 주간 이슈 — 한 주의 취향 활동이 발행된 한 권
+                    const _WeeklyIssueBanner(),
+                    const SizedBox(height: 14),
                     // 이번 주 나의 표지 — 취향으로 만든 커버 아트 입구
                     const _MyCoverBanner(),
                     const SizedBox(height: 14),
@@ -374,6 +377,102 @@ class _HomeFallbackNotice extends StatelessWidget {
           fontSize: 13,
           height: 1.45,
           color: AppColors.body,
+        ),
+      ),
+    );
+  }
+}
+
+/// "나의 주간 이슈" 입구 배너 — 한 주의 활동이 발행된 매거진 한 권.
+class _WeeklyIssueBanner extends StatelessWidget {
+  const _WeeklyIssueBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.ink,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, '/weekly'),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              // 미니 지면 묶음 — 표지 위로 살짝 겹친 낱장
+              SizedBox(
+                width: 52,
+                height: 62,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 6,
+                      top: 0,
+                      child: Container(
+                        width: 46,
+                        height: 62,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 46,
+                      height: 62,
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.screen,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'W.',
+                            style: logoStyle(
+                              size: 13,
+                              weight: FontWeight.w700,
+                              letterSpacingEm: 0.0,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(width: 14, height: 2, color: AppColors.wine),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'LOGZINE WEEKLY',
+                      style: eyebrowStyle(size: 10, color: Colors.white70),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '나의 주간 이슈가 발행됐어요',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: Colors.white70,
+              ),
+            ],
+          ),
         ),
       ),
     );
