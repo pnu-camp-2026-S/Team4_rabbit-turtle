@@ -1,5 +1,19 @@
 import '../models/magazine.dart';
 
+enum RecommendationMatchKind { direct, fallback, empty }
+
+class RecommendationListResult {
+  const RecommendationListResult({
+    required this.magazines,
+    required this.kind,
+    required this.basis,
+  });
+
+  final List<Magazine> magazines;
+  final RecommendationMatchKind kind;
+  final List<String> basis;
+}
+
 /// 취향 태그 ∩ 매거진 태그 기반 추천 로직.
 /// Firestore 의존이 없는 순수 함수 — 단위 테스트로 검증한다.
 ///
@@ -42,6 +56,47 @@ class RecommendationService {
     '음악': ['플레이리스트'],
     '시장': ['동네 가게'],
     '동네': ['동네 가게'],
+    '호텔': ['숙소'],
+    '숙소': ['호텔'],
+  };
+
+  static const Map<String, List<String>> _nearbyTags = {
+    '와인': ['파인다이닝', '로컬 맛집', '디저트', '카페', '호텔'],
+    '집밥': ['로컬 맛집', '브런치', '카페', '동네 가게'],
+    '파인다이닝': ['와인', '로컬 맛집', '디저트', '호텔'],
+    '로컬 맛집': ['카페', '디저트', '파인다이닝', '도시 여행'],
+    '카페': ['디저트', '로컬 맛집', '도시 여행', '동네 가게'],
+    '디저트': ['카페', '로컬 맛집', '파인다이닝'],
+    '미니멀': ['디자인', '인테리어', '데일리룩'],
+    '빈티지': ['가구', '인테리어', '바이닐', '데일리룩'],
+    '스트릿': ['데일리룩', '디자이너 브랜드', '도시 여행'],
+    '디자이너 브랜드': ['데일리룩', '미니멀', '디자인'],
+    '액세서리': ['데일리룩', '디자이너 브랜드'],
+    '데일리룩': ['미니멀', '빈티지', '디자이너 브랜드'],
+    '인테리어': ['가구', '전시 공간', '작업실', '디자인'],
+    '가구': ['인테리어', '작업실', '공예'],
+    '호텔': ['숙소', '도시 여행', '파인다이닝'],
+    '전시 공간': ['전시', '인테리어', '디자인'],
+    '동네 가게': ['로컬', '로컬 맛집', '카페', '작업실'],
+    '작업실': ['공예', '디자인', '전시 공간'],
+    '도시 여행': ['로컬', '숙소', '로컬 맛집', '사진'],
+    '로컬': ['도시 여행', '동네 가게', '로컬 맛집'],
+    '숙소': ['호텔', '주말 여행', '도시 여행'],
+    '산책': ['자연', '사진', '동네 가게'],
+    '자연': ['산책', '주말 여행', '사진'],
+    '주말 여행': ['도시 여행', '숙소', '자연'],
+    '전시': ['현대미술', '디자인', '전시 공간'],
+    '현대미술': ['전시', '디자인', '일러스트'],
+    '공예': ['가구', '작업실', '디자인'],
+    '디자인': ['전시', '현대미술', '인테리어', '미니멀'],
+    '일러스트': ['디자인', '사진', '현대미술'],
+    '사진': ['도시 여행', '전시', '자연'],
+    '인디': ['바이닐', '재즈', '공연', '플레이리스트'],
+    '재즈': ['바이닐', '인디', '공연'],
+    '플레이리스트': ['인디', '재즈', '사운드트랙'],
+    '공연': ['인디', '재즈', '전시'],
+    '바이닐': ['재즈', '인디', '플레이리스트'],
+    '사운드트랙': ['플레이리스트', '인디', '재즈'],
   };
 
   /// 사용자 취향 태그를 픽커 어휘로 확장한다.
@@ -64,11 +119,44 @@ class RecommendationService {
   /// 예: '카페/커피'↔'카페', '도시 탐험'↔'도시 여행', '자연 풍경'↔'자연'
   static bool _overlaps(String a, String b) {
     if (a == b || a.contains(b) || b.contains(a)) return true;
-    Set<String> tokens(String s) => s
-        .split(RegExp(r'[/·&\s]+'))
-        .where((t) => t.length >= 2)
-        .toSet();
+    Set<String> tokens(String s) =>
+        s.split(RegExp(r'[/·&\s]+')).where((t) => t.length >= 2).toSet();
     return tokens(a).intersection(tokens(b)).isNotEmpty;
+  }
+
+  static String _keyOf(Magazine magazine) =>
+      magazine.id.isNotEmpty ? magazine.id : magazine.title;
+
+  static Set<String> _expandedNearbyTags(List<String> userTags) {
+    final expanded = expandTasteTags(userTags);
+    final out = <String>{};
+    for (final tag in expanded) {
+      out.addAll(_nearbyTags[tag] ?? const []);
+    }
+    return out.difference(expanded);
+  }
+
+  static int fallbackScore(List<String> userTags, Magazine magazine) {
+    final nearby = _expandedNearbyTags(userTags);
+    if (nearby.isEmpty) return 0;
+    return magazine.tags.where(nearby.contains).length;
+  }
+
+  static List<Magazine> _rankBy(
+    List<Magazine> magazines,
+    int Function(Magazine magazine) scoreOf, {
+    int? daySeed,
+  }) {
+    final indexed = magazines.asMap().entries.toList();
+    indexed.sort((a, b) {
+      final int diff = scoreOf(b.value) - scoreOf(a.value);
+      if (diff != 0) return diff;
+      if (daySeed == null) return a.key.compareTo(b.key);
+      return _stableHash(
+        '${a.value.title}|$daySeed',
+      ).compareTo(_stableHash('${b.value.title}|$daySeed'));
+    });
+    return [for (final e in indexed) e.value];
   }
 
   /// 사용자 취향과 일치하는 매거진 태그 목록 (표시용 — 픽커 어휘로 반환).
@@ -81,12 +169,24 @@ class RecommendationService {
   static int score(List<String> userTags, Magazine magazine) =>
       matchedTags(userTags, magazine).length;
 
-  /// 취향 일치율(%) — 매거진 태그 중 내 취향과 겹치는 비율.
+  static List<String> coveredTasteTags(
+    List<String> userTags,
+    Magazine magazine,
+  ) {
+    final covered = <String>[];
+    for (final raw in userTags) {
+      final tag = raw.trim();
+      if (tag.isEmpty) continue;
+      if (matchedTags([tag], magazine).isNotEmpty) covered.add(tag);
+    }
+    return covered;
+  }
+
+  /// 취향 일치율(%) — 기준 취향 키워드 중 이 매거진이 커버하는 비율.
   static int matchPercent(List<String> userTags, Magazine magazine) {
-    if (magazine.tags.isEmpty) return 0;
-    return (matchedTags(userTags, magazine).length /
-            magazine.tags.length *
-            100)
+    final basis = userTags.where((tag) => tag.trim().isNotEmpty).toList();
+    if (basis.isEmpty) return 0;
+    return (coveredTasteTags(basis, magazine).length / basis.length * 100)
         .round();
   }
 
@@ -102,9 +202,8 @@ class RecommendationService {
     final tags = userTags ?? const <String>[];
     if (tags.isEmpty && daySeed == null) return magazines;
 
-    int tieKey(int index, Magazine m) => daySeed == null
-        ? index
-        : _stableHash('${m.title}|$daySeed');
+    int tieKey(int index, Magazine m) =>
+        daySeed == null ? index : _stableHash('${m.title}|$daySeed');
 
     final indexed = magazines.asMap().entries.toList();
     indexed.sort((a, b) {
@@ -113,6 +212,117 @@ class RecommendationService {
       return tieKey(a.key, a.value).compareTo(tieKey(b.key, b.value));
     });
     return [for (final e in indexed) e.value];
+  }
+
+  static List<Magazine> buildInitialShelf(
+    List<String> userTags,
+    List<Magazine> magazines, {
+    int maxItems = 6,
+    int directTarget = 4,
+    int? daySeed,
+  }) {
+    if (magazines.isEmpty) return const [];
+    final direct = _rankBy(
+      magazines.where((m) => score(userTags, m) > 0).toList(),
+      (m) => score(userTags, m),
+      daySeed: daySeed,
+    );
+    final directKeys = direct.map(_keyOf).toSet();
+    final fallback = _rankBy(
+      magazines
+          .where((m) => !directKeys.contains(_keyOf(m)))
+          .where((m) => fallbackScore(userTags, m) > 0)
+          .toList(),
+      (m) => fallbackScore(userTags, m),
+      daySeed: daySeed,
+    );
+
+    final selected = <Magazine>[];
+    selected.addAll(direct.take(directTarget));
+    selected.addAll(fallback.take(maxItems - selected.length));
+
+    if (selected.length < maxItems) {
+      final used = selected.map(_keyOf).toSet();
+      final discovery = _rankBy(
+        magazines.where((m) => !used.contains(_keyOf(m))).toList(),
+        (m) => score(userTags, m),
+        daySeed: daySeed,
+      );
+      selected.addAll(discovery.take(maxItems - selected.length));
+    }
+
+    return arrangeForShelf(selected.take(maxItems).toList());
+  }
+
+  static int? focusIndexForTaste(List<Magazine> shelf, String selectedTaste) {
+    if (shelf.isEmpty) return null;
+    final direct = _rankBy(
+      shelf.where((m) => score([selectedTaste], m) > 0).toList(),
+      (m) => score([selectedTaste], m),
+    );
+    if (direct.isNotEmpty) {
+      final key = _keyOf(direct.first);
+      return shelf.indexWhere((m) => _keyOf(m) == key);
+    }
+
+    final fallback = _rankBy(
+      shelf.where((m) => fallbackScore([selectedTaste], m) > 0).toList(),
+      (m) => fallbackScore([selectedTaste], m),
+    );
+    if (fallback.isNotEmpty) {
+      final key = _keyOf(fallback.first);
+      return shelf.indexWhere((m) => _keyOf(m) == key);
+    }
+    return null;
+  }
+
+  static RecommendationListResult listForTaste(
+    List<String> tasteBasis,
+    List<Magazine> magazines, {
+    int? daySeed,
+  }) {
+    final basis = tasteBasis.where((tag) => tag.trim().isNotEmpty).toList();
+    if (basis.isEmpty) {
+      return RecommendationListResult(
+        magazines: _rankBy(magazines, (_) => 0, daySeed: daySeed),
+        kind: magazines.isEmpty
+            ? RecommendationMatchKind.empty
+            : RecommendationMatchKind.direct,
+        basis: basis,
+      );
+    }
+
+    final direct = _rankBy(
+      magazines.where((m) => score(basis, m) > 0).toList(),
+      (m) => score(basis, m),
+      daySeed: daySeed,
+    );
+    if (direct.isNotEmpty) {
+      return RecommendationListResult(
+        magazines: direct,
+        kind: RecommendationMatchKind.direct,
+        basis: basis,
+      );
+    }
+
+    final fallback = _rankBy(
+      magazines.where((m) => fallbackScore(basis, m) > 0).toList(),
+      (m) => fallbackScore(basis, m),
+      daySeed: daySeed,
+    );
+    if (fallback.isNotEmpty) {
+      return RecommendationListResult(
+        magazines: fallback,
+        kind: RecommendationMatchKind.fallback,
+        basis: basis,
+      );
+    }
+
+    return RecommendationListResult(
+      magazines: const [],
+      kind: RecommendationMatchKind.empty,
+      basis: basis,
+    );
   }
 
   /// 실행 간에도 값이 같은 문자열 해시 (String.hashCode는 보장이 없음).
