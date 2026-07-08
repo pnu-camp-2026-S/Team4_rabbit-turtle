@@ -7,6 +7,7 @@ import '../models/publisher_seeds.dart';
 import '../models/reader_args.dart';
 import '../theme.dart';
 import '../widgets/logzine_logo.dart';
+import '../widgets/motion_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
 import '../services/magazine_service.dart';
@@ -726,11 +727,13 @@ class _ReaderPageState extends State<ReaderPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 히어로 이미지
+          // 히어로 이미지 — 아주 느린 켄번즈로 잡지 표지 같은 깊이감
           SizedBox(
             height: 230,
             width: double.infinity,
-            child: NetworkPhoto(url: _heroUrl, radius: 0),
+            child: const KenBurnsPhoto(
+              child: NetworkPhoto(url: _heroUrl, radius: 0),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),

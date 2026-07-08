@@ -133,9 +133,8 @@ class NetworkPhoto extends StatelessWidget {
         errorBuilder: (context, error, stackTrace) =>
             const ColoredBox(color: AppColors.placeholder),
         // 로딩 중에는 시머 자리표시자. 로드 완료 시 부드럽게 교체된다.
-        loadingBuilder: (context, child, progress) => progress == null
-            ? child
-            : const ShimmerBox(),
+        loadingBuilder: (context, child, progress) =>
+            progress == null ? child : const ShimmerBox(),
       ),
     );
   }
