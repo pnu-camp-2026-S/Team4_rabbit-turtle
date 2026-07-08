@@ -34,6 +34,20 @@ class _MagazineShelfState extends State<MagazineShelf> {
   );
 
   @override
+  void didUpdateWidget(covariant MagazineShelf oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialPage == widget.initialPage) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_controller.hasClients) return;
+      _controller.animateToPage(
+        widget.initialPage.clamp(0, widget.magazines.length - 1),
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -54,104 +68,106 @@ class _MagazineShelfState extends State<MagazineShelf> {
         ),
       ),
       child: SizedBox(
-      height: 320,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 6,
-            child: Container(
-              height: 16,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFFDCC5A2), Color(0xFFB8986C)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x33000000),
-                    blurRadius: 10,
-                    offset: Offset(0, 6),
+        height: 320,
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 6,
+              child: Container(
+                height: 16,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFDCC5A2), Color(0xFFB8986C)],
                   ),
-                ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 10,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          PageView.builder(
-            controller: _controller,
-            itemCount: widget.magazines.length,
-            itemBuilder: (context, index) {
-              return AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  double page = widget.initialPage.toDouble();
-                  if (_controller.hasClients &&
-                      _controller.position.haveDimensions) {
-                    page = _controller.page!;
-                  }
-                  final double delta =
-                      (index - page).clamp(-1.0, 1.0).toDouble();
-                  final double t = delta.abs();
-                  final double scale = 1 - 0.14 * t;
-                  final bool isCenter = t < 0.5;
+            PageView.builder(
+              controller: _controller,
+              itemCount: widget.magazines.length,
+              itemBuilder: (context, index) {
+                return AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    double page = widget.initialPage.toDouble();
+                    if (_controller.hasClients &&
+                        _controller.position.haveDimensions) {
+                      page = _controller.page!;
+                    }
+                    final double delta = (index - page)
+                        .clamp(-1.0, 1.0)
+                        .toDouble();
+                    final double t = delta.abs();
+                    final double scale = 1 - 0.14 * t;
+                    final bool isCenter = t < 0.5;
 
-                  // 가판대 효과 — 양옆 잡지가 가운데를 향해 살짝 꺾여 서 있게
-                  final Matrix4 stand = Matrix4.identity()
-                    ..setEntry(3, 2, 0.0014) // 원근
-                    ..rotateY(delta * 0.42);
+                    // 가판대 효과 — 양옆 잡지가 가운데를 향해 살짝 꺾여 서 있게
+                    final Matrix4 stand = Matrix4.identity()
+                      ..setEntry(3, 2, 0.0014) // 원근
+                      ..rotateY(delta * 0.42);
 
-                  return Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Transform(
-                      alignment: Alignment.center,
-                      transform: stand,
-                      child: Transform.scale(
-                        scale: scale,
-                        alignment: Alignment.bottomCenter,
-                        child: GestureDetector(
-                          onTap: () {
-                            if (isCenter) {
-                              widget.onCenterTap
-                                  ?.call(widget.magazines[index]);
-                            } else {
-                              _controller.animateToPage(
-                                index,
-                                duration: const Duration(milliseconds: 350),
-                                curve: Curves.easeOut,
-                              );
-                            }
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            height: 264,
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                _PhysicalMagazine(
-                                  magazine: widget.magazines[index],
-                                ),
-                                // 오늘의 픽 배지 — 중앙 픽에 있을 때만 표시.
-                                // 스와이프로 벗어나면 사라지고, 다시 중앙으로
-                                // 돌아오면 실시간으로 다시 나타난다.
-                                if (widget.showTodaysPick &&
-                                    index == widget.initialPage &&
-                                    (page - widget.initialPage).abs() < 0.5)
-                                  const _TodaysPickBadge(),
-                              ],
+                    return Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Transform(
+                        alignment: Alignment.center,
+                        transform: stand,
+                        child: Transform.scale(
+                          scale: scale,
+                          alignment: Alignment.bottomCenter,
+                          child: GestureDetector(
+                            onTap: () {
+                              if (isCenter) {
+                                widget.onCenterTap?.call(
+                                  widget.magazines[index],
+                                );
+                              } else {
+                                _controller.animateToPage(
+                                  index,
+                                  duration: const Duration(milliseconds: 350),
+                                  curve: Curves.easeOut,
+                                );
+                              }
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              height: 264,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  _PhysicalMagazine(
+                                    magazine: widget.magazines[index],
+                                  ),
+                                  // 오늘의 픽 배지 — 중앙 픽에 있을 때만 표시.
+                                  // 스와이프로 벗어나면 사라지고, 다시 중앙으로
+                                  // 돌아오면 실시간으로 다시 나타난다.
+                                  if (widget.showTodaysPick &&
+                                      index == widget.initialPage &&
+                                      (page - widget.initialPage).abs() < 0.5)
+                                    const _TodaysPickBadge(),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ],
-      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -178,8 +194,9 @@ class _PhysicalMagazine extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.card,
-              borderRadius:
-                  const BorderRadius.horizontal(right: Radius.circular(2)),
+              borderRadius: const BorderRadius.horizontal(
+                right: Radius.circular(2),
+              ),
               border: Border.all(color: AppColors.border, width: 0.7),
               gradient: const LinearGradient(
                 // 페이지 결 — 미세한 줄무늬 느낌
@@ -389,10 +406,7 @@ class ShelfSwipeHint extends StatelessWidget {
             style: eyebrowStyle(size: 9.5, color: AppColors.textMuted),
           ),
           const SizedBox(height: 6),
-          const CustomPaint(
-            size: Size(96, 8),
-            painter: _DoubleArrowPainter(),
-          ),
+          const CustomPaint(size: Size(96, 8), painter: _DoubleArrowPainter()),
         ],
       ),
     );

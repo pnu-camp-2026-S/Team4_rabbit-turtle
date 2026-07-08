@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/magazine_shelf.dart';
 import '../widgets/onboarding_widgets.dart';
+import 'why_issue_page.dart';
 
 class _RecentMarkInfo {
   const _RecentMarkInfo({required this.title, required this.subtitle});
@@ -42,6 +43,7 @@ class _HomeData {
 }
 
 class _HomePageState extends State<HomePage> {
+  static const int _maxStandMagazines = 6;
   static const List<String> _defaultTasteLabels = ['인테리어', '조용한 휴식', '디자인'];
 
   static const Map<String, List<String>> _defaultTasteQueries = {
@@ -83,9 +85,16 @@ class _HomePageState extends State<HomePage> {
       magazines,
       daySeed: RecommendationService.todaySeed(),
     );
+    final shelf = RecommendationService.blendedStand(
+      taste,
+      magazines,
+      daySeed: RecommendationService.todaySeed(),
+    );
 
     return _HomeData(
-      shelf: RecommendationService.arrangeForShelf(ranked),
+      shelf: RecommendationService.arrangeForShelf(
+        (shelf.isEmpty ? ranked.take(_maxStandMagazines).toList() : shelf),
+      ),
       taste: taste,
       catalog: magazines,
     );
@@ -129,8 +138,16 @@ class _HomePageState extends State<HomePage> {
     return '${diff.inDays} d ago';
   }
 
-  Future<void> _openMagazine(BuildContext context, Magazine magazine) async {
-    await Navigator.pushNamed(context, '/discover/why', arguments: magazine);
+  Future<void> _openMagazine(
+    BuildContext context,
+    Magazine magazine, {
+    List<String>? tasteBasis,
+  }) async {
+    await Navigator.pushNamed(
+      context,
+      '/discover/why',
+      arguments: WhyIssuePageArgs(magazine: magazine, tasteBasis: tasteBasis),
+    );
     if (mounted) {
       final next = _loadHome();
       setState(() {
@@ -161,13 +178,44 @@ class _HomePageState extends State<HomePage> {
     return _defaultTasteQueries[selectedTaste] ?? <String>[selectedTaste];
   }
 
-  List<Magazine> _shelfForSelectedTaste(_HomeData data, String? selectedTaste) {
-    final ranked = RecommendationService.rank(
-      _queryForSelectedTaste(selectedTaste, data.taste),
-      data.catalog,
-      daySeed: RecommendationService.todaySeed(),
+  int _focusedShelfIndex(_HomeData data, String? selectedTaste) {
+    if (data.shelf.isEmpty) return 0;
+    if (selectedTaste == null) {
+      return 2.clamp(0, data.shelf.length - 1);
+    }
+    final query = _queryForSelectedTaste(selectedTaste, data.taste);
+    final directIndex = data.shelf.indexWhere(
+      (magazine) =>
+          RecommendationService.matchedTags(query, magazine).isNotEmpty,
     );
-    return RecommendationService.arrangeForShelf(ranked);
+    if (directIndex >= 0) return directIndex;
+
+    final fallbackTags = RecommendationService.relatedFallbackTags(
+      selectedTaste,
+    );
+    final fallbackIndex = data.shelf.indexWhere(
+      (magazine) =>
+          RecommendationService.matchedTags(fallbackTags, magazine).isNotEmpty,
+    );
+    if (fallbackIndex >= 0) return fallbackIndex;
+    return 2.clamp(0, data.shelf.length - 1);
+  }
+
+  bool _hasExactCatalogMatch(_HomeData data, String? selectedTaste) {
+    if (selectedTaste == null) return true;
+    final query = _queryForSelectedTaste(selectedTaste, data.taste);
+    return data.catalog.any(
+      (magazine) =>
+          RecommendationService.matchedTags(query, magazine).isNotEmpty,
+    );
+  }
+
+  List<String> _whyTasteBasis(_HomeData data, String? selectedTaste) {
+    if (selectedTaste == null) return data.taste;
+    final query = _queryForSelectedTaste(selectedTaste, data.taste);
+    if (_hasExactCatalogMatch(data, selectedTaste)) return query;
+    final fallback = RecommendationService.relatedFallbackTags(selectedTaste);
+    return fallback.isEmpty ? query : fallback;
   }
 
   @override
@@ -194,7 +242,11 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 16),
                     SectionHeader(
                       title: 'Today\'s stand',
-                      onViewAll: () => Navigator.pushNamed(context, '/stand'),
+                      onViewAll: () => Navigator.pushNamed(
+                        context,
+                        '/stand',
+                        arguments: _selectedTasteLabel,
+                      ),
                     ),
                   ],
                 ),
@@ -209,14 +261,41 @@ class _HomePageState extends State<HomePage> {
                   }
                   final labels = _chipLabels(data.taste);
                   final selectedTaste = _resolvedSelectedTaste(labels);
-                  final magazines = _shelfForSelectedTaste(data, selectedTaste);
+                  final magazines = data.shelf;
+                  final focusedIndex = _focusedShelfIndex(data, selectedTaste);
+                  final hasExactMatch = _hasExactCatalogMatch(
+                    data,
+                    selectedTaste,
+                  );
+                  final tasteBasis = _whyTasteBasis(data, selectedTaste);
                   if (magazines.isEmpty) {
                     return const SizedBox(height: 320);
                   }
-                  return MagazineShelf(
-                    magazines: magazines,
-                    showTodaysPick: true,
-                    onCenterTap: (magazine) => _openMagazine(context, magazine),
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      MagazineShelf(
+                        key: ValueKey(
+                          'home-stand-'
+                          '${magazines.map((m) => m.id.isEmpty ? m.title : m.id).join('|')}',
+                        ),
+                        magazines: magazines,
+                        initialPage: focusedIndex,
+                        showTodaysPick: true,
+                        onCenterTap: (magazine) => _openMagazine(
+                          context,
+                          magazine,
+                          tasteBasis: tasteBasis,
+                        ),
+                      ),
+                      if (!hasExactMatch && selectedTaste != null) ...[
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _ShelfFallbackNotice(keyword: selectedTaste),
+                        ),
+                      ],
+                    ],
                   );
                 },
               ),
@@ -363,6 +442,33 @@ class _MyCoverBanner extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShelfFallbackNotice extends StatelessWidget {
+  const _ShelfFallbackNotice({required this.keyword});
+
+  final String keyword;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        '$keyword 매거진은 아직 준비 중이에요. 대신 가까운 취향의 매거진을 보여드릴게요.',
+        style: const TextStyle(
+          fontSize: 12.5,
+          height: 1.45,
+          color: AppColors.textSecondary,
         ),
       ),
     );

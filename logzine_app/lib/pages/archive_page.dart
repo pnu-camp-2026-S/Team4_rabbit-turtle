@@ -11,6 +11,7 @@ import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
+import 'main_shell.dart';
 
 typedef _SavedArticleItem = ({
   String title,
@@ -422,7 +423,9 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
     // 취향 재분석은 사진 분석/키워드 선택 진입 화면에서 시작한다.
     await Navigator.pushNamed(context, '/onboarding', arguments: 'edit');
     // 편집 화면에서 돌아오면 최신 취향으로 갱신
+    if (!mounted) return;
     _loadTaste();
+    MainShell.refreshTaste(context);
   }
 
   @override

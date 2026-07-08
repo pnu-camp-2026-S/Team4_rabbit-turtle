@@ -11,6 +11,13 @@ import '../widgets/common_widgets.dart';
 import '../widgets/magazine_shelf.dart';
 import '../widgets/onboarding_widgets.dart';
 
+class WhyIssuePageArgs {
+  const WhyIssuePageArgs({required this.magazine, this.tasteBasis});
+
+  final Magazine magazine;
+  final List<String>? tasteBasis;
+}
+
 /// 추천 이유 상세 — Why this issue.
 class WhyIssuePage extends StatefulWidget {
   const WhyIssuePage({super.key});
@@ -23,13 +30,19 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
   Magazine? _magazineArg;
   bool _argsApplied = false;
   List<String> _taste = const [];
+  List<String>? _tasteBasisArg;
 
   /// 선반/검색에서 탭한 매거진. 인자 없으면 데모(ROOM NOTE) 폴백.
   Magazine get _magazine => _magazineArg ?? kMagazines[2];
 
   /// 내 취향과 이 매거진의 일치 태그 — 추천 근거.
   List<String> get _matched =>
-      RecommendationService.matchedTags(_taste, _magazine);
+      RecommendationService.matchedTags(_tasteBasis, _magazine);
+
+  List<String> get _tasteBasis =>
+      (_tasteBasisArg != null && _tasteBasisArg!.isNotEmpty)
+      ? _tasteBasisArg!
+      : _taste;
 
   _IssueProfile get _profile => _IssueProfile.from(_magazine, _articles);
 
@@ -42,7 +55,12 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
     if (_argsApplied) return;
     _argsApplied = true;
     final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is Magazine) _magazineArg = args;
+    if (args is WhyIssuePageArgs) {
+      _magazineArg = args.magazine;
+      _tasteBasisArg = args.tasteBasis;
+    } else if (args is Magazine) {
+      _magazineArg = args;
+    }
     _loadTaste();
     _loadArticles();
   }
@@ -289,7 +307,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                               subtitle: _matched.isEmpty
                                   ? '당신을 위한\n새로운 발견'
                                   : '${_matched.take(2).join(', ')}\n'
-                                        '${RecommendationService.matchPercent(_taste, _magazine)}% 일치',
+                                        '${RecommendationService.matchPercent(_tasteBasis, _magazine)}% 일치',
                             ),
                           ),
                           const SizedBox(width: 10),

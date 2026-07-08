@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/mood_analysis.dart';
+import 'gemini_proxy_client.dart';
 
 /// 사진 → 무드 분석 추상화.
 /// 구현체를 교체하면 다른 AI 공급자(CLOVA 등)로 갈아끼울 수 있다.
@@ -14,11 +15,9 @@ abstract class MoodAnalyzer {
 
 /// Google Gemini Flash 기반 구현.
 ///
-/// 활성화: `flutter run --dart-define=GEMINI_API_KEY=발급키`
-/// (키는 절대 커밋하지 않는다 — 없으면 자동으로 데모 모드)
+/// 활성화: `flutter run --dart-define-from-file=env.json`
+/// (앱에는 GEMINI_PROXY_URL만 넣고, 키는 Worker Secret으로 관리한다)
 class GeminiMoodAnalyzer implements MoodAnalyzer {
-  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
-
   /// 무료 티어의 최신 flash 모델을 자동 추적.
   /// (구버전 고정 모델은 무료 쿼터가 0인 경우가 있음 — 2.0-flash가 그랬다)
   static const String _model = 'gemini-flash-latest';
@@ -43,7 +42,7 @@ Only include a tag if you are confident it matches. Return valid JSON only.
 
   @override
   Future<MoodAnalysis?> analyze(List<Uint8List> photos) async {
-    if (_apiKey.isEmpty || photos.isEmpty) return null;
+    if (!GeminiProxyClient.isConfigured || photos.isEmpty) return null;
     try {
       final List<Map<String, dynamic>> parts = [
         {'text': _prompt},
@@ -56,27 +55,22 @@ Only include a tag if you are confident it matches. Return valid JSON only.
           },
       ];
 
-      final http.Response res = await http
-          .post(
-            Uri.parse(
-              'https://generativelanguage.googleapis.com/v1beta/models/'
-              '$_model:generateContent?key=$_apiKey',
-            ),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'contents': [
-                {'parts': parts},
-              ],
-              'generationConfig': {
-                'response_mime_type': 'application/json',
-                'temperature': 0.4,
-                'maxOutputTokens': 800,
-                // thinking 모델의 사고 토큰이 출력을 잘라먹지 않도록 비활성화
-                'thinkingConfig': {'thinkingBudget': 0},
-              },
-            }),
-          )
-          .timeout(const Duration(seconds: 25));
+      final http.Response res = await GeminiProxyClient.generateContent(
+        model: _model,
+        timeout: const Duration(seconds: 25),
+        body: {
+          'contents': [
+            {'parts': parts},
+          ],
+          'generationConfig': {
+            'response_mime_type': 'application/json',
+            'temperature': 0.4,
+            'maxOutputTokens': 800,
+            // thinking 모델의 사고 토큰이 출력을 잘라먹지 않도록 비활성화
+            'thinkingConfig': {'thinkingBudget': 0},
+          },
+        },
+      );
 
       if (res.statusCode != 200) {
         debugPrint('MoodAnalyzer: HTTP ${res.statusCode} ${res.body}');

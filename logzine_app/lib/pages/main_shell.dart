@@ -27,12 +27,19 @@ class MainShell extends StatefulWidget {
     }
   }
 
+  /// 취향 태그가 바뀐 뒤 홈/추천 탭이 최신 데이터를 다시 읽게 한다.
+  static void refreshTaste(BuildContext context) {
+    final state = context.findAncestorStateOfType<_MainShellState>();
+    state?._refreshTaste();
+  }
+
   @override
   State<MainShell> createState() => _MainShellState();
 }
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+  int _tasteRevision = 0;
   bool _argsApplied = false;
 
   @override
@@ -47,6 +54,10 @@ class _MainShellState extends State<MainShell> {
 
   void _select(int index) => setState(() => _index = index);
 
+  void _refreshTaste() {
+    setState(() => _tasteRevision++);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -56,8 +67,8 @@ class _MainShellState extends State<MainShell> {
         // 만들어져 didUpdateWidget이 불리고, 마이페이지가 최신 데이터로 갱신된다.
         // (State는 유지되므로 스크롤/선반 위치는 보존)
         children: [
-          const HomePage(),
-          const DiscoverPage(),
+          HomePage(key: ValueKey('home-$_tasteRevision')),
+          DiscoverPage(key: ValueKey('discover-$_tasteRevision')),
           const LibraryPage(),
           ArchivePage(),
         ],

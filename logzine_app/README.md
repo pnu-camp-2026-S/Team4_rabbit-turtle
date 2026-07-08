@@ -150,22 +150,28 @@ flutter run --no-enable-impeller
 ### Gemini 사진 취향 분석 실행 (선택)
 
 온보딩의 `Add photos`는 실제 파일 선택기를 열고, `Analyze photos`는 Gemini API로 이미지 분석을 요청합니다.
-실행하려면 **본인 API 키**가 필요하며, 키는 코드에 넣지 않고 실행 시에만 주입합니다.
+앱은 Gemini API를 직접 호출하지 않고 Cloudflare Worker 프록시를 통해 요청합니다.
 
 **최초 1회 설정:**
-1. 무료 키 발급: https://aistudio.google.com → **Get API key** (2분)
-2. `logzine_app/env.example.json`을 복사해 같은 폴더에 **`env.json`** 생성, 안에 본인 키 입력
+1. `logzine_app/env.example.json`을 복사해 같은 폴더에 **`env.json`** 생성
+2. 아래 Worker URL이 들어 있는지 확인
    (`env.json`은 gitignore되어 있어 실수로도 커밋되지 않음)
+
+```json
+{
+  "GEMINI_PROXY_URL": "https://logzine-gemini-proxy.logzine-sua38.workers.dev"
+}
+```
 
 **실행 (매번):**
 ```powershell
 flutter run --dart-define-from-file=env.json
 # 안드로이드 에뮬레이터는 --no-enable-impeller 추가
-# (env.json 없이 일회성 실행: --dart-define=GEMINI_API_KEY=키 도 가능)
 ```
 
-- ⚠️ **키를 코드/저장소에 절대 커밋하지 말 것** — env.json/실행 주입만 허용
-- 키가 없으면 자동으로 데모 태그로 폴백되므로 시연은 항상 안전함
+- ⚠️ **Gemini API 키를 코드/저장소/스크린샷에 절대 노출하지 말 것**
+- 대표 Gemini 키는 Cloudflare Worker Secret(`GEMINI_API_KEY`)으로만 관리
+- `GEMINI_PROXY_URL`이 없거나 Worker 호출이 실패하면 자동으로 데모 태그로 폴백되므로 시연은 항상 안전함
 - 공급자 교체는 `lib/services/mood_analyzer.dart`의 `MoodAnalyzer` 구현체 추가로 확장 가능
 ### 트러블슈팅 (이 프로젝트에서 실제 겪은 이슈)
 

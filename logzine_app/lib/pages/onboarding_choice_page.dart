@@ -65,7 +65,9 @@ class OnboardingChoicePage extends StatelessWidget {
                           onTap: () => Navigator.pushNamed(
                             context,
                             '/taste',
-                            arguments: editMode ? 'replace' : null,
+                            arguments: editMode
+                                ? 'replace'
+                                : 'onboarding-replace',
                           ),
                         ),
                         const SizedBox(height: 18),

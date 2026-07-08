@@ -122,6 +122,7 @@ class _TastePickerPageState extends State<TastePickerPage>
   /// 메인(마이페이지 Refine)에서 진입한 편집 모드 — 저장 후 이전 화면으로 복귀.
   bool _editMode = false;
   bool _replaceMode = false;
+  bool _onboardingReplaceMode = false;
   bool _argsApplied = false;
   bool _saving = false;
 
@@ -131,8 +132,9 @@ class _TastePickerPageState extends State<TastePickerPage>
     if (_argsApplied) return;
     _argsApplied = true;
     final args = ModalRoute.of(context)?.settings.arguments;
+    _onboardingReplaceMode = args == 'onboarding-replace';
     _editMode = args == 'edit' || args == 'replace';
-    _replaceMode = args == 'replace';
+    _replaceMode = args == 'replace' || _onboardingReplaceMode;
     _preloadTags();
   }
 

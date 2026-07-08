@@ -28,6 +28,31 @@ class RecommendationService {
     '동네': ['로컬 탐방'],
   };
 
+  /// 직접 매칭이 없을 때만 쓰는 가까운 취향 후보.
+  /// 기존 키워드 구조는 유지하고 UI vocabulary 안의 키워드로만 확장한다.
+  static const Map<String, List<String>> _fallbackNeighbors = {
+    '와인': ['미식 여행', '로컬 맛집', '브런치', '카페', '호텔'],
+    '전통차': ['카페', '브런치', '한옥', '조용한 휴식'],
+    '베이커리': ['디저트', '브런치', '카페'],
+    '커피': ['카페', '브런치', '로컬 맛집'],
+    '호텔': ['숙소', '조용한 휴식', '도시 여행'],
+    '한옥': ['전통차', '건축', '조용한 휴식'],
+    '정원': ['자연', '웰니스', '조용한 휴식'],
+    '클래식': ['재즈', '바이닐', '사운드트랙'],
+    '플레이리스트': ['인디', '재즈', '바이닐'],
+    '사운드트랙': ['플레이리스트', '인디', '바이닐'],
+    '페스티벌': ['라이브 공연', '인디', '스포츠 관람'],
+    '스포츠웨어': ['러닝', '요가', '스포츠 관람'],
+    '스포츠 여행': ['스포츠 관람', '경기장 투어', '도시 여행'],
+    '야구': ['스포츠 관람', '경기장 투어'],
+    '클라이밍': ['러닝', '자연', '웰니스'],
+    '반려생활': ['홈라이프', '정원', '조용한 휴식'],
+    '일러스트': ['디자인', '사진', '아트페어'],
+    '액세서리': ['데일리룩', '디자이너 브랜드', '미니멀'],
+    '해외 도시': ['도시 여행', '랜드마크', '숙소'],
+    '랜드마크': ['도시 여행', '건축', '사진'],
+  };
+
   /// 사용자 취향 태그를 UI keyword vocabulary로 확장한다.
   static Set<String> expandTasteTags(List<String> userTags) {
     final out = <String>{};
@@ -67,14 +92,107 @@ class RecommendationService {
   static int score(List<String> userTags, Magazine magazine) =>
       matchedTags(userTags, magazine).length;
 
-  /// 취향 일치율(%) — 매거진 태그 중 내 취향과 겹치는 비율.
+  /// 취향 일치율(%) — 내 취향 키워드 중 이 매거진이 커버하는 비율.
+  /// 예: 사용자가 '카페' 하나를 눌렀고 매거진 태그에 '카페'가 있으면 100%.
   static int matchPercent(List<String> userTags, Magazine magazine) {
-    final normalizedTags = UiKeywordVocabulary.filter(magazine.tags);
-    if (normalizedTags.isEmpty) return 0;
-    return (matchedTags(userTags, magazine).length /
-            normalizedTags.length *
-            100)
-        .round();
+    final covered = _coveredTasteCount(userTags, magazine);
+    final total = _countableTasteTags(userTags).length;
+    if (total == 0) return 0;
+    return (covered / total * 100).round();
+  }
+
+  static List<String> _countableTasteTags(List<String> userTags) {
+    return [
+      for (final raw in userTags)
+        if (raw.trim().isNotEmpty) raw.trim(),
+    ];
+  }
+
+  static int _coveredTasteCount(List<String> userTags, Magazine magazine) {
+    final magazineTags = UiKeywordVocabulary.filter(magazine.tags).toSet();
+    var covered = 0;
+    for (final raw in _countableTasteTags(userTags)) {
+      if (expandTasteTags([raw]).intersection(magazineTags).isNotEmpty) {
+        covered++;
+      }
+    }
+    return covered;
+  }
+
+  /// 선택 키워드/취향을 하나도 만족하지 않는 매거진을 제외한다.
+  static List<Magazine> matchingOnly(
+    List<String> userTags,
+    List<Magazine> magazines, {
+    int? daySeed,
+  }) {
+    return rank(
+      userTags,
+      magazines,
+      daySeed: daySeed,
+    ).where((magazine) => score(userTags, magazine) > 0).toList();
+  }
+
+  /// 직접 매칭이 없을 때 가까운 키워드/같은 상위 카테고리 후보를 찾는다.
+  static List<Magazine> fallbackForKeyword(
+    String keyword,
+    List<Magazine> magazines, {
+    int? daySeed,
+  }) {
+    final related = relatedFallbackTags(keyword);
+    if (related.isEmpty) return const [];
+    return rank(
+      related,
+      magazines,
+      daySeed: daySeed,
+    ).where((magazine) => score(related, magazine) > 0).toList();
+  }
+
+  static List<String> relatedFallbackTags(String keyword) {
+    final normalized = UiKeywordVocabulary.normalize(keyword) ?? keyword.trim();
+    final related = <String>{...(_fallbackNeighbors[normalized] ?? const [])};
+    final category = UiKeywordVocabulary.categories[normalized];
+    if (category != null) {
+      related.addAll(UiKeywordVocabulary.groups[category] ?? const []);
+    }
+    related.remove(normalized);
+    return UiKeywordVocabulary.filter(related);
+  }
+
+  /// 홈 선반용: 취향 매칭 후보를 먼저 놓고, 아직 취향과 겹치지 않는 신규 후보를 섞는다.
+  static List<Magazine> blendedStand(
+    List<String> userTags,
+    List<Magazine> magazines, {
+    int matchLimit = 4,
+    int freshLimit = 2,
+    int totalLimit = 6,
+    int? daySeed,
+  }) {
+    final matched = matchingOnly(
+      userTags,
+      magazines,
+      daySeed: daySeed,
+    ).take(matchLimit);
+    final selectedIds = {
+      for (final magazine in matched) _magazineKey(magazine),
+    };
+
+    final fresh = rank(const [], [
+      for (final magazine in magazines)
+        if (!selectedIds.contains(_magazineKey(magazine)) &&
+            score(userTags, magazine) == 0)
+          magazine,
+    ], daySeed: daySeed).take(freshLimit);
+
+    final result = <Magazine>[...matched, ...fresh];
+    final used = {for (final magazine in result) _magazineKey(magazine)};
+    if (result.length < totalLimit) {
+      for (final magazine in rank(userTags, magazines, daySeed: daySeed)) {
+        if (!used.add(_magazineKey(magazine))) continue;
+        result.add(magazine);
+        if (result.length >= totalLimit) break;
+      }
+    }
+    return result.take(totalLimit).toList();
   }
 
   /// 점수 내림차순 정렬.
@@ -109,6 +227,9 @@ class RecommendationService {
     }
     return h;
   }
+
+  static String _magazineKey(Magazine magazine) =>
+      magazine.id.isEmpty ? magazine.title : magazine.id;
 
   /// 오늘 날짜의 로테이션 시드 (자정 기준으로 매일 바뀜).
   static int todaySeed() {

@@ -51,6 +51,13 @@ class UserService {
   Future<void> excludeMagazine(String magazineId) {
     return _userRef.update({
       'excludedMagazines': FieldValue.arrayUnion([magazineId]),
+      'negativeFeedback': FieldValue.arrayUnion([
+        {
+          'magazineId': magazineId,
+          'reason': 'not_for_me',
+          'createdAt': Timestamp.now(),
+        },
+      ]),
     });
   }
 

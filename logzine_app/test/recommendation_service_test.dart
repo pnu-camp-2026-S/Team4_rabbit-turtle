@@ -84,11 +84,12 @@ void main() {
   });
 
   group('matchPercent / 데일리 로테이션', () {
-    test('일치율 = 매거진 태그 중 겹치는 비율', () {
+    test('일치율 = 사용자 취향 중 매거진이 커버하는 비율', () {
       expect(
         RecommendationService.matchPercent(['카페', '도시 여행'], cafe),
-        67, // 3개 중 2개
+        100, // 사용자 취향 2개를 모두 커버
       );
+      expect(RecommendationService.matchPercent(['카페', '재즈'], cafe), 50);
       expect(RecommendationService.matchPercent(['없음'], cafe), 0);
     });
 
@@ -101,6 +102,49 @@ void main() {
     test('daySeed가 있어도 점수 우선순위는 유지된다', () {
       final ranked = RecommendationService.rank(['바이닐', '재즈'], all, daySeed: 7);
       expect(ranked.first.title, 'Wax Poetics'); // 2개 일치는 항상 1위
+    });
+  });
+
+  group('직접 매칭 없음 fallback', () {
+    test('직접 매칭이 없으면 가까운 취향 후보를 찾는다', () {
+      final direct = RecommendationService.matchingOnly(['와인'], all);
+      final fallback = RecommendationService.fallbackForKeyword('와인', all);
+
+      expect(direct, isEmpty);
+      expect(fallback.map((m) => m.title), contains('Drift'));
+      expect(
+        RecommendationService.relatedFallbackTags('와인'),
+        containsAll(['미식 여행', '로컬 맛집', '브런치', '카페']),
+      );
+    });
+
+    test('fallback 후보도 없으면 빈 목록을 유지한다', () {
+      final fallback = RecommendationService.fallbackForKeyword('우주비행', all);
+      expect(fallback, isEmpty);
+    });
+  });
+
+  group('RecommendationService.blendedStand', () {
+    test('취향 매칭 후보와 신규 후보를 섞어 6개까지 만든다', () {
+      final m1 = _mag('Cafe 1', ['카페']);
+      final m2 = _mag('Cafe 2', ['카페', '디저트']);
+      final m3 = _mag('Cafe 3', ['카페']);
+      final m4 = _mag('Cafe 4', ['카페']);
+      final m5 = _mag('Cafe 5', ['카페']);
+      final fresh1 = _mag('Fresh 1', ['재즈']);
+      final fresh2 = _mag('Fresh 2', ['전시']);
+      final mixed = RecommendationService.blendedStand(
+        ['카페'],
+        [m1, m2, m3, m4, m5, fresh1, fresh2],
+        daySeed: 1,
+      );
+
+      expect(mixed.length, 6);
+      expect(mixed.where((m) => m.tags.contains('카페')).length, 4);
+      expect(
+        mixed.where((m) => !m.tags.contains('카페')).map((m) => m.title),
+        containsAll(['Fresh 1', 'Fresh 2']),
+      );
     });
   });
 
