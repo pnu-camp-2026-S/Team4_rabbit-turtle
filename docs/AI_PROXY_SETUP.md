@@ -23,6 +23,18 @@ The Gemini key must be stored only as the Worker secret named
 `GEMINI_API_KEY`. Do not add the key to GitHub, screenshots, README files, or
 Flutter source code.
 
+## Verified status
+
+As of July 8, 2026, the Cloudflare Worker has been deployed and the app was
+successfully run with:
+
+```powershell
+flutter run --dart-define=GEMINI_PROXY_URL=https://logzine-gemini-proxy.logzine-sua38.workers.dev
+```
+
+The MY COVER image-generation flow was confirmed to work through the proxy
+after registering the Worker secret.
+
 ## How teammates run the app
 
 Create or update `logzine_app/env.json`:
