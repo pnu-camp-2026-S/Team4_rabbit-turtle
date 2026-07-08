@@ -1,5 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../models/magazine.dart';
+import '../services/auth_service.dart';
+import '../services/magazine_service.dart';
+import '../services/mark_service.dart';
+import '../services/saved_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
@@ -13,29 +19,31 @@ class LibraryPage extends StatefulWidget {
 
 enum _LibrarySummary { magazines, publishers, saved }
 
-typedef _SubscriptionItem = ({String title, String issue, String coverUrl, String status});
 typedef _PublisherItem = ({String name, String imageUrl, String description});
 typedef _SavedArticleItem = ({String title, String publisher, String date, String imageUrl});
 typedef _RecentViewedItem = ({String title, String publisher, int progress, String imageUrl});
 
-class _LibraryPageState extends State<LibraryPage> {
-  static const List<_SubscriptionItem> _subscriptions = [
-    (
-      title: 'CEREAL',
-      issue: 'Vol. 34',
-      coverUrl:
-          'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
-      status: 'New issue every month',
-    ),
-    (
-      title: 'ROOM NOTE',
-      issue: 'Issue 28',
-      coverUrl:
-          'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=400&q=80',
-      status: 'Next issue in 6 days',
-    ),
-  ];
+/// 라이브러리 화면 데이터 묶음 — 매거진 목록 + 저장 글 + 이어 읽기 + 저장 개수.
+class _LibraryData {
+  const _LibraryData({
+    required this.magazines,
+    required this.savedArticles,
+    required this.recentViewed,
+    required this.savedCount,
+    required this.isLoggedIn,
+  });
 
+  final List<Magazine> magazines;
+  final List<_SavedArticleItem> savedArticles;
+  final List<_RecentViewedItem> recentViewed;
+  final int savedCount;
+
+  /// Publisher follows처럼 실제 데이터 소스가 없는 개인 지표의 표시값을
+  /// 로그인 여부로 가르는 데 쓴다 (로그인 시 0부터 시작하는 정책 일관성).
+  final bool isLoggedIn;
+}
+
+class _LibraryPageState extends State<LibraryPage> {
   static const List<_PublisherItem> _publishers = [
     (
       name: 'Studio Log',
@@ -63,7 +71,8 @@ class _LibraryPageState extends State<LibraryPage> {
     ),
   ];
 
-  static const List<_SavedArticleItem> _savedArticles = [
+  /// [폴백] 저장한 글이 없거나(비로그인 포함)/조회 실패 시 사용하는 데모 목록.
+  static const List<_SavedArticleItem> _demoSavedArticles = [
     (
       title: 'The beauty of empty space',
       publisher: 'Openhouse',
@@ -80,7 +89,8 @@ class _LibraryPageState extends State<LibraryPage> {
     ),
   ];
 
-  static const List<_RecentViewedItem> _recentViewed = [
+  /// [폴백] 읽기 진행률이 없거나(비로그인 포함)/조회 실패 시 사용하는 데모 목록.
+  static const List<_RecentViewedItem> _demoRecentViewed = [
     (
       title: 'CEREAL',
       publisher: 'Cereal Magazine',
@@ -104,6 +114,110 @@ class _LibraryPageState extends State<LibraryPage> {
     ),
   ];
 
+  /// [폴백] 비로그인일 때만 노출하는 데모 통계값. 로그인 상태에서는
+  /// (0 포함) 항상 실제 count()를 그대로 보여준다.
+  static const int _demoSavedCount = 28;
+
+  late final Future<_LibraryData> _libraryFuture = _loadLibrary();
+
+  static Future<_LibraryData> _loadLibrary() async {
+    List<Magazine> magazines;
+    try {
+      magazines = await MagazineService().fetchMagazines();
+      if (magazines.isEmpty) magazines = kMagazines;
+    } catch (_) {
+      magazines = kMagazines;
+    }
+    final magazineById = {for (final m in magazines) m.id: m};
+
+    // 폴백 정책: 비로그인 → 항상 데모(둘러보기 쇼케이스), 유지.
+    // 로그인 → 항상 실데이터만. 조회가 성공해서 빈 값이면 빈 상태를,
+    // 조회 자체가 실패(예외)해도 데모로 대체하지 않고 빈 상태로 —
+    // 로그인 사용자에게 남의 데모 데이터를 보여주는 것이 가장 나쁨.
+    final bool isLoggedIn = AuthService().currentUser != null;
+
+    List<_SavedArticleItem> savedArticles = _demoSavedArticles;
+    int savedCount = _demoSavedCount;
+    if (isLoggedIn) {
+      try {
+        final savedDocs = await SavedService().fetchSaved(limit: 20);
+        savedArticles = [for (final doc in savedDocs) _savedItemFromDoc(doc)];
+      } catch (_) {
+        savedArticles = const [];
+      }
+      try {
+        savedCount = await SavedService().fetchSavedCount();
+      } catch (_) {
+        savedCount = 0;
+      }
+    }
+
+    List<_RecentViewedItem> recentViewed = _demoRecentViewed;
+    if (isLoggedIn) {
+      try {
+        final progressList = await MarkService().fetchProgressList(limit: 10);
+        final resolved = await Future.wait(
+          progressList.map((p) => _recentItemFromProgress(p, magazineById)),
+        );
+        recentViewed = resolved.whereType<_RecentViewedItem>().toList();
+      } catch (_) {
+        recentViewed = const [];
+      }
+    }
+
+    return _LibraryData(
+      magazines: magazines,
+      savedArticles: savedArticles,
+      recentViewed: recentViewed,
+      savedCount: savedCount,
+      isLoggedIn: isLoggedIn,
+    );
+  }
+
+  static _SavedArticleItem _savedItemFromDoc(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    final Timestamp? savedAt = data['savedAt'] as Timestamp?;
+    return (
+      title: data['articleTitle'] as String? ?? '(제목 없음)',
+      publisher: data['magazineTitle'] as String? ?? '',
+      date: savedAt == null ? '' : _formatDate(savedAt.toDate()),
+      imageUrl: data['coverUrl'] as String? ?? '',
+    );
+  }
+
+  static String _formatDate(DateTime date) =>
+      '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+
+  /// progress 문서 1건 → 표시용 아이템. 대상 매거진을 카탈로그에서 찾을 수
+  /// 없으면(삭제됨 등) null — 호출부에서 건너뛴다.
+  static Future<_RecentViewedItem?> _recentItemFromProgress(
+    ProgressRecord record,
+    Map<String, Magazine> magazineById,
+  ) async {
+    final magazine = magazineById[record.magazineId];
+    if (magazine == null) return null;
+
+    String title = magazine.title;
+    try {
+      final article = await MagazineService().fetchArticleById(
+        magazineId: record.magazineId,
+        articleId: record.articleId,
+      );
+      if (article != null && article.title.isNotEmpty) title = article.title;
+    } catch (_) {
+      // 아티클 조회 실패 — 매거진 제목으로 대체
+    }
+
+    return (
+      title: title,
+      publisher: magazine.title,
+      progress: record.percent.clamp(0, 100),
+      imageUrl: magazine.coverUrl,
+    );
+  }
+
   _LibrarySummary _selectedSummary = _LibrarySummary.magazines;
 
   @override
@@ -116,64 +230,88 @@ class _LibraryPageState extends State<LibraryPage> {
             const SizedBox(height: 4),
             const LogzineTopBar(showBell: false, showSettings: false),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 6),
-                    Text(
-                      'My Library',
-                      style: logoStyle(
-                        size: 32,
-                        weight: FontWeight.w500,
-                        letterSpacingEm: 0.0,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Subscriptions, follows, and saved reading in one place.',
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    _SummaryCardGroup(
-                      selected: _selectedSummary,
-                      onSelect: (summary) {
-                        setState(() => _selectedSummary = summary);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      child: _LibraryDetailPanel(
-                        key: ValueKey(_selectedSummary),
-                        selected: _selectedSummary,
-                        subscriptions: _subscriptions,
-                        publishers: _publishers,
-                        savedArticles: _savedArticles,
-                      ),
-                    ),
-                    const SizedBox(height: 26),
-                    SectionHeader(
-                      title: 'Recently viewed',
-                      onViewAll: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => _RecentViewedPage(items: _recentViewed),
+              child: FutureBuilder<_LibraryData>(
+                future: _libraryFuture,
+                builder: (context, snapshot) {
+                  final data = snapshot.data;
+                  final magazines = data?.magazines ?? const <Magazine>[];
+                  final savedArticles = data?.savedArticles ?? _demoSavedArticles;
+                  final recentViewed = data?.recentViewed ?? _demoRecentViewed;
+                  final savedCount = data?.savedCount ?? _demoSavedCount;
+                  final isLoggedIn = data?.isLoggedIn ?? false;
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 6),
+                        Text(
+                          'My Library',
+                          style: logoStyle(
+                            size: 32,
+                            weight: FontWeight.w500,
+                            letterSpacingEm: 0.0,
+                            color: AppColors.ink,
                           ),
-                        );
-                      },
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Subscriptions, follows, and saved reading in one place.',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _SummaryCardGroup(
+                          selected: _selectedSummary,
+                          magazineCount: magazines.length,
+                          savedCount: savedCount,
+                          isLoggedIn: isLoggedIn,
+                          onSelect: (summary) {
+                            setState(() => _selectedSummary = summary);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          child: _LibraryDetailPanel(
+                            key: ValueKey(_selectedSummary),
+                            selected: _selectedSummary,
+                            magazines: magazines,
+                            publishers: _publishers,
+                            savedArticles: savedArticles,
+                          ),
+                        ),
+                        const SizedBox(height: 26),
+                        SectionHeader(
+                          title: 'Recently viewed',
+                          onViewAll: recentViewed.isEmpty
+                              ? null
+                              : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          _RecentViewedPage(items: recentViewed),
+                                    ),
+                                  );
+                                },
+                        ),
+                        const SizedBox(height: 12),
+                        if (recentViewed.isEmpty)
+                          const _EmptyStateCard(
+                            message: '아직 읽은 글이 없어요.\n'
+                                '매거진을 펼쳐보면 여기에 기록이 남아요.',
+                          )
+                        else
+                          _RecentShelf(items: recentViewed),
+                        const SizedBox(height: 20),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    _RecentShelf(items: _recentViewed),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
@@ -184,9 +322,18 @@ class _LibraryPageState extends State<LibraryPage> {
 }
 
 class _SummaryCardGroup extends StatelessWidget {
-  const _SummaryCardGroup({required this.selected, required this.onSelect});
+  const _SummaryCardGroup({
+    required this.selected,
+    required this.magazineCount,
+    required this.savedCount,
+    required this.isLoggedIn,
+    required this.onSelect,
+  });
 
   final _LibrarySummary selected;
+  final int magazineCount;
+  final int savedCount;
+  final bool isLoggedIn;
   final ValueChanged<_LibrarySummary> onSelect;
 
   @override
@@ -198,7 +345,7 @@ class _SummaryCardGroup extends StatelessWidget {
             Expanded(
               child: _SummaryItem(
                 label: 'Magazine subs',
-                value: '12',
+                value: '$magazineCount',
                 icon: Icons.menu_book_outlined,
                 active: selected == _LibrarySummary.magazines,
                 onTap: () => onSelect(_LibrarySummary.magazines),
@@ -206,9 +353,12 @@ class _SummaryCardGroup extends StatelessWidget {
             ),
             const VerticalDivider(color: AppColors.border, width: 1),
             Expanded(
+              // 발행사 팔로우는 스키마에 컬렉션 자체가 없는 미구현 기능.
+              // 로그인 시 개인 지표는 0부터 시작한다는 정책 일관성에 맞춰
+              // 로그인 상태에서는 0, 비로그인 둘러보기에서는 데모값 8을 보여준다.
               child: _SummaryItem(
                 label: 'Publisher follows',
-                value: '8',
+                value: isLoggedIn ? '0' : '8',
                 icon: Icons.person_outline,
                 active: selected == _LibrarySummary.publishers,
                 onTap: () => onSelect(_LibrarySummary.publishers),
@@ -218,7 +368,7 @@ class _SummaryCardGroup extends StatelessWidget {
             Expanded(
               child: _SummaryItem(
                 label: 'Saved articles',
-                value: '28',
+                value: '$savedCount',
                 icon: Icons.bookmark_border,
                 active: selected == _LibrarySummary.saved,
                 onTap: () => onSelect(_LibrarySummary.saved),
@@ -308,13 +458,13 @@ class _LibraryDetailPanel extends StatelessWidget {
   const _LibraryDetailPanel({
     super.key,
     required this.selected,
-    required this.subscriptions,
+    required this.magazines,
     required this.publishers,
     required this.savedArticles,
   });
 
   final _LibrarySummary selected;
-  final List<_SubscriptionItem> subscriptions;
+  final List<Magazine> magazines;
   final List<_PublisherItem> publishers;
   final List<_SavedArticleItem> savedArticles;
 
@@ -325,9 +475,9 @@ class _LibraryDetailPanel extends StatelessWidget {
         return _SurfaceCard(
           child: Column(
             children: [
-              for (int i = 0; i < subscriptions.length; i++) ...[
+              for (int i = 0; i < magazines.length; i++) ...[
                 if (i > 0) const Divider(color: AppColors.border, height: 1),
-                _SubscriptionTile(item: subscriptions[i]),
+                _SubscriptionTile(magazine: magazines[i]),
               ],
             ],
           ),
@@ -357,6 +507,11 @@ class _LibraryDetailPanel extends StatelessWidget {
           ),
         );
       case _LibrarySummary.saved:
+        if (savedArticles.isEmpty) {
+          return const _EmptyStateCard(
+            message: '아직 저장한 글이 없어요.\n리더에서 북마크를 눌러 저장해보세요.',
+          );
+        }
         return _SurfaceCard(
           child: Column(
             children: [
@@ -368,6 +523,36 @@ class _LibraryDetailPanel extends StatelessWidget {
           ),
         );
     }
+  }
+}
+
+/// 로그인 상태에서 실데이터가 비어 있을 때 보여주는 정직한 빈 상태 카드.
+/// saved_page.dart의 빈 상태 톤(흰 배경 카드 + textMuted)과 동일하게 맞춘다.
+class _EmptyStateCard extends StatelessWidget {
+  const _EmptyStateCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppColors.textMuted,
+          height: 1.6,
+        ),
+      ),
+    );
   }
 }
 
@@ -393,14 +578,18 @@ class _SurfaceCard extends StatelessWidget {
 }
 
 class _SubscriptionTile extends StatelessWidget {
-  const _SubscriptionTile({required this.item});
+  const _SubscriptionTile({required this.magazine});
 
-  final _SubscriptionItem item;
+  final Magazine magazine;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Navigator.pushNamed(context, '/discover/why'),
+      onTap: () => Navigator.pushNamed(
+        context,
+        '/discover/why',
+        arguments: magazine,
+      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
@@ -408,7 +597,7 @@ class _SubscriptionTile extends StatelessWidget {
             SizedBox(
               width: 58,
               height: 78,
-              child: NetworkPhoto(url: item.coverUrl, radius: 10),
+              child: NetworkPhoto(url: magazine.coverUrl, radius: 10),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -416,7 +605,7 @@ class _SubscriptionTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.title,
+                    magazine.title,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -425,7 +614,7 @@ class _SubscriptionTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item.issue,
+                    magazine.issue,
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.textSecondary,
@@ -433,7 +622,7 @@ class _SubscriptionTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item.status,
+                    magazine.tagline,
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textMuted,
@@ -718,7 +907,7 @@ class _PublisherPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    for (final article in _LibraryPageState._savedArticles) ...[
+                    for (final article in _LibraryPageState._demoSavedArticles) ...[
                       _SavedArticleTile(item: article),
                       const SizedBox(height: 10),
                     ],
