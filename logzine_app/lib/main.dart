@@ -27,8 +27,11 @@ import 'pages/taste_picker_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // 카탈로그/아티클 시드 동기화 — 앱 시작을 막지 않게 비동기 (실패해도 무해)
-  MagazineService().syncCatalog().then((_) => MagazineService().syncArticles());
+  // 카탈로그/아티클/발행사 매핑 동기화 — 앱 시작을 막지 않게 비동기 (실패해도 무해)
+  MagazineService()
+      .syncCatalog()
+      .then((_) => MagazineService().syncArticles())
+      .then((_) => MagazineService().syncPublishers());
   runApp(const MyApp());
 }
 

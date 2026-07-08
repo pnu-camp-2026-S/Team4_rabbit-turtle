@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../models/article.dart';
+import '../models/magazine.dart';
 import '../models/reader_args.dart';
 import '../theme.dart';
 import '../widgets/logzine_logo.dart';
@@ -107,6 +108,12 @@ class _ReaderPageState extends State<ReaderPage> {
   String? _magazineId;
   String? _articleId;
 
+  /// 현재 보고 있는 매거진의 실제 발행사 (magazines.publisherId/publisherName,
+  /// 스키마 v5). 매거진 문서 조회 전이거나 아직 매핑이 안 된 매거진이면 null —
+  /// 이 경우 _showPublisher()가 _args.publisher → 최후 폴백 순으로 대체한다.
+  String? _publisherId;
+  String? _publisherName;
+
   /// 리더 화면 진입~dispose 구간의 체류 시간. 탭 전환/백그라운드에도 계속
   /// 흐르며, dispose에서 경과 초를 한 번에 반영한다 (별도 lifecycle 처리 불필요).
   final Stopwatch _readStopwatch = Stopwatch();
@@ -192,10 +199,14 @@ class _ReaderPageState extends State<ReaderPage> {
       final List<MarkRecord> marks = await _markService.fetchMarks(articleId);
       final int? lastPage = await _markService.fetchLastPage(articleId);
       final bool saved = await _savedService.isSaved(articleId);
+      final Magazine? magazine = await magazineService.fetchMagazineById(magazineId);
       if (!mounted) return;
 
       _magazineId = magazineId;
       _articleId = articleId;
+      _publisherId = (magazine?.publisherId.isNotEmpty ?? false) ? magazine!.publisherId : null;
+      _publisherName =
+          (magazine?.publisherName.isNotEmpty ?? false) ? magazine!.publisherName : null;
 
       setState(() {
         if (article != null && article.paragraphs.isNotEmpty) {
@@ -717,19 +728,25 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
-  /// [폴백] 리더가 보고 있는 매거진(_args)과 library_page._publishers 데모
-  /// 목록(id: studio-log/room-note/oak-paper/still-life)을 잇는 매핑 규칙이
-  /// 아직 코드에 없다 (Magazine 모델에 발행사 필드 자체가 없음). 그래서 표시는
-  /// 기존과 동일하게 'Studio Log' 고정이지만, publisherId는 그 데모 목록의
-  /// 'studio-log' 슬러그를 그대로 써서 실제 팔로우 상태만큼은 라이브러리와
-  /// 동기화되도록 한다. 매핑이 추가되면 이 상수들을 _args 기반 값으로 교체할 것.
-  static const String _publisherId = 'studio-log';
-  static const String _publisherName = 'Studio Log';
-  static const String _publisherLogoUrl =
-      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e'
-      '?auto=format&fit=crop&w=400&q=80';
+  /// [폴백] 매거진 문서 조회 실패/미로드, 또는 해당 매거진이 아직
+  /// syncPublishers() 마이그레이션 매핑표에 없는 경우의 최후 폴백.
+  /// publisherId/emoji/color는 library_page._publishers의 'studio-log'
+  /// 항목과 동일하게 맞춰서, 폴백 상태에서도 팔로우 자체는 라이브러리와
+  /// 어긋나지 않게 한다 (발행사 아바타는 사진 대신 이모지+배경색으로 통일).
+  static const String _fallbackPublisherId = 'studio-log';
+  static const String _fallbackPublisherEmoji = '🛋️';
+  static const String _fallbackPublisherColorHex = '#D8B48C';
 
   void _showPublisher() {
+    // 매거진 문서에서 읽은 실제 발행사. 없으면(미로드/미매핑) _args.publisher
+    // (리더 진입 시 넘어온 표시용 매거진명) → 그래도 없으면 최후 폴백 순.
+    final String publisherName = (_publisherName != null && _publisherName!.isNotEmpty)
+        ? _publisherName!
+        : _args.publisher;
+    final String publisherId = (_publisherId != null && _publisherId!.isNotEmpty)
+        ? _publisherId!
+        : _fallbackPublisherId;
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -742,20 +759,23 @@ class _ReaderPageState extends State<ReaderPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_publisherName,
+            Text(publisherName,
                 style: logoStyle(size: 22, letterSpacingEm: 0.04)),
             const SizedBox(height: 8),
+            // publishers 컬렉션(로고/한 줄 소개)이 아직 시드되지 않아
+            // (DB_SCHEMA.md 다음 로드맵 #3) 발행사별 실제 태그라인은 없다.
+            // 지어내지 않고 발행사 공통의 안내 문구로 대체.
             const Text(
-              '공간과 사물의 온도를 기록하는 에디토리얼 스튜디오. '
-              '조용한 인테리어와 오래 쓰는 물건 이야기를 다룹니다.',
+              '이 매거진을 만드는 발행사예요. 팔로우하면 새 소식을 놓치지 않아요.',
               style: TextStyle(
                   fontSize: 13.5, height: 1.6, color: AppColors.body),
             ),
             const SizedBox(height: 16),
-            const _PublisherFollowButton(
-              publisherId: _publisherId,
-              publisherName: _publisherName,
-              logoUrl: _publisherLogoUrl,
+            _PublisherFollowButton(
+              publisherId: publisherId,
+              publisherName: publisherName,
+              emoji: _fallbackPublisherEmoji,
+              colorHex: _fallbackPublisherColorHex,
             ),
           ],
         ),
@@ -1108,12 +1128,14 @@ class _PublisherFollowButton extends StatefulWidget {
   const _PublisherFollowButton({
     required this.publisherId,
     required this.publisherName,
-    required this.logoUrl,
+    required this.emoji,
+    required this.colorHex,
   });
 
   final String publisherId;
   final String publisherName;
-  final String logoUrl;
+  final String emoji;
+  final String colorHex;
 
   @override
   State<_PublisherFollowButton> createState() =>
@@ -1143,7 +1165,8 @@ class _PublisherFollowButtonState extends State<_PublisherFollowButton> {
         await PublisherService().follow(
           publisherId: widget.publisherId,
           publisherName: widget.publisherName,
-          logoUrl: widget.logoUrl,
+          emoji: widget.emoji,
+          colorHex: widget.colorHex,
         );
       } else {
         await PublisherService().unfollow(widget.publisherId);

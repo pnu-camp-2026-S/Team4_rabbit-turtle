@@ -44,18 +44,22 @@ class PublisherService {
     );
   }
 
-  /// 팔로우 (문서 ID: publisherId). logoUrl은 팔로우 목록을 추가 조회 없이
-  /// 그릴 수 있도록 비정규화(원본 복사)해서 함께 저장한다 — saved와 동일 패턴.
+  /// 팔로우 (문서 ID: publisherId). emoji/colorHex는 팔로우 목록을 추가 조회
+  /// 없이 그릴 수 있도록 비정규화(원본 복사)해서 함께 저장한다 — saved와 동일
+  /// 패턴. (발행사 아바타가 사진 대신 이모지+배경색으로 통일되어 logoUrl 대신
+  /// 이 두 필드를 저장한다.)
   Future<void> follow({
     required String publisherId,
     required String publisherName,
-    required String logoUrl,
+    required String emoji,
+    required String colorHex,
   }) async {
     final uid = _uid;
     if (uid == null) return;
     await _followRef(uid, publisherId).set({
       'publisherName': publisherName,
-      'logoUrl': logoUrl,
+      'emoji': emoji,
+      'colorHex': colorHex,
       'followedAt': FieldValue.serverTimestamp(),
     });
   }
