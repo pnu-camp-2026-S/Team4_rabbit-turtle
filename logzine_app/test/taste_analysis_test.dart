@@ -57,5 +57,25 @@ void main() {
       expect(profile.displayTags, contains('도시 여행'));
       expect(profile.displayTags, isNot(contains('러닝')));
     });
+
+    test('"A보단 B" 축약형에서도 B가 관심사로 반영된다', () async {
+      final analysis = TasteAnalysisResult(
+        photos: const [],
+        summary: 'test',
+        keywords: [_keyword('아웃도어'), _keyword('카페')],
+        recommendedQuestion: 'test',
+        privacyNotes: const [],
+      );
+
+      final profile = await PhotoTasteAnalyzer.refineProfile(
+        analysis: analysis,
+        confirmedLabels: {'카페'},
+        feedback: '나는 근데 아웃도어보단, 축구하는걸 좋아해',
+      );
+
+      expect(profile.displayTags, contains('축구'));
+      expect(profile.displayTags, contains('카페'));
+      expect(profile.displayTags, isNot(contains('아웃도어')));
+    });
   });
 }
