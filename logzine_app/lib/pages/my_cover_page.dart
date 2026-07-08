@@ -151,25 +151,16 @@ class _CoverArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 생성 표지는 제호·커버라인까지 이미지에 포함(레퍼런스 규칙) — 그대로 보여준다
+    if (art != null) {
+      return Image.memory(art!, fit: BoxFit.cover);
+    }
+
     return Container(
       color: AppColors.screen,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (art != null) ...[
-            Image.memory(art!, fit: BoxFit.cover),
-            // 제호 가독성을 위한 상단 밝은 베일
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xCCF7F5F0), Color(0x00F7F5F0)],
-                  stops: [0.0, 0.42],
-                ),
-              ),
-            ),
-          ],
           Padding(
             padding: const EdgeInsets.all(26),
             child: Column(
