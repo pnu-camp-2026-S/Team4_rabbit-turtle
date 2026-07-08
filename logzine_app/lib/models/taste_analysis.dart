@@ -19,11 +19,15 @@ class TastePhoto {
     required this.name,
     required this.bytes,
     required this.mimeType,
+    this.question = '',
   });
 
   final String name;
   final Uint8List bytes;
   final String mimeType;
+
+  /// 취향 여정에서 이 사진이 답한 질문 (분석 시 Gemini에 맥락으로 전달).
+  final String question;
 
   String get dataUrl => 'data:$mimeType;base64,${base64Encode(bytes)}';
 }
