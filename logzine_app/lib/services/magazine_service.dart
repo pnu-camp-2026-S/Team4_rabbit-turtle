@@ -154,6 +154,7 @@ class MagazineService {
         final seeds = <ArticleSeed>[
           if (kArticleSeeds[title] != null) kArticleSeeds[title]!,
           if (kSecondArticleSeeds[title] != null) kSecondArticleSeeds[title]!,
+          ...?kExtraArticleSeeds[title],
         ];
         if (seeds.isEmpty) continue;
 

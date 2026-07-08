@@ -501,3 +501,272 @@ const Map<String, ArticleSeed> kArticleSeeds = {
     ],
   ),
 };
+
+/// 매거진별 3호 이후 아티클 — 데모 대표 매거진부터 채운다.
+/// syncArticles가 1·2호에 이어 제목 단위로 멱등 추가한다.
+const Map<String, List<ArticleSeed>> kExtraArticleSeeds = {
+  'CEREAL': [
+    ArticleSeed(
+      title: 'Blue Hour',
+      pageCount: 10,
+      paragraphs: [
+        [
+          'There are twenty minutes after sunset when every city agrees to be beautiful.',
+          'Photographers call it the blue hour; we call it the honest one.',
+        ],
+        [
+          'Streetlights come on one by one, like a rehearsal nobody planned.',
+          'Windows turn from mirrors into small theatres.',
+        ],
+        [
+          'We stopped scheduling anything for this hour.',
+          'Some appointments should only be kept with the sky.',
+        ],
+        [
+          'You cannot photograph all of it, and that is the point.',
+          'The blue hour is practice for letting good things pass.',
+        ],
+      ],
+    ),
+    ArticleSeed(
+      title: 'Airports, Quietly',
+      pageCount: 9,
+      paragraphs: [
+        [
+          'An airport at six in the morning is a library of intentions.',
+          'Everyone is halfway between one life and another.',
+        ],
+        [
+          'We like the gates with no announcements yet,',
+          'where coffee steam rises past departure boards still deciding.',
+        ],
+        [
+          'Pack the night before; arrive absurdly early; want nothing.',
+          'The luxury is not the lounge — it is the unhurried hour.',
+        ],
+        [
+          'Travel begins before the aircraft does.',
+          'It begins the moment you stop rehearsing the day ahead.',
+        ],
+      ],
+    ),
+    ArticleSeed(
+      title: 'A Field Guide to Grey',
+      pageCount: 11,
+      paragraphs: [
+        [
+          'Grey is not the absence of colour.',
+          'It is colour resting between commitments.',
+        ],
+        [
+          'Concrete after rain, gulls over a winter harbour,',
+          'the north wall of a house that never asked to be photographed.',
+        ],
+        [
+          'We counted eleven greys on one street in Copenhagen.',
+          'None of them matched, and nothing clashed.',
+        ],
+        [
+          'Learn your greys and the loud colours will organise themselves.',
+          'Restraint, practised daily, starts to look like style.',
+        ],
+      ],
+    ),
+  ],
+  'KINFOLK': [
+    ArticleSeed(
+      title: 'The Borrowed Recipe',
+      pageCount: 10,
+      paragraphs: [
+        [
+          'Every family owns one recipe that was never written down.',
+          'It survives by being cooked, not by being kept.',
+        ],
+        [
+          'We asked readers to send us their borrowed dishes.',
+          'Half arrived with apologies: it never tastes like hers.',
+        ],
+        [
+          'Of course it does not.',
+          'The missing ingredient was the kitchen it came from.',
+        ],
+        [
+          'Cook it anyway, badly and often.',
+          'Repetition is how a recipe becomes an inheritance.',
+        ],
+      ],
+    ),
+    ArticleSeed(
+      title: 'Walking Home the Long Way',
+      pageCount: 8,
+      paragraphs: [
+        [
+          'The short way home is a corridor; the long way is a room.',
+          'Ten extra minutes can hold an entire season.',
+        ],
+        [
+          'We pass the florist closing up, the dog that owns the corner,',
+          'a lit kitchen where someone is always stirring something.',
+        ],
+        [
+          'A neighbourhood is not where you live.',
+          'It is what you notice on the way there.',
+        ],
+      ],
+    ),
+    ArticleSeed(
+      title: 'Winter Table',
+      pageCount: 10,
+      paragraphs: [
+        [
+          'In winter the table moves closer to the stove,',
+          'and conversation moves closer to the truth.',
+        ],
+        [
+          'Set out what there is: bread, something braised, a candle stub.',
+          'Abundance in January is mostly warmth arranged well.',
+        ],
+        [
+          'The guests stay longer when the food stops pretending.',
+          'A pot on the table beats a plate from the kitchen.',
+        ],
+        [
+          'Winter hospitality has one rule only:',
+          'no one reaches for their coat until the second pot of tea.',
+        ],
+      ],
+    ),
+  ],
+  'Drift': [
+    ArticleSeed(
+      title: 'The Corner Counter',
+      pageCount: 9,
+      paragraphs: [
+        [
+          'Every good café has one seat that regulars never announce and never surrender.',
+          'It is always the corner counter, facing the room at an angle.',
+        ],
+        [
+          'From there you can watch the machine, the door, and the weather —',
+          'the three moods that decide a café’s entire day.',
+        ],
+        [
+          'We judge a new city by how long that seat stays warm.',
+          'Fast turnover means commuters; slow means neighbours.',
+        ],
+        [
+          'Order the second cup you do not need.',
+          'Rent for the best seat in the city is paid in refills.',
+        ],
+      ],
+    ),
+    ArticleSeed(
+      title: 'Two Cities, One Cup',
+      pageCount: 10,
+      paragraphs: [
+        [
+          'In Seoul the café is a study hall; in Lisbon it is a hallway.',
+          'Same beans, opposite philosophies of sitting.',
+        ],
+        [
+          'One city perfects the pour and stays for three hours.',
+          'The other drinks standing up and argues about football.',
+        ],
+        [
+          'Neither is wrong; both are complete.',
+          'Coffee is just the fee a city charges for belonging.',
+        ],
+        [
+          'Drink it their way for a week.',
+          'You will learn more at the counter than at the monuments.',
+        ],
+      ],
+    ),
+    ArticleSeed(
+      title: 'Morning Service',
+      pageCount: 8,
+      paragraphs: [
+        [
+          'The first shift at a café is a kind of liturgy:',
+          'chairs down, grinder purged, milk fridge counted twice.',
+        ],
+        [
+          'The first customer never says much, and neither should the room.',
+          'Six a.m. belongs to people mid-sentence with their own lives.',
+        ],
+        [
+          'By eight the playlist can speak; by ten it can joke.',
+          'A good café raises its voice with the sun, never before.',
+        ],
+      ],
+    ),
+  ],
+  'The Gourmand': [
+    ArticleSeed(
+      title: 'Sugar, Studied',
+      pageCount: 11,
+      paragraphs: [
+        [
+          'Dessert is the only course with no alibi.',
+          'Nobody needs it, which is why it tells the truth about a kitchen.',
+        ],
+        [
+          'We watched a pastry chef temper chocolate for an hour.',
+          'It looked less like cooking than like negotiation.',
+        ],
+        [
+          'Sweetness is easy; balance is expensive.',
+          'The best desserts spend their sugar like a last coin.',
+        ],
+        [
+          'Order dessert first, at least once.',
+          'A meal read backwards reveals its author.',
+        ],
+      ],
+    ),
+    ArticleSeed(
+      title: 'Still Life with Citrus',
+      pageCount: 9,
+      paragraphs: [
+        [
+          'Painters kept lemons on the table for three hundred years.',
+          'Cooks kept them for the same reason: light you can eat.',
+        ],
+        [
+          'A curl of zest rescues a heavy dish the way a window rescues a room.',
+          'Acid is architecture.',
+        ],
+        [
+          'We photographed twelve citrus fruits like portraits.',
+          'The blood orange refused to look ordinary from any angle.',
+        ],
+        [
+          'Winter cooking without citrus is a sentence without a verb.',
+          'Squeeze generously; apologise never.',
+        ],
+      ],
+    ),
+    ArticleSeed(
+      title: 'The Last Course',
+      pageCount: 10,
+      paragraphs: [
+        [
+          'The meal does not end with dessert.',
+          'It ends when someone finally tells the story they came to tell.',
+        ],
+        [
+          'Every great dinner has a last course that is not on the menu:',
+          'crumbs, half-glasses, and the candle allowed to burn low.',
+        ],
+        [
+          'Restaurants that rush this hour lose the whole evening.',
+          'The bill can wait; the ending cannot be reheated.',
+        ],
+        [
+          'Cook for the conversation, not the compliment.',
+          'What people remember is never the plating.',
+        ],
+      ],
+    ),
+  ],
+};
