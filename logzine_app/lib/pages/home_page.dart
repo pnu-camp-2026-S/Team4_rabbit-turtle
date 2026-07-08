@@ -162,6 +162,20 @@ class _HomePageState extends State<HomePage> {
     return userName == null ? salutation : '$salutation, $userName';
   }
 
+  /// 오늘의 지면 날짜줄 — WEDNESDAY · JULY 8
+  String get _dateLine {
+    const weekdays = [
+      'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY',
+      'FRIDAY', 'SATURDAY', 'SUNDAY',
+    ];
+    const months = [
+      'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+      'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+    ];
+    final now = DateTime.now();
+    return '${weekdays[now.weekday - 1]} · ${months[now.month - 1]} ${now.day}';
+  }
+
   Future<void> _openMagazine(BuildContext context, Magazine magazine) async {
     // 탭한 매거진을 Why 페이지로 전달 — 매거진별 상세/리더 연결
     await Navigator.pushNamed(context, '/discover/why', arguments: magazine);
@@ -192,41 +206,44 @@ class _HomePageState extends State<HomePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 8),
+                    // ── 오늘의 지면(Front Page) 헤더 ──
                     Text(
                       _greeting,
                       style: logoStyle(
-                        size: 27,
+                        size: 19,
                         weight: FontWeight.w500,
-                        letterSpacingEm: 0.01,
-                        color: AppColors.ink,
+                        letterSpacingEm: 0.02,
+                        color: AppColors.textSecondary,
                       ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(_dateLine, style: eyebrowStyle()),
+                    const SizedBox(height: 12),
+                    // AI 큐레이터의 한 줄 — 보일 듯 말 듯, 조용하게
+                    FutureBuilder<String>(
+                      future: _curatorFuture,
+                      builder: (context, snapshot) {
+                        final String line =
+                            snapshot.data ?? '오늘의 가판대가 도착했어요';
+                        return AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 500),
+                          child: Text(
+                            line,
+                            key: ValueKey(line),
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              height: 1.55,
+                              fontStyle: FontStyle.italic,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
                     SectionHeader(
                       title: 'Today\'s stand',
                       onViewAll: () => Navigator.pushNamed(context, '/stand'),
-                    ),
-                    const SizedBox(height: 6),
-                    // AI 큐레이터의 오늘 한 줄 — 도착 전엔 기본 문구
-                    FutureBuilder<String>(
-                      future: _curatorFuture,
-                      builder: (context, snapshot) {
-                        final String line =
-                            snapshot.data ?? 'Picked from your taste';
-                        return AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 400),
-                          child: Text(
-                            line,
-                            key: ValueKey(line),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              height: 1.45,
-                              fontStyle: FontStyle.italic,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        );
-                      },
                     ),
                   ],
                 ),
@@ -318,7 +335,10 @@ class _HomePageState extends State<HomePage> {
                         );
                       },
                     ),
-                    const SizedBox(height: 26),
+                    const SizedBox(height: 18),
+                    // 이번 주 나의 표지 — 취향으로 만든 커버 아트 입구
+                    const _MyCoverBanner(),
+                    const SizedBox(height: 14),
                     FutureBuilder<_RecentMarkInfo>(
                       future: _recentMarkFuture,
                       builder: (context, snapshot) {
@@ -331,6 +351,84 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "이번 주 나의 표지" 입구 배너 — 미니 표지 + 카피, 탭하면 전체 보기.
+class _MyCoverBanner extends StatelessWidget {
+  const _MyCoverBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.forest,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, '/mycover'),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              // 미니 타이포 표지
+              Hero(
+                tag: 'my-weekly-cover',
+                child: Container(
+                  width: 46,
+                  height: 62,
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.screen,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'L.',
+                        style: logoStyle(
+                          size: 13,
+                          weight: FontWeight.w700,
+                          letterSpacingEm: 0.0,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(width: 14, height: 2, color: AppColors.wine),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'MY COVER',
+                      style: eyebrowStyle(
+                        size: 10,
+                        color: Colors.white.withValues(alpha: 0.75),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '이번 주 나의 표지가 준비됐어요',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, size: 20, color: Colors.white70),
             ],
           ),
         ),
