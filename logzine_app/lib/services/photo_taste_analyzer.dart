@@ -797,6 +797,13 @@ class PhotoTasteAnalyzer {
   static String? _normalizeFinalLabel(String value) {
     var label = value.trim();
     if (label.isEmpty) return null;
+    // 주어 축약형(난·저는·전 등)을 먼저 벗겨야 raw 피드백 필터와
+    // taxonomy 매핑이 문장 본론을 볼 수 있다 ("난 음악도 좋아해" → "음악도 좋아해").
+    label = label
+        .replaceAll(RegExp(r'^(나는|난|저는|내가|제가|근데|그런데)\s+'), '')
+        .replaceAll(RegExp(r'^전\s+'), '')
+        .trim();
+    if (label.isEmpty) return null;
     if (_looksLikeRawOrNegativeFeedback(label)) return null;
 
     final mapped = _taxonomyLabelFor(label);
@@ -944,6 +951,10 @@ class PhotoTasteAnalyzer {
     if (compact.contains('인디')) return '인디';
     if (compact.contains('라이브') || compact.contains('공연')) return '라이브 공연';
     if (compact.contains('바이닐')) return '바이닐';
+    if (compact.contains('플레이리스트') || compact.contains('노래') ||
+        compact.contains('음악')) {
+      return '음악';
+    }
     if (compact.contains('책') || compact.contains('독서')) return '독서';
     if (compact.contains('산책')) return '골목 탐방';
     return null;
@@ -1199,6 +1210,7 @@ const Map<String, String> _uiKeywordCategories = {
   '라이브 공연': 'MUSIC',
   '페스티벌': 'MUSIC',
   '플레이리스트': 'MUSIC',
+  '음악': 'MUSIC',
   '바이닐': 'MUSIC',
   '사운드트랙': 'MUSIC',
   '축구': 'SPORTS',

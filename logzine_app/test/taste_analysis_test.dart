@@ -77,5 +77,24 @@ void main() {
       expect(profile.displayTags, contains('카페'));
       expect(profile.displayTags, isNot(contains('아웃도어')));
     });
+
+    test('"난 ~도 좋아해" 축약 주어 문장에서도 관심사가 추가된다', () async {
+      final analysis = TasteAnalysisResult(
+        photos: const [],
+        summary: 'test',
+        keywords: [_keyword('카페')],
+        recommendedQuestion: 'test',
+        privacyNotes: const [],
+      );
+
+      final profile = await PhotoTasteAnalyzer.refineProfile(
+        analysis: analysis,
+        confirmedLabels: {'카페'},
+        feedback: '난 음악도 좋아해',
+      );
+
+      expect(profile.displayTags, contains('음악'));
+      expect(profile.displayTags, contains('카페'));
+    });
   });
 }
