@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/article.dart';
+import '../models/magazine.dart';
 import '../models/reader_args.dart';
 import '../services/article_text_size_service.dart';
 import '../services/auth_service.dart';
@@ -34,6 +35,12 @@ typedef _MarkItem = ({
   String savedAt,
 });
 typedef _MagazineMeta = ({String title, String coverUrl});
+typedef _HiddenMagazineItem = ({
+  String id,
+  String title,
+  String issue,
+  String publisherName,
+});
 
 /// Archive 화면 데이터 묶음. 폴백 정책(library_page와 동일):
 /// 비로그인 → 데모 유지. 로그인 → 항상 실데이터, 빈 값/실패도 데모가 아닌
@@ -785,11 +792,121 @@ class _SettingsPageState extends State<_SettingsPage> {
   bool _readingReminder = false;
   bool _privateHighlights = true;
   bool _autoSaveMarks = true;
+  bool _resettingHiddenMagazines = false;
+  bool _showAllHiddenMagazines = false;
+  final Set<String> _unhidingMagazineIds = <String>{};
   int _textSizeStep = ArticleTextSizeService.currentStep;
+  late Future<List<_HiddenMagazineItem>> _hiddenMagazinesFuture =
+      _loadHiddenMagazines();
 
   void _setTextSizeStep(int step) {
     setState(() => _textSizeStep = step);
     ArticleTextSizeService.setStep(step);
+  }
+
+  static Future<List<_HiddenMagazineItem>> _loadHiddenMagazines() async {
+    final ids = await UserService().fetchExcludedMagazineIdsByRecentStrict();
+    if (ids.isEmpty) return const [];
+
+    List<Magazine> magazines;
+    try {
+      magazines = await MagazineService().fetchMagazines();
+      if (magazines.isEmpty) magazines = kMagazines;
+    } catch (_) {
+      magazines = kMagazines;
+    }
+
+    final byId = {
+      for (final magazine in magazines)
+        if (magazine.id.isNotEmpty) magazine.id: magazine,
+    };
+
+    return [
+      for (final id in ids)
+        if (byId[id] != null)
+          (
+            id: id,
+            title: byId[id]!.title,
+            issue: byId[id]!.issue,
+            publisherName: byId[id]!.publisherName,
+          )
+        else
+          (
+            id: id,
+            title: 'Unavailable magazine',
+            issue: '',
+            publisherName: '',
+          ),
+    ];
+  }
+
+  Future<void> _resetHiddenMagazines() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Show all hidden magazines again?'),
+        content: const Text(
+          'They may appear in your recommendations again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.forest),
+            child: const Text('Show all again'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _resettingHiddenMagazines = true);
+    try {
+      await UserService().resetExcludedMagazines();
+      if (!mounted) return;
+      setState(() {
+        _showAllHiddenMagazines = false;
+        _hiddenMagazinesFuture = _loadHiddenMagazines();
+      });
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Hidden magazines are visible again.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Sign in to manage hidden magazines.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _resettingHiddenMagazines = false);
+    }
+  }
+
+  Future<void> _unhideMagazine(_HiddenMagazineItem item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _unhidingMagazineIds.add(item.id));
+    try {
+      await UserService().unhideMagazine(item.id);
+      if (!mounted) return;
+      setState(() {
+        _hiddenMagazinesFuture = _loadHiddenMagazines();
+      });
+      messenger.showSnackBar(
+        SnackBar(content: Text('${item.title} is visible again.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not unhide this magazine.')),
+      );
+    } finally {
+      if (mounted) setState(() => _unhidingMagazineIds.remove(item.id));
+    }
   }
 
   @override
@@ -864,6 +981,27 @@ class _SettingsPageState extends State<_SettingsPage> {
                           value: _privateHighlights,
                           onChanged: (value) =>
                               setState(() => _privateHighlights = value),
+                        ),
+                        const Divider(color: AppColors.border, height: 1),
+                        _HiddenMagazinesTile(
+                          future: _hiddenMagazinesFuture,
+                          resetting: _resettingHiddenMagazines,
+                          expanded: _showAllHiddenMagazines,
+                          busyIds: _unhidingMagazineIds,
+                          onReset: _resetHiddenMagazines,
+                          onUnhide: _unhideMagazine,
+                          onToggleExpanded: () {
+                            setState(() {
+                              _showAllHiddenMagazines =
+                                  !_showAllHiddenMagazines;
+                            });
+                          },
+                          onRefresh: () {
+                            setState(() {
+                              _hiddenMagazinesFuture =
+                                  _loadHiddenMagazines();
+                            });
+                          },
                         ),
                       ],
                     ),
@@ -955,6 +1093,367 @@ class _SwitchTile extends StatelessWidget {
         value: value,
         activeThumbColor: AppColors.forest,
         onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _HiddenMagazinesTile extends StatelessWidget {
+  const _HiddenMagazinesTile({
+    required this.future,
+    required this.resetting,
+    required this.expanded,
+    required this.busyIds,
+    required this.onReset,
+    required this.onUnhide,
+    required this.onToggleExpanded,
+    required this.onRefresh,
+  });
+
+  final Future<List<_HiddenMagazineItem>> future;
+  final bool resetting;
+  final bool expanded;
+  final Set<String> busyIds;
+  final VoidCallback onReset;
+  final ValueChanged<_HiddenMagazineItem> onUnhide;
+  final VoidCallback onToggleExpanded;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<_HiddenMagazineItem>>(
+      future: future,
+      builder: (context, snapshot) {
+        final loading = snapshot.connectionState != ConnectionState.done;
+        final items = snapshot.data ?? const <_HiddenMagazineItem>[];
+        final hasItems = items.isNotEmpty;
+        final hasError = snapshot.hasError;
+        final visibleItems = expanded ? items : items.take(5).toList();
+        final remaining = items.length - visibleItems.length;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Hidden magazines',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Refresh hidden list',
+                    onPressed: loading || resetting || busyIds.isNotEmpty
+                        ? null
+                        : onRefresh,
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      semanticLabel: 'Refresh hidden list',
+                      size: 19,
+                    ),
+                    color: AppColors.forest,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _statusText(
+                  loading: loading,
+                  hasError: hasError,
+                  items: items,
+                ),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.45,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              if (loading) ...[
+                const SizedBox(height: 14),
+                const LinearProgressIndicator(
+                  minHeight: 2,
+                  color: AppColors.forest,
+                  backgroundColor: AppColors.border,
+                ),
+              ] else if (hasError) ...[
+                const SizedBox(height: 14),
+                _HiddenListMessage(
+                  icon: Icons.error_outline_rounded,
+                  title: 'Could not load hidden magazines',
+                  body: 'Check your connection or sign in again.',
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: loading || resetting || busyIds.isNotEmpty
+                        ? null
+                        : onRefresh,
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      semanticLabel: 'Try again',
+                      size: 18,
+                    ),
+                    label: const Text('Try again'),
+                    style: _hiddenActionButtonStyle(),
+                  ),
+                ),
+              ] else if (hasItems) ...[
+                const SizedBox(height: 14),
+                for (final item in visibleItems)
+                  _HiddenMagazineRow(
+                    item: item,
+                    busy: busyIds.contains(item.id),
+                    disabled: resetting || busyIds.isNotEmpty,
+                    onUnhide: () => onUnhide(item),
+                  ),
+                if (remaining > 0 || (expanded && items.length > 5)) ...[
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: resetting || busyIds.isNotEmpty
+                        ? null
+                        : onToggleExpanded,
+                    icon: Icon(
+                      expanded
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      semanticLabel: expanded
+                          ? 'Show fewer hidden magazines'
+                          : 'View more hidden magazines',
+                      size: 18,
+                    ),
+                    label: Text(
+                      expanded
+                          ? 'Show fewer'
+                          : 'View $remaining more',
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.forest,
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: resetting || busyIds.isNotEmpty
+                        ? null
+                        : onReset,
+                    icon: resetting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.forest,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.restore_rounded,
+                            semanticLabel: 'Unhide all magazines',
+                            size: 18,
+                          ),
+                    label: Text(
+                      resetting
+                          ? 'Showing all...'
+                          : 'Unhide all magazines',
+                    ),
+                    style: _hiddenActionButtonStyle(),
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(height: 14),
+                const _HiddenListMessage(
+                  icon: Icons.visibility_outlined,
+                  title: 'No hidden magazines',
+                  body:
+                      'Magazines you hide from recommendations will appear here.',
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static String _statusText({
+    required bool loading,
+    required bool hasError,
+    required List<_HiddenMagazineItem> items,
+  }) {
+    if (loading) return 'Checking magazines removed with Not for me.';
+    if (hasError) return 'Hidden magazine settings are temporarily unavailable.';
+    if (items.isEmpty) return 'No magazines hidden from recommendations.';
+    final suffix = items.length == 1 ? '' : 's';
+    return '${items.length} magazine$suffix hidden from recommendations.';
+  }
+
+  static ButtonStyle _hiddenActionButtonStyle() {
+    return OutlinedButton.styleFrom(
+      foregroundColor: AppColors.forest,
+      side: const BorderSide(color: AppColors.border),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+    );
+  }
+}
+
+class _HiddenListMessage extends StatelessWidget {
+  const _HiddenListMessage({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  body,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.45,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HiddenMagazineRow extends StatelessWidget {
+  const _HiddenMagazineRow({
+    required this.item,
+    required this.busy,
+    required this.disabled,
+    required this.onUnhide,
+  });
+
+  final _HiddenMagazineItem item;
+  final bool busy;
+  final bool disabled;
+  final VoidCallback onUnhide;
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = [
+      if (item.publisherName.isNotEmpty) item.publisherName,
+      if (item.issue.isNotEmpty) item.issue,
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Semantics(
+            label: 'Hidden magazine marker',
+            child: Container(
+              width: 4,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.forest.withValues(alpha: 0.42),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+                if (meta.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Tooltip(
+            message: 'Unhide ${item.title}',
+            child: TextButton(
+              onPressed: disabled || busy ? null : onUnhide,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.forest,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(64, 36),
+              ),
+              child: busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.forest,
+                      ),
+                    )
+                  : const Text('Unhide'),
+            ),
+          ),
+        ],
       ),
     );
   }
