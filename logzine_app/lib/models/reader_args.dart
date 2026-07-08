@@ -9,6 +9,7 @@ class ReaderArgs {
     this.magazineId,
     this.articleId,
     this.coverUrl,
+    this.initialSaved = false,
   });
 
   final String category;
@@ -24,4 +25,8 @@ class ReaderArgs {
 
   /// 매거진 표지 URL — Save 시 저장 목록 썸네일로 쓰인다. null이면 리더 기본 이미지.
   final String? coverUrl;
+
+  /// Saved articles에서 진입한 경우 Reader가 원격 저장상태 조회 전에도
+  /// 즉시 저장됨 상태를 표시할 수 있게 하는 초기값.
+  final bool initialSaved;
 }

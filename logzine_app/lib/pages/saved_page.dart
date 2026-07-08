@@ -8,8 +8,19 @@ import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
 /// 저장 탭 — 북마크한 글 + 매거진을 가로질러 모은 하이라이트.
-class SavedPage extends StatelessWidget {
+class SavedPage extends StatefulWidget {
   const SavedPage({super.key});
+
+  @override
+  State<SavedPage> createState() => _SavedPageState();
+}
+
+class _SavedPageState extends State<SavedPage> {
+  int _refreshToken = 0;
+
+  void _refresh() {
+    _refreshToken++;
+  }
 
   /// (인용문, 하이라이트 색, 매거진, 발행사, 페이지)
   static const List<(String, Color, String, String, int)> _marks = [
@@ -66,35 +77,42 @@ class SavedPage extends StatelessWidget {
                     const Text(
                       '북마크한 글과 밑줄 친 문장이 여기에 모여요.',
                       style: TextStyle(
-                          fontSize: 13.5, color: AppColors.textSecondary),
+                        fontSize: 13.5,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 20),
 
                     // 저장한 글
-                    SectionHeader(title: 'Saved articles', onViewAll: () {}),
+                    const SectionHeader(title: 'Saved articles'),
                     const SizedBox(height: 10),
                     StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      key: ValueKey(_refreshToken),
                       stream: SavedService().watchSaved(),
                       builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return _MessageCard(
+                            message: '저장한 글을 불러오지 못했어요.',
+                            actionLabel: 'Retry',
+                            onAction: () => setState(_refresh),
+                          );
+                        }
+                        if (snapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            !snapshot.hasData) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 28),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.forest,
+                              ),
+                            ),
+                          );
+                        }
                         final docs = snapshot.data?.docs ?? [];
                         if (docs.isEmpty) {
-                          return Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 28, horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: const Text(
-                              '아직 저장한 글이 없어요.\n리더에서 북마크를 눌러 저장해보세요.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textMuted,
-                                  height: 1.6),
-                            ),
+                          return const _MessageCard(
+                            message: '아직 저장한 글이 없어요.\n리더에서 북마크를 눌러 저장해보세요.',
                           );
                         }
                         return Container(
@@ -108,7 +126,9 @@ class SavedPage extends StatelessWidget {
                               for (int i = 0; i < docs.length; i++) ...[
                                 if (i > 0)
                                   const Divider(
-                                      color: AppColors.border, height: 1),
+                                    color: AppColors.border,
+                                    height: 1,
+                                  ),
                                 _SavedTile(doc: docs[i]),
                               ],
                             ],
@@ -119,13 +139,14 @@ class SavedPage extends StatelessWidget {
                     const SizedBox(height: 24),
 
                     // 하이라이트 모아보기
-                    SectionHeader(
-                        title: 'Marked passages', onViewAll: () {}),
+                    SectionHeader(title: 'Marked passages', onViewAll: () {}),
                     const SizedBox(height: 4),
                     const Text(
                       '매거진을 읽으며 밑줄 친 문장들',
                       style: TextStyle(
-                          fontSize: 12.5, color: AppColors.textMuted),
+                        fontSize: 12.5,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     for (final mark in _marks) ...[
@@ -153,22 +174,39 @@ class _SavedTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = doc.data();
-    final String title = data['articleTitle'] as String? ?? '(제목 없음)';
+    final String title =
+        data['articleTitle'] as String? ?? 'Unavailable article';
     final String magazine = data['magazineTitle'] as String? ?? '';
+    final String magazineId = data['magazineId'] as String? ?? '';
     final String thumb = data['coverUrl'] as String? ?? '';
     final Timestamp? savedAt = data['savedAt'] as Timestamp?;
     final String date = savedAt == null
         ? ''
         : '${savedAt.toDate().year}.'
-            '${savedAt.toDate().month.toString().padLeft(2, '0')}.'
-            '${savedAt.toDate().day.toString().padLeft(2, '0')}';
+              '${savedAt.toDate().month.toString().padLeft(2, '0')}.'
+              '${savedAt.toDate().day.toString().padLeft(2, '0')}';
 
     return InkWell(
-      onTap: () => Navigator.pushNamed(
-        context,
-        '/reader',
-        arguments: ReaderArgs(title: title, publisher: magazine),
-      ),
+      onTap: () {
+        if (magazineId.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('This article is unavailable.')),
+          );
+          return;
+        }
+        Navigator.pushNamed(
+          context,
+          '/reader',
+          arguments: ReaderArgs(
+            title: title,
+            publisher: magazine,
+            magazineId: magazineId,
+            articleId: doc.id,
+            coverUrl: thumb.isEmpty ? null : thumb,
+            initialSaved: true,
+          ),
+        );
+      },
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
@@ -195,15 +233,89 @@ class _SavedTile extends StatelessWidget {
                   Text(
                     magazine.isEmpty ? date : '$magazine · $date',
                     style: const TextStyle(
-                        fontSize: 12.5, color: AppColors.textSecondary),
+                      fontSize: 12.5,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.bookmark, size: 20, color: AppColors.forest),
+            IconButton(
+              onPressed: () async {
+                try {
+                  await SavedService().unsave(doc.id);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Removed from saved articles'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                } catch (_) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('저장 해제 중 문제가 발생했어요')),
+                  );
+                }
+              },
+              tooltip: 'Remove from saved articles',
+              icon: const Icon(
+                Icons.bookmark,
+                size: 20,
+                color: AppColors.forest,
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MessageCard extends StatelessWidget {
+  const _MessageCard({required this.message, this.actionLabel, this.onAction});
+
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textMuted,
+              height: 1.6,
+            ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: onAction,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.ink,
+                side: const BorderSide(color: AppColors.border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(actionLabel!),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -263,14 +375,19 @@ class _MarkCard extends StatelessWidget {
                     Text(
                       '$magazine · p.$page',
                       style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary),
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.chevron_right,
-                  size: 16, color: AppColors.textSecondary),
+              const Icon(
+                Icons.chevron_right,
+                size: 16,
+                color: AppColors.textSecondary,
+              ),
             ],
           ),
         ),

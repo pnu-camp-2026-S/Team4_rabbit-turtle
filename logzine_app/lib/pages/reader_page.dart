@@ -83,6 +83,7 @@ class _ReaderPageState extends State<ReaderPage> {
   final Map<(int, int), TapGestureRecognizer> _recognizers = {};
 
   bool _saved = false;
+  bool _savingSaved = false;
   bool _highlightMode = false;
   String _tool = 'pen'; // 'pen' | 'memo'
   List<Color> _palette = const [
@@ -108,6 +109,12 @@ class _ReaderPageState extends State<ReaderPage> {
   final ReadingStatsService _readingStatsService = ReadingStatsService();
   String? _magazineId;
   String? _articleId;
+  String _loadedArticleTitle = '';
+  String _loadedMagazineTitle = '';
+  String _loadedCoverUrl = '';
+
+  bool get _canToggleSaved =>
+      _articleId != null && _magazineId != null && !_savingSaved;
 
   /// 현재 보고 있는 매거진의 실제 발행사 (magazines.publisherId/publisherName,
   /// 스키마 v5). 매거진 문서 조회 전이거나 아직 매핑이 안 된 매거진이면 null —
@@ -125,6 +132,12 @@ class _ReaderPageState extends State<ReaderPage> {
     if (!_argsApplied) {
       final Object? args = ModalRoute.of(context)?.settings.arguments;
       if (args is ReaderArgs) _args = args;
+      _magazineId = _args.magazineId;
+      _articleId = _args.articleId;
+      _loadedArticleTitle = _args.title;
+      _loadedMagazineTitle = _args.publisher;
+      _loadedCoverUrl = _args.coverUrl ?? _heroUrl;
+      _saved = _args.initialSaved;
       _argsApplied = true;
       // ⚠️ args(magazineId) 적용 후에 로드해야 해당 매거진 아티클이 열린다.
       // initState에서 부르면 _args가 아직 기본값이라 항상 첫 매거진으로 폴백.
@@ -194,34 +207,49 @@ class _ReaderPageState extends State<ReaderPage> {
               articleId: _args.articleId!,
             )
           : await magazineService.fetchFirstArticle(magazineId);
-      final String? articleId = article?.id ?? fallbackArticleId;
+      final String? articleId =
+          article?.id ?? _args.articleId ?? fallbackArticleId;
       if (articleId == null || !mounted) return;
 
       final List<MarkRecord> marks = await _markService.fetchMarks(articleId);
       final int? lastPage = await _markService.fetchLastPage(articleId);
-      final bool saved = await _savedService.isSaved(articleId);
-      final Magazine? magazine = await magazineService.fetchMagazineById(magazineId);
+      final bool saved =
+          _args.initialSaved || await _savedService.isSaved(articleId);
+      final Magazine? magazine = await magazineService.fetchMagazineById(
+        magazineId,
+      );
+      await _markService.touchProgress(
+        articleId: articleId,
+        magazineId: magazineId,
+      );
       if (!mounted) return;
 
       _magazineId = magazineId;
       _articleId = articleId;
-      _publisherId = (magazine?.publisherId.isNotEmpty ?? false) ? magazine!.publisherId : null;
-      _publisherName =
-          (magazine?.publisherName.isNotEmpty ?? false) ? magazine!.publisherName : null;
+      _loadedArticleTitle = article?.title ?? _args.title;
+      _loadedMagazineTitle = magazine?.title ?? _args.publisher;
+      _loadedCoverUrl = magazine?.coverUrl ?? _args.coverUrl ?? _heroUrl;
+      _publisherId = (magazine?.publisherId.isNotEmpty ?? false)
+          ? magazine!.publisherId
+          : null;
+      _publisherName = (magazine?.publisherName.isNotEmpty ?? false)
+          ? magazine!.publisherName
+          : null;
 
       setState(() {
         if (article != null && article.paragraphs.isNotEmpty) {
           _rebuildRecognizers(article.paragraphs);
           _paragraphs = article.paragraphs;
           if (article.pageCount > 0) _totalPages = article.pageCount;
-          _paragraphPages =
-              _computeParagraphPages(_paragraphs.length, _totalPages);
+          _paragraphPages = _computeParagraphPages(
+            _paragraphs.length,
+            _totalPages,
+          );
         }
         _saved = saved;
         for (final r in marks) {
           _marks[(r.paragraphIdx, r.segmentIdx)] = _Mark(
-            color:
-                r.type == 'underline' ? kInkSwatch : _colorFromHex(r.color),
+            color: r.type == 'underline' ? kInkSwatch : _colorFromHex(r.color),
             memo: r.memoText,
           );
         }
@@ -250,8 +278,8 @@ class _ReaderPageState extends State<ReaderPage> {
         type: mark.memo != null
             ? 'memo'
             : mark.isUnderline
-                ? 'underline'
-                : 'highlight',
+            ? 'underline'
+            : 'highlight',
         colorHex: _hex(mark.color),
         memoText: mark.memo,
       );
@@ -271,30 +299,26 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   Future<void> _toggleSaved() async {
-    final String? articleId = _articleId;
-    final String? magazineId = _magazineId;
-    if (articleId == null || magazineId == null) {
-      // _loadRemote()가 아직 끝나지 않아 대상 아티클을 모르는 상태.
-      // 예전에는 이 경우 조용히 스킵하면서도 "저장했어요" 스낵바를 그대로
-      // 띄워서 실제로는 저장되지 않았는데 성공한 것처럼 보였다.
-      debugPrint('[ReaderPage] _toggleSaved skipped: article ids not loaded yet');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('아직 불러오는 중이에요. 잠시 후 다시 시도해주세요')),
-      );
-      return;
-    }
+    if (!_canToggleSaved) return;
+    final String articleId = _articleId!;
+    final String magazineId = _magazineId!;
 
-    setState(() => _saved = !_saved);
+    setState(() {
+      _savingSaved = true;
+      _saved = !_saved;
+    });
     final bool nowSaved = _saved;
     try {
       if (nowSaved) {
         await _savedService.save(
           articleId: articleId,
           magazineId: magazineId,
-          articleTitle: _args.title,
-          magazineTitle: _args.publisher,
-          // 저장 썸네일 = 매거진 표지 (없으면 리더 기본 이미지)
-          coverUrl: _args.coverUrl ?? _heroUrl,
+          articleTitle: _loadedArticleTitle.isEmpty
+              ? 'Unavailable article'
+              : _loadedArticleTitle,
+          magazineTitle: _loadedMagazineTitle,
+          subtitle: _loadedMagazineTitle,
+          coverUrl: _loadedCoverUrl.isEmpty ? _heroUrl : _loadedCoverUrl,
         );
       } else {
         await _savedService.unsave(articleId);
@@ -302,14 +326,18 @@ class _ReaderPageState extends State<ReaderPage> {
     } catch (e) {
       debugPrint('[ReaderPage] _toggleSaved failed: $e');
       if (!mounted) return;
-      setState(() => _saved = !nowSaved);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('저장 중 문제가 발생했어요')),
-      );
+      setState(() {
+        _saved = !nowSaved;
+        _savingSaved = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('저장 중 문제가 발생했어요')));
       return;
     }
 
     if (!mounted) return;
+    setState(() => _savingSaved = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(nowSaved ? '이 이슈를 저장했어요' : '저장을 취소했어요'),
@@ -344,8 +372,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   // ── 마크 조작 ──────────────────────────────────────────────
 
-  void _pushHistory() =>
-      _history.add(Map<(int, int), _Mark>.from(_marks));
+  void _pushHistory() => _history.add(Map<(int, int), _Mark>.from(_marks));
 
   void _undo() {
     if (_history.isEmpty) return;
@@ -475,9 +502,11 @@ class _ReaderPageState extends State<ReaderPage> {
       });
     if (_query.isEmpty) return entries;
     return entries
-        .where((e) => _paragraphs[e.key.$1][e.key.$2]
-            .toLowerCase()
-            .contains(_query.toLowerCase()))
+        .where(
+          (e) => _paragraphs[e.key.$1][e.key.$2].toLowerCase().contains(
+            _query.toLowerCase(),
+          ),
+        )
         .toList();
   }
 
@@ -513,22 +542,22 @@ class _ReaderPageState extends State<ReaderPage> {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_ios_new,
-                size: 19, color: AppColors.ink),
-          ),
-          const Expanded(
-            child: Center(
-              child: LogzineLogo(height: 22),
+            icon: const Icon(
+              Icons.arrow_back_ios_new,
+              size: 19,
+              color: AppColors.ink,
             ),
           ),
+          const Expanded(child: Center(child: LogzineLogo(height: 22))),
           IconButton(
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('본문 검색은 준비 중이에요')),
-            ),
+            onPressed: () => ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('본문 검색은 준비 중이에요'))),
             icon: const Icon(Icons.search, size: 22, color: AppColors.ink),
           ),
           IconButton(
-            onPressed: _toggleSaved,
+            onPressed: _canToggleSaved ? _toggleSaved : null,
+            tooltip: _saved ? 'Remove from saved articles' : 'Save article',
             icon: Icon(
               _saved ? Icons.bookmark : Icons.bookmark_border,
               size: 22,
@@ -588,7 +617,9 @@ class _ReaderPageState extends State<ReaderPage> {
                 // 오늘의 키워드 칩
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 9),
+                    horizontal: 14,
+                    vertical: 9,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
@@ -597,13 +628,15 @@ class _ReaderPageState extends State<ReaderPage> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.wb_sunny_outlined,
-                          size: 15, color: Color(0xFFE0A83C)),
+                      Icon(
+                        Icons.wb_sunny_outlined,
+                        size: 15,
+                        color: Color(0xFFE0A83C),
+                      ),
                       SizedBox(width: 8),
                       Text(
                         "Today's keyword: ",
-                        style: TextStyle(
-                            fontSize: 13, color: AppColors.body),
+                        style: TextStyle(fontSize: 13, color: AppColors.body),
                       ),
                       Text(
                         'Light',
@@ -639,8 +672,7 @@ class _ReaderPageState extends State<ReaderPage> {
                   const SizedBox(height: 14),
                   const Text(
                     '문장을 탭하면 선택한 색으로 표시돼요',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -708,8 +740,9 @@ class _ReaderPageState extends State<ReaderPage> {
             children: [
               _ActionItem(
                 icon: _saved ? Icons.bookmark : Icons.bookmark_border,
-                label: 'Save',
+                label: _saved ? 'Saved' : 'Save',
                 active: _saved,
+                enabled: _canToggleSaved,
                 onTap: _toggleSaved,
               ),
               _ActionItem(
@@ -742,10 +775,12 @@ class _ReaderPageState extends State<ReaderPage> {
   void _showPublisher() {
     // 매거진 문서에서 읽은 실제 발행사. 없으면(미로드/미매핑) _args.publisher
     // (리더 진입 시 넘어온 표시용 매거진명) → 그래도 없으면 최후 폴백 순.
-    final String publisherName = (_publisherName != null && _publisherName!.isNotEmpty)
+    final String publisherName =
+        (_publisherName != null && _publisherName!.isNotEmpty)
         ? _publisherName!
         : _args.publisher;
-    final String publisherId = (_publisherId != null && _publisherId!.isNotEmpty)
+    final String publisherId =
+        (_publisherId != null && _publisherId!.isNotEmpty)
         ? _publisherId!
         : _fallbackPublisherId;
     // publisherId에 맞는 실제 발행사 사진 — library_page._publishers와 공유하는
@@ -766,8 +801,10 @@ class _ReaderPageState extends State<ReaderPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(publisherName,
-                style: logoStyle(size: 22, letterSpacingEm: 0.04)),
+            Text(
+              publisherName,
+              style: logoStyle(size: 22, letterSpacingEm: 0.04),
+            ),
             const SizedBox(height: 8),
             // publishers 컬렉션(로고/한 줄 소개)이 아직 시드되지 않아
             // (DB_SCHEMA.md 다음 로드맵 #3) 발행사별 실제 태그라인은 없다.
@@ -775,7 +812,10 @@ class _ReaderPageState extends State<ReaderPage> {
             const Text(
               '이 매거진을 만드는 발행사예요. 팔로우하면 새 소식을 놓치지 않아요.',
               style: TextStyle(
-                  fontSize: 13.5, height: 1.6, color: AppColors.body),
+                fontSize: 13.5,
+                height: 1.6,
+                color: AppColors.body,
+              ),
             ),
             const SizedBox(height: 16),
             _PublisherFollowButton(
@@ -801,9 +841,10 @@ class _ReaderPageState extends State<ReaderPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
         boxShadow: [
           BoxShadow(
-              color: Color(0x1F000000),
-              blurRadius: 16,
-              offset: Offset(0, -4)),
+            color: Color(0x1F000000),
+            blurRadius: 16,
+            offset: Offset(0, -4),
+          ),
         ],
       ),
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
@@ -818,8 +859,11 @@ class _ReaderPageState extends State<ReaderPage> {
                 borderRadius: BorderRadius.circular(6),
                 child: const Padding(
                   padding: EdgeInsets.all(4),
-                  child: Icon(Icons.keyboard_arrow_down,
-                      size: 22, color: AppColors.ink),
+                  child: Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 22,
+                    color: AppColors.ink,
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
@@ -857,8 +901,7 @@ class _ReaderPageState extends State<ReaderPage> {
                         color: c,
                         shape: BoxShape.circle,
                         border: _activeColor == c
-                            ? Border.all(
-                                color: AppColors.ink, width: 1.8)
+                            ? Border.all(color: AppColors.ink, width: 1.8)
                             : null,
                       ),
                     ),
@@ -875,8 +918,11 @@ class _ReaderPageState extends State<ReaderPage> {
                       shape: BoxShape.circle,
                       border: Border.all(color: AppColors.border),
                     ),
-                    child: const Icon(Icons.add,
-                        size: 13, color: AppColors.textSecondary),
+                    child: const Icon(
+                      Icons.add,
+                      size: 13,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ),
@@ -906,9 +952,14 @@ class _ReaderPageState extends State<ReaderPage> {
                   decoration: InputDecoration(
                     hintText: 'Search marks',
                     hintStyle: const TextStyle(
-                        fontSize: 12.5, color: AppColors.textMuted),
-                    prefixIcon: const Icon(Icons.search,
-                        size: 16, color: AppColors.textMuted),
+                      fontSize: 12.5,
+                      color: AppColors.textMuted,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      size: 16,
+                      color: AppColors.textMuted,
+                    ),
                     contentPadding: EdgeInsets.zero,
                     isDense: true,
                     filled: true,
@@ -937,8 +988,7 @@ class _ReaderPageState extends State<ReaderPage> {
               padding: EdgeInsets.symmetric(vertical: 14),
               child: Text(
                 '아직 표시한 문장이 없어요. 본문 문장을 탭해 보세요.',
-                style:
-                    TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
               ),
             )
           else ...[
@@ -959,8 +1009,11 @@ class _ReaderPageState extends State<ReaderPage> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right,
-                        size: 16, color: AppColors.forest),
+                    const Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: AppColors.forest,
+                    ),
                   ],
                 ),
               ),
@@ -1013,7 +1066,9 @@ class _ReaderPageState extends State<ReaderPage> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 11.5, color: AppColors.textSecondary),
+                        fontSize: 11.5,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
               ],
@@ -1027,10 +1082,15 @@ class _ReaderPageState extends State<ReaderPage> {
                 Text(
                   'p.${_paragraphPages[e.key.$1]}',
                   style: const TextStyle(
-                      fontSize: 11.5, color: AppColors.textSecondary),
+                    fontSize: 11.5,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-                const Icon(Icons.chevron_right,
-                    size: 15, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 15,
+                  color: AppColors.textSecondary,
+                ),
               ],
             ),
           ),
@@ -1081,7 +1141,9 @@ class _ReaderPageState extends State<ReaderPage> {
           child: Text(
             '$page / $_totalPages',
             style: const TextStyle(
-                fontSize: 12.5, color: AppColors.textSecondary),
+              fontSize: 12.5,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
         Expanded(
@@ -1102,9 +1164,11 @@ class _ReaderPageState extends State<ReaderPage> {
                 setState(() => _page = v);
                 if (_scroll.hasClients &&
                     _scroll.position.maxScrollExtent > 0) {
-                  _scroll.jumpTo(_scroll.position.maxScrollExtent *
-                      (v - 1) /
-                      (_totalPages - 1));
+                  _scroll.jumpTo(
+                    _scroll.position.maxScrollExtent *
+                        (v - 1) /
+                        (_totalPages - 1),
+                  );
                 }
               },
               onChangeEnd: (_) {
@@ -1120,7 +1184,9 @@ class _ReaderPageState extends State<ReaderPage> {
             '$percent%',
             textAlign: TextAlign.end,
             style: const TextStyle(
-                fontSize: 12.5, color: AppColors.textSecondary),
+              fontSize: 12.5,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],
@@ -1142,8 +1208,7 @@ class _PublisherFollowButton extends StatefulWidget {
   final String imageUrl;
 
   @override
-  State<_PublisherFollowButton> createState() =>
-      _PublisherFollowButtonState();
+  State<_PublisherFollowButton> createState() => _PublisherFollowButtonState();
 }
 
 class _PublisherFollowButtonState extends State<_PublisherFollowButton> {
@@ -1177,9 +1242,9 @@ class _PublisherFollowButtonState extends State<_PublisherFollowButton> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _following = !nowFollowing);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('처리 중 문제가 발생했어요')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('처리 중 문제가 발생했어요')));
     }
   }
 
@@ -1195,7 +1260,8 @@ class _PublisherFollowButtonState extends State<_PublisherFollowButton> {
             side: const BorderSide(color: AppColors.border),
             minimumSize: const Size.fromHeight(46),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
           child: const Text('팔로잉'),
         ),
@@ -1208,7 +1274,9 @@ class _PublisherFollowButtonState extends State<_PublisherFollowButton> {
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.forest,
           minimumSize: const Size.fromHeight(46),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
         child: const Text('발행사 팔로우'),
       ),
@@ -1223,18 +1291,24 @@ class _ActionItem extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.active = false,
+    this.enabled = true,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool active;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? AppColors.forest : AppColors.ink;
+    final color = !enabled
+        ? AppColors.textMuted
+        : active
+        ? AppColors.forest
+        : AppColors.ink;
     return InkWell(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
@@ -1243,8 +1317,7 @@ class _ActionItem extends StatelessWidget {
           children: [
             Icon(icon, size: 21, color: color),
             const SizedBox(height: 4),
-            Text(label,
-                style: TextStyle(fontSize: 11.5, color: color)),
+            Text(label, style: TextStyle(fontSize: 11.5, color: color)),
           ],
         ),
       ),
@@ -1273,8 +1346,8 @@ class _ToolButton extends StatelessWidget {
     final color = !enabled
         ? AppColors.textMuted
         : selected
-            ? AppColors.ink
-            : AppColors.textSecondary;
+        ? AppColors.ink
+        : AppColors.textSecondary;
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(6),
@@ -1291,8 +1364,7 @@ class _ToolButton extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight:
-                        selected ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                     color: color,
                   ),
                 ),

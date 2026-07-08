@@ -5,6 +5,7 @@ import '../models/magazine.dart';
 import '../models/reader_args.dart';
 import '../models/recommendation_route_args.dart';
 import '../services/magazine_service.dart';
+import '../services/mark_service.dart';
 import '../services/recommendation_service.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
@@ -35,6 +36,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
 
   /// 이 매거진의 실제 아티클 목록 (In this issue 목차).
   List<Article> _articles = const [];
+  bool _recentViewRecorded = false;
 
   @override
   void didChangeDependencies() {
@@ -56,9 +58,25 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
     if (_magazine.id.isEmpty) return;
     try {
       final list = await MagazineService().fetchArticles(_magazine.id);
-      if (mounted && list.isNotEmpty) setState(() => _articles = list);
+      if (mounted && list.isNotEmpty) {
+        setState(() => _articles = list);
+        _recordRecentView(list.first);
+      }
     } catch (_) {
       // 오프라인 등 — 기본 목차 유지
+    }
+  }
+
+  Future<void> _recordRecentView(Article article) async {
+    if (_recentViewRecorded || _magazine.id.isEmpty) return;
+    _recentViewRecorded = true;
+    try {
+      await MarkService().touchProgress(
+        articleId: article.id,
+        magazineId: _magazine.id,
+      );
+    } catch (_) {
+      // 비로그인/오프라인 — 최근 본 기록 실패해도 상세 화면은 계속 표시
     }
   }
 
@@ -76,8 +94,8 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
       context,
       '/reader',
       arguments: ReaderArgs(
-        title: _magazine.title,
-        publisher: _magazine.issue,
+        title: article.title,
+        publisher: _magazine.title,
         magazineId: _magazine.id,
         articleId: article.id,
         coverUrl: _magazine.coverUrl,

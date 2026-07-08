@@ -165,10 +165,34 @@ class MarkService {
         .doc(articleId)
         .set({
       'magazineId': magazineId,
-      'percent': percent,
-      'lastPage': lastPage,
+      'percent': percent.clamp(0, 100),
+      'lastPage': lastPage < 1 ? 1 : lastPage,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await _trimProgress();
+  }
+
+  /// 최근 본 항목 갱신. 기존 진행률이 있으면 유지하고, 없으면 0%로 생성한다.
+  Future<void> touchProgress({
+    required String articleId,
+    required String magazineId,
+  }) async {
+    final uid = _uid;
+    if (uid == null) return;
+    final ref = _db
+        .collection('users')
+        .doc(uid)
+        .collection('progress')
+        .doc(articleId);
+    final snap = await ref.get();
+    final data = snap.data();
+    await ref.set({
+      'magazineId': magazineId,
+      'percent': ((data?['percent'] as num?)?.toInt() ?? 0).clamp(0, 100),
+      'lastPage': ((data?['lastPage'] as num?)?.toInt() ?? 1).clamp(1, 9999),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await _trimProgress();
   }
 
   /// 읽기 진행률 목록 (updatedAt 내림차순). "이어 읽기" 선반 등에서 사용.
@@ -197,5 +221,22 @@ class MarkService {
         .doc(articleId)
         .get();
     return (snap.data()?['lastPage'] as num?)?.toInt();
+  }
+
+  Future<void> _trimProgress() async {
+    final uid = _uid;
+    if (uid == null) return;
+    final snap = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('progress')
+        .orderBy('updatedAt', descending: true)
+        .get();
+    if (snap.docs.length <= 10) return;
+    final batch = _db.batch();
+    for (final doc in snap.docs.skip(10)) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
   }
 }
