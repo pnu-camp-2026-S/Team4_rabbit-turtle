@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 /// "이번 주 나의 표지" 커버 아트 — Gemini 이미지 생성.
@@ -13,6 +14,11 @@ class CoverArtService {
 
   static Uint8List? _memoryCache;
   static String? _memoryKey;
+
+  /// 마지막 생성 실패 시각 — 쿼터 소진 상태에서 화면을 열 때마다
+  /// 비싼 이미지 생성을 재시도하지 않도록 1시간 쿨다운.
+  static DateTime? _lastFailAt;
+  static const Duration _failCooldown = Duration(hours: 1);
 
   /// 이번 주 + 취향 조합의 캐시 키.
   static String _weekKey(List<String> taste) {
@@ -44,18 +50,29 @@ RULES (follow all):
     final key = _weekKey(taste);
     if (_memoryKey == key && _memoryCache != null) return _memoryCache;
 
-    // 디스크 캐시 (앱 캐시 디렉토리)
-    final file = File('${Directory.systemTemp.path}/logzine_cover_$key.png');
-    try {
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        _memoryCache = bytes;
-        _memoryKey = key;
-        return bytes;
+    // 디스크 캐시 — 웹은 dart:io 미지원(UnsupportedError)이라 건너뛴다
+    File? file;
+    if (!kIsWeb) {
+      try {
+        file = File('${Directory.systemTemp.path}/logzine_cover_$key.png');
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          _memoryCache = bytes;
+          _memoryKey = key;
+          return bytes;
+        }
+      } catch (_) {
+        file = null;
       }
-    } catch (_) {}
+    }
 
     if (_apiKey.isEmpty) return null;
+
+    // 최근 실패(쿼터 소진 등) 후 쿨다운 동안은 재시도하지 않음
+    if (_lastFailAt != null &&
+        DateTime.now().difference(_lastFailAt!) < _failCooldown) {
+      return null;
+    }
 
     try {
       final response = await http
@@ -81,7 +98,10 @@ RULES (follow all):
             }),
           )
           .timeout(const Duration(seconds: 45));
-      if (response.statusCode < 200 || response.statusCode >= 300) return null;
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        _lastFailAt = DateTime.now(); // 쿼터 소진(429) 등 — 쿨다운 시작
+        return null;
+      }
 
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
       final parts = ((decoded['candidates'] as List?)?.first['content']
@@ -94,14 +114,17 @@ RULES (follow all):
               Uint8List.fromList(base64Decode(inline['data'] as String));
           _memoryCache = bytes;
           _memoryKey = key;
-          try {
-            await file.writeAsBytes(bytes);
-          } catch (_) {}
+          if (!kIsWeb && file != null) {
+            try {
+              await file.writeAsBytes(bytes);
+            } catch (_) {}
+          }
           return bytes;
         }
       }
       return null;
     } catch (_) {
+      _lastFailAt = DateTime.now();
       return null; // 쿼터/네트워크 — 타이포그래피 표지로 폴백
     }
   }
