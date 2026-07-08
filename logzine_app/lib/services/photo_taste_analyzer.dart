@@ -111,6 +111,8 @@ class PhotoTasteAnalyzer {
           'temperature': 0.2,
           'topP': 0.8,
           'maxOutputTokens': 2048,
+          // 2.5 계열은 기본 thinking이 출력 예산을 소진해 JSON이 잘림
+          'thinkingConfig': {'thinkingBudget': 0},
         },
       },
     );
@@ -434,6 +436,8 @@ class PhotoTasteAnalyzer {
           'temperature': 0.1,
           'topP': 0.8,
           'maxOutputTokens': 1200,
+          // 2.5 계열은 기본 thinking이 출력 예산을 소진해 JSON이 잘림
+          'thinkingConfig': {'thinkingBudget': 0},
         },
       },
     );
