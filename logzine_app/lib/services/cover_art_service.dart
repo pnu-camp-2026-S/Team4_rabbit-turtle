@@ -19,7 +19,25 @@ class CoverArtService {
     final now = DateTime.now();
     final week = now.difference(DateTime(now.year)).inDays ~/ 7;
     final tasteHash = taste.take(4).join('_').hashCode.toRadixString(16);
-    return '${now.year}w$week-$tasteHash';
+    // v2: 레퍼런스 기반 풀 커버 생성 규칙 (스킬: .agents/skills/logzine-cover)
+    return 'v2-${now.year}w$week-$tasteHash';
+  }
+
+  /// 매거진 표지 생성 규칙 — 실제 잡지(VOGUE·Gourmet Traveller·EHOUSING)
+  /// 표지 문법을 코드화한 프롬프트. 규칙 전문: .agents/skills/logzine-cover/SKILL.md
+  static String _coverPrompt(List<String> taste) {
+    final interests =
+        taste.isEmpty ? 'quiet interiors, slow living' : taste.take(4).join(', ');
+    return '''
+Create a premium printed magazine FRONT COVER, portrait orientation.
+
+RULES (follow all):
+1. MASTHEAD: the single word "LOGZINE" in very large, elegant high-contrast serif capitals across the top, dark ink color. The photographic subject may slightly overlap the bottom of the letters, like classic fashion magazine covers.
+2. SUBJECT: one coherent professional editorial photograph that COMBINES ALL of these reader interests into a single believable scene: $interests. Blend them naturally and playfully (example: interests "soccer, pasta" could become a stylish person twirling pasta at a table set on a football pitch; "coffee, camera" could become a warm still life of a film camera beside a pour-over coffee).
+3. COVER LINE: below the masthead, one short bold English cover line of 2-4 words that captures the mood of these interests. Optional 2-3 tiny sub-lines along the left edge, very subtle.
+4. STYLE: high-end editorial photography — soft natural light, warm muted tones, film grain, shallow depth of field, refined composition like Kinfolk or Gourmet Traveller.
+5. All visible text must be minimal, correctly spelled English only. No barcode, no price, no watermark, no gibberish characters, no Korean text.
+''';
   }
 
   static Future<Uint8List?> weeklyCover(List<String> taste) async {
@@ -40,7 +58,6 @@ class CoverArtService {
     if (_apiKey.isEmpty) return null;
 
     try {
-      final mood = taste.isEmpty ? 'quiet editorial life' : taste.take(4).join(', ');
       final response = await http
           .post(
             Uri.parse(
@@ -54,12 +71,7 @@ class CoverArtService {
               'contents': [
                 {
                   'parts': [
-                    {
-                      'text':
-                          'A minimal editorial magazine cover photograph expressing this taste: $mood. '
-                          'Soft natural light, muted warm tones, film grain, elegant composition, '
-                          'lots of negative space at the top. No text, no letters, no people, no watermark.',
-                    },
+                    {'text': _coverPrompt(taste)},
                   ],
                 },
               ],
@@ -68,7 +80,7 @@ class CoverArtService {
               },
             }),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 45));
       if (response.statusCode < 200 || response.statusCode >= 300) return null;
 
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
