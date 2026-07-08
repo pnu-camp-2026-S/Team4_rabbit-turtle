@@ -133,15 +133,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Search',
-                      style: logoStyle(
-                        size: 27,
-                        weight: FontWeight.w500,
-                        letterSpacingEm: 0.01,
-                        color: AppColors.ink,
-                      ),
-                    ),
+                    const PageTitleHeader(title: 'Search'),
                     const SizedBox(height: 16),
                     TextField(
                       controller: _searchController,

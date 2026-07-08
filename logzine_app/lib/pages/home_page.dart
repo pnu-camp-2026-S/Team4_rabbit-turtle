@@ -188,7 +188,6 @@ class _HomePageState extends State<HomePage> {
                 showBell: false,
                 showSettings: false,
                 showDivider: true,
-                logoHeight: 44,
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -196,9 +195,10 @@ class _HomePageState extends State<HomePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
-                    SectionHeader(
+                    PageTitleHeader(
                       title: 'Today\'s stand',
-                      onViewAll: () => Navigator.pushNamed(context, '/stand'),
+                      actionLabel: 'View all',
+                      onActionTap: () => Navigator.pushNamed(context, '/stand'),
                     ),
                   ],
                 ),

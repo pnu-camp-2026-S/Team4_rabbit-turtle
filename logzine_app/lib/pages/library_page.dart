@@ -186,7 +186,9 @@ class _LibraryPageState extends State<LibraryPage> {
       try {
         final followDocs = await PublisherService().fetchFollows();
         followsCount = followDocs.length;
-        followedPublishers = [for (final doc in followDocs) _publisherItemFromDoc(doc)];
+        followedPublishers = [
+          for (final doc in followDocs) _publisherItemFromDoc(doc),
+        ];
       } catch (_) {
         followsCount = 0;
         followedPublishers = const [];
@@ -276,7 +278,10 @@ class _LibraryPageState extends State<LibraryPage> {
 
   /// 발행사 상세로 이동 — 거기서 팔로우/언팔로우가 일어날 수 있으므로
   /// 돌아오면 목록을 새로 불러온다 (home_page의 _openMagazine과 동일 패턴).
-  Future<void> _openPublisher(BuildContext context, _PublisherItem publisher) async {
+  Future<void> _openPublisher(
+    BuildContext context,
+    _PublisherItem publisher,
+  ) async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => _PublisherPage(item: publisher)),
@@ -310,7 +315,8 @@ class _LibraryPageState extends State<LibraryPage> {
                   final recentViewed = data?.recentViewed ?? _demoRecentViewed;
                   final savedCount = data?.savedCount ?? _demoSavedCount;
                   final followsCount = data?.followsCount ?? _demoFollowsCount;
-                  final followedPublishers = data?.followedPublishers ?? _publishers;
+                  final followedPublishers =
+                      data?.followedPublishers ?? _publishers;
 
                   return SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -318,15 +324,7 @@ class _LibraryPageState extends State<LibraryPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 6),
-                        Text(
-                          'My Library',
-                          style: logoStyle(
-                            size: 32,
-                            weight: FontWeight.w500,
-                            letterSpacingEm: 0.0,
-                            color: AppColors.ink,
-                          ),
-                        ),
+                        const PageTitleHeader(title: 'My Library'),
                         const SizedBox(height: 4),
                         const Text(
                           'Subscriptions, follows, and saved reading in one place.',
@@ -1057,9 +1055,9 @@ class _FollowButtonState extends State<_FollowButton> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _following = !nowFollowing);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('처리 중 문제가 발생했어요')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('처리 중 문제가 발생했어요')));
     }
   }
 
@@ -1073,7 +1071,9 @@ class _FollowButtonState extends State<_FollowButton> {
           side: const BorderSide(color: AppColors.border),
           minimumSize: const Size(0, 40),
           padding: const EdgeInsets.symmetric(horizontal: 18),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
         child: const Text('Following'),

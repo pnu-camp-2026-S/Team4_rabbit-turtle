@@ -12,7 +12,12 @@ import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
-typedef _SavedArticleItem = ({String title, String publisher, String date, String imageUrl});
+typedef _SavedArticleItem = ({
+  String title,
+  String publisher,
+  String date,
+  String imageUrl,
+});
 typedef _MarkItem = ({String quote, String source, String note, Color color});
 
 /// Archive 화면 데이터 묶음. 폴백 정책(library_page와 동일):
@@ -64,7 +69,8 @@ class _ArchivePageState extends State<ArchivePage> {
   /// [폴백] 비로그인일 때만 노출하는 데모 문장 보관함.
   static const List<_MarkItem> _demoMarks = [
     (
-      quote: 'When light, texture, and proportion align, the quiet becomes a language.',
+      quote:
+          'When light, texture, and proportion align, the quiet becomes a language.',
       source: 'Quiet Materials · p.4',
       note: '좋아하는 공간감 표현',
       color: Color(0xFFE9C46A),
@@ -116,9 +122,7 @@ class _ArchivePageState extends State<ArchivePage> {
         final mags = await MagazineService().fetchMagazines();
         coverOf = {for (final m in mags) m.id: m.coverUrl};
       } catch (_) {}
-      savedArticles = [
-        for (final doc in docs) _savedItemFromDoc(doc, coverOf),
-      ];
+      savedArticles = [for (final doc in docs) _savedItemFromDoc(doc, coverOf)];
     } catch (_) {
       savedArticles = const [];
     }
@@ -188,14 +192,20 @@ class _ArchivePageState extends State<ArchivePage> {
         articleCache[key] = article;
       }
       if (article == null) continue;
-      if (record.paragraphIdx < 0 || record.paragraphIdx >= article.paragraphs.length) {
+      if (record.paragraphIdx < 0 ||
+          record.paragraphIdx >= article.paragraphs.length) {
         continue;
       }
       final segments = article.paragraphs[record.paragraphIdx];
-      if (record.segmentIdx < 0 || record.segmentIdx >= segments.length) continue;
+      if (record.segmentIdx < 0 || record.segmentIdx >= segments.length) {
+        continue;
+      }
 
-      final String articleTitle = article.title.isNotEmpty ? article.title : '(제목 없음)';
-      final String note = (record.memoText != null && record.memoText!.isNotEmpty)
+      final String articleTitle = article.title.isNotEmpty
+          ? article.title
+          : '(제목 없음)';
+      final String note =
+          (record.memoText != null && record.memoText!.isNotEmpty)
           ? record.memoText!
           : (record.type == 'underline' ? '밑줄 표시' : '하이라이트 표시');
 
@@ -247,7 +257,8 @@ class _ArchivePageState extends State<ArchivePage> {
                 builder: (context, snapshot) {
                   final data = snapshot.data;
                   final bool isLoggedIn = data?.isLoggedIn ?? false;
-                  final savedArticles = data?.savedArticles ?? _demoSavedArticles;
+                  final savedArticles =
+                      data?.savedArticles ?? _demoSavedArticles;
                   final marks = data?.marks ?? _demoMarks;
                   final int marksCount = data?.marksCount ?? _demoMarksCount;
                   final String timeRead = isLoggedIn ? '0m' : '1h 24m';
@@ -258,17 +269,12 @@ class _ArchivePageState extends State<ArchivePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 6),
-                        Text(
-                          'Archive',
-                          style: logoStyle(
-                            size: 32,
-                            weight: FontWeight.w500,
-                            letterSpacingEm: 0.0,
-                            color: AppColors.ink,
-                          ),
-                        ),
+                        const PageTitleHeader(title: 'Archive'),
                         const SizedBox(height: 18),
-                        _ProfileHeader(avatarUrl: _avatarUrl, userName: userName),
+                        _ProfileHeader(
+                          avatarUrl: _avatarUrl,
+                          userName: userName,
+                        ),
                         const SizedBox(height: 24),
                         SectionHeader(
                           title: 'Saved articles',
@@ -294,8 +300,16 @@ class _ArchivePageState extends State<ArchivePage> {
                           _SurfaceCard(
                             child: Column(
                               children: [
-                                for (int i = 0; i < savedArticles.length; i++) ...[
-                                  if (i > 0) const Divider(color: AppColors.border, height: 1),
+                                for (
+                                  int i = 0;
+                                  i < savedArticles.length;
+                                  i++
+                                ) ...[
+                                  if (i > 0)
+                                    const Divider(
+                                      color: AppColors.border,
+                                      height: 1,
+                                    ),
                                   _SavedTile(item: savedArticles[i]),
                                 ],
                               ],
@@ -317,14 +331,18 @@ class _ArchivePageState extends State<ArchivePage> {
                                       icon: Icons.schedule,
                                     ),
                                   ),
-                                  const VerticalDivider(color: AppColors.border, width: 1),
+                                  const VerticalDivider(
+                                    color: AppColors.border,
+                                    width: 1,
+                                  ),
                                   Expanded(
                                     child: InkWell(
                                       onTap: () {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (_) => _MarksPage(items: marks),
+                                            builder: (_) =>
+                                                _MarksPage(items: marks),
                                           ),
                                         );
                                       },
@@ -437,15 +455,16 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
                   if (_tags.isEmpty)
                     const Text(
                       '아직 취향을 설정하지 않았어요.',
-                      style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.textMuted,
+                      ),
                     )
                   else
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: [
-                        for (final tag in _tags) _TasteTag(tag),
-                      ],
+                      children: [for (final tag in _tags) _TasteTag(tag)],
                     ),
                   const SizedBox(height: 14),
                   FilledButton(
@@ -673,16 +692,20 @@ class _SettingsPageState extends State<_SettingsPage> {
                       children: [
                         _SwitchTile(
                           title: 'Push notifications',
-                          subtitle: 'Get notified for new issues and saved reading reminders.',
+                          subtitle:
+                              'Get notified for new issues and saved reading reminders.',
                           value: _notifications,
-                          onChanged: (value) => setState(() => _notifications = value),
+                          onChanged: (value) =>
+                              setState(() => _notifications = value),
                         ),
                         const Divider(color: AppColors.border, height: 1),
                         _SwitchTile(
                           title: 'Reading reminders',
-                          subtitle: 'Receive gentle nudges to continue where you left off.',
+                          subtitle:
+                              'Receive gentle nudges to continue where you left off.',
                           value: _readingReminder,
-                          onChanged: (value) => setState(() => _readingReminder = value),
+                          onChanged: (value) =>
+                              setState(() => _readingReminder = value),
                         ),
                         const Divider(color: AppColors.border, height: 1),
                         _SliderTile(
@@ -699,16 +722,20 @@ class _SettingsPageState extends State<_SettingsPage> {
                       children: [
                         _SwitchTile(
                           title: 'Auto-save marks to archive',
-                          subtitle: 'Store highlighted lines and notes in your archive automatically.',
+                          subtitle:
+                              'Store highlighted lines and notes in your archive automatically.',
                           value: _autoSaveMarks,
-                          onChanged: (value) => setState(() => _autoSaveMarks = value),
+                          onChanged: (value) =>
+                              setState(() => _autoSaveMarks = value),
                         ),
                         const Divider(color: AppColors.border, height: 1),
                         _SwitchTile(
                           title: 'Private highlights',
-                          subtitle: 'Keep saved highlights visible only to you.',
+                          subtitle:
+                              'Keep saved highlights visible only to you.',
                           value: _privateHighlights,
-                          onChanged: (value) => setState(() => _privateHighlights = value),
+                          onChanged: (value) =>
+                              setState(() => _privateHighlights = value),
                         ),
                       ],
                     ),
@@ -718,9 +745,11 @@ class _SettingsPageState extends State<_SettingsPage> {
                     title: 'Downloads',
                     child: _SwitchTile(
                       title: 'Download on Wi-Fi only',
-                      subtitle: 'Preserve mobile data when saving issues offline.',
+                      subtitle:
+                          'Preserve mobile data when saving issues offline.',
                       value: _downloadWifiOnly,
-                      onChanged: (value) => setState(() => _downloadWifiOnly = value),
+                      onChanged: (value) =>
+                          setState(() => _downloadWifiOnly = value),
                     ),
                   ),
                 ],
@@ -890,9 +919,12 @@ class _SavedArticlesPage extends StatelessWidget {
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                       itemCount: items.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
                       itemBuilder: (context, index) {
-                        return _SurfaceCard(child: _SavedTile(item: items[index]));
+                        return _SurfaceCard(
+                          child: _SavedTile(item: items[index]),
+                        );
                       },
                     ),
             ),
@@ -927,7 +959,8 @@ class _MarksPage extends StatelessWidget {
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                       itemCount: items.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         final item = items[index];
                         return _SurfaceCard(
@@ -947,7 +980,8 @@ class _MarksPage extends StatelessWidget {
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         item.quote,
@@ -1006,10 +1040,7 @@ class _TasteTag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontSize: 12.5,
-          color: AppColors.ink,
-        ),
+        style: const TextStyle(fontSize: 12.5, color: AppColors.ink),
       ),
     );
   }

@@ -3,6 +3,18 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import 'logzine_logo.dart';
 
+const double kTopBarLogoHeight = 44;
+const double kTopPageTitleSize = 32;
+
+TextStyle topPageTitleStyle({Color color = AppColors.ink}) {
+  return logoStyle(
+    size: kTopPageTitleSize,
+    weight: FontWeight.w500,
+    letterSpacingEm: 0.0,
+    color: color,
+  );
+}
+
 /// 메인 화면 공용 상단 바 — (뒤로가기) + LOGZINE + 액션 아이콘.
 class LogzineTopBar extends StatelessWidget {
   const LogzineTopBar({
@@ -13,7 +25,7 @@ class LogzineTopBar extends StatelessWidget {
     this.showDivider = false,
     this.onBellTap,
     this.onSettingsTap,
-    this.logoHeight = 44,
+    this.logoHeight = kTopBarLogoHeight,
   });
 
   final bool showBack;
@@ -33,8 +45,9 @@ class LogzineTopBar extends StatelessWidget {
     final BoxConstraints? iconConstraints = showDivider
         ? const BoxConstraints.tightFor(width: 36, height: 36)
         : null;
-    final EdgeInsetsGeometry? iconPadding =
-        showDivider ? EdgeInsets.zero : null;
+    final EdgeInsetsGeometry? iconPadding = showDivider
+        ? EdgeInsets.zero
+        : null;
     final Widget topBarRow = Row(
       children: [
         if (showBack) ...[
@@ -166,6 +179,41 @@ void _showNotifications(BuildContext context) {
   );
 }
 
+/// 탭 화면 최상단 페이지 제목 + 선택 액션.
+class PageTitleHeader extends StatelessWidget {
+  const PageTitleHeader({
+    super.key,
+    required this.title,
+    this.actionLabel,
+    this.onActionTap,
+  });
+
+  final String title;
+  final String? actionLabel;
+  final VoidCallback? onActionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: Text(title, style: topPageTitleStyle())),
+        if (actionLabel != null && onActionTap != null)
+          InkWell(
+            onTap: onActionTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                actionLabel!.toUpperCase(),
+                style: eyebrowStyle(size: 10),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// 섹션 제목 + (선택) View all 링크.
 class SectionHeader extends StatelessWidget {
   const SectionHeader({super.key, required this.title, this.onViewAll});
@@ -178,20 +226,14 @@ class SectionHeader extends StatelessWidget {
     return Row(
       children: [
         // 잡지 러닝헤드처럼 — 작은 대문자 아이브로우 라벨
-        Text(
-          title.toUpperCase(),
-          style: eyebrowStyle(color: AppColors.ink),
-        ),
+        Text(title.toUpperCase(), style: eyebrowStyle(color: AppColors.ink)),
         const Spacer(),
         if (onViewAll != null)
           InkWell(
             onTap: onViewAll,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(
-                'VIEW ALL',
-                style: eyebrowStyle(size: 10),
-              ),
+              child: Text('VIEW ALL', style: eyebrowStyle(size: 10)),
             ),
           ),
       ],
