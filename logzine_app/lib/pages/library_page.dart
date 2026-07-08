@@ -98,7 +98,8 @@ class _LibraryPageState extends State<LibraryPage> {
     ),
   ];
 
-  /// [폴백] 저장한 글이 없거나(비로그인 포함)/조회 실패 시 사용하는 데모 목록.
+  /// 발행사 상세의 "Latest from this publisher" 임시 콘텐츠.
+  /// Library의 Saved articles 탭에는 실제 저장 데이터만 보여준다.
   static const List<_SavedArticleItem> _demoSavedArticles = [
     (
       title: 'The beauty of empty space',
@@ -141,10 +142,6 @@ class _LibraryPageState extends State<LibraryPage> {
     ),
   ];
 
-  /// [폴백] 비로그인일 때만 노출하는 데모 통계값. 로그인 상태에서는
-  /// (0 포함) 항상 실제 count()를 그대로 보여준다.
-  static const int _demoSavedCount = 28;
-
   /// [폴백] 비로그인일 때만 노출하는 데모 팔로우 수.
   static const int _demoFollowsCount = 8;
 
@@ -173,14 +170,12 @@ class _LibraryPageState extends State<LibraryPage> {
     }
     final magazineById = {for (final m in magazines) m.id: m};
 
-    // 폴백 정책: 비로그인 → 항상 데모(둘러보기 쇼케이스), 유지.
-    // 로그인 → 항상 실데이터만. 조회가 성공해서 빈 값이면 빈 상태를,
-    // 조회 자체가 실패(예외)해도 데모로 대체하지 않고 빈 상태로 —
-    // 로그인 사용자에게 남의 데모 데이터를 보여주는 것이 가장 나쁨.
+    // 폴백 정책: Saved articles는 로그인/비로그인 모두 실제 저장 데이터만
+    // 보여준다. 저장 데이터가 없거나 조회에 실패하면 데모가 아니라 빈 상태.
     final bool isLoggedIn = AuthService().currentUser != null;
 
-    List<_SavedArticleItem> savedArticles = _demoSavedArticles;
-    int savedCount = _demoSavedCount;
+    List<_SavedArticleItem> savedArticles = const [];
+    int savedCount = 0;
     if (isLoggedIn) {
       try {
         final savedDocs = await SavedService().fetchSaved(limit: 20);
@@ -326,9 +321,9 @@ class _LibraryPageState extends State<LibraryPage> {
                   final data = snapshot.data;
                   final magazines = data?.magazines ?? const <Magazine>[];
                   final savedArticles =
-                      data?.savedArticles ?? _demoSavedArticles;
+                      data?.savedArticles ?? const <_SavedArticleItem>[];
                   final recentViewed = data?.recentViewed ?? _demoRecentViewed;
-                  final savedCount = data?.savedCount ?? _demoSavedCount;
+                  final savedCount = data?.savedCount ?? 0;
                   final followsCount = data?.followsCount ?? _demoFollowsCount;
                   final followedPublishers =
                       data?.followedPublishers ?? _publishers;
