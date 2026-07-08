@@ -17,11 +17,7 @@ import 'pages/main_shell.dart';
 import 'pages/stand_page.dart';
 import 'pages/why_issue_page.dart';
 import 'pages/reader_page.dart';
-import 'pages/interest_page.dart';
-import 'pages/explore_page.dart';
-import 'pages/create_page.dart';
 import 'pages/my_cover_page.dart';
-import 'pages/mypage_page.dart';
 import 'pages/taste_picker_page.dart';
 
 void main() async {
@@ -56,10 +52,6 @@ class MyApp extends StatelessWidget {
         '/stand': (context) => const StandPage(),
         '/discover/why': (context) => const WhyIssuePage(),
         '/reader': (context) => const ReaderPage(),
-        '/interest': (context) => const InterestPage(),
-        '/explore': (context) => const ExplorePage(),
-        '/create': (context) => const CreatePage(),
-        '/mypage': (context) => const MyPagePage(),
         '/taste': (context) => const TastePickerPage(),
         '/mycover': (context) => const MyCoverPage(),
       },
