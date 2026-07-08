@@ -200,6 +200,10 @@ class _ReaderPageState extends State<ReaderPage> {
       final int? lastPage = await _markService.fetchLastPage(articleId);
       final bool saved = await _savedService.isSaved(articleId);
       final Magazine? magazine = await magazineService.fetchMagazineById(magazineId);
+      await _markService.touchProgress(
+        articleId: articleId,
+        magazineId: magazineId,
+      );
       if (!mounted) return;
 
       _magazineId = magazineId;

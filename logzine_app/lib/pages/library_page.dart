@@ -295,7 +295,7 @@ class _LibraryPageState extends State<LibraryPage> {
     return (
       title: title,
       publisher: magazine.title,
-      progress: record.percent.clamp(0, 100),
+      progress: record.percent.clamp(0, 100).toInt(),
       imageUrl: magazine.coverUrl,
     );
   }
@@ -338,7 +338,6 @@ class _LibraryPageState extends State<LibraryPage> {
                   final magazines = data?.magazines ?? const <Magazine>[];
                   final savedArticles =
                       data?.savedArticles ?? _demoSavedArticles;
-                  final recentViewed = data?.recentViewed ?? _demoRecentViewed;
                   final savedCount = data?.savedCount ?? _demoSavedCount;
                   final followsCount = data?.followsCount ?? _demoFollowsCount;
                   final followedPublishers =
@@ -382,31 +381,6 @@ class _LibraryPageState extends State<LibraryPage> {
                                 _openPublisher(context, publisher),
                           ),
                         ),
-                        const SizedBox(height: 26),
-                        SectionHeader(
-                          title: 'Recently viewed',
-                          onViewAll: recentViewed.isEmpty
-                              ? null
-                              : () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => _RecentViewedPage(
-                                        items: recentViewed,
-                                      ),
-                                    ),
-                                  );
-                                },
-                        ),
-                        const SizedBox(height: 12),
-                        if (recentViewed.isEmpty)
-                          const _EmptyStateCard(
-                            message:
-                                '아직 읽은 글이 없어요.\n'
-                                '매거진을 펼쳐보면 여기에 기록이 남아요.',
-                          )
-                        else
-                          _RecentShelf(items: recentViewed),
                         const SizedBox(height: 20),
                       ],
                     ),
