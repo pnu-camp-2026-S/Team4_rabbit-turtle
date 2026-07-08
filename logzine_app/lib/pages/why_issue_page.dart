@@ -296,10 +296,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    _EditorialCueCard(
-                      tagline: _magazine.tagline,
-                      coverUrl: _magazine.coverUrl,
-                    ),
+                    _EditorialCueCard(tagline: _magazine.tagline),
                     const SizedBox(height: 24),
 
                     // 이번 호 목차
@@ -485,10 +482,9 @@ class _ReasonCard extends StatelessWidget {
 
 /// 추천 이유 아래의 에디토리얼 큐 카드.
 class _EditorialCueCard extends StatelessWidget {
-  const _EditorialCueCard({required this.tagline, required this.coverUrl});
+  const _EditorialCueCard({required this.tagline});
 
   final String tagline;
-  final String coverUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -545,10 +541,7 @@ class _EditorialCueCard extends StatelessWidget {
           SizedBox(
             width: 68,
             height: 76,
-            child: NetworkPhoto(
-              url: coverUrl.isEmpty ? kMoodPhotos[3] : coverUrl,
-              radius: 12,
-            ),
+            child: NetworkPhoto(url: kMoodPhotos[3], radius: 12),
           ),
         ],
       ),
