@@ -1316,6 +1316,8 @@ LIFESTYLE: 독서, 웰니스, 작업 루틴, 홈라이프, 반려생활, 취미 
 - Return 4-8 weaker candidates in "more_signals" when possible; each must also be from the allowed vocabulary and must not overlap keywords.
 - Use status "draft" for normal candidates and "uncertain" only when context is weak.
 - recommended_question is a short Korean prompt asking the user to keep only fitting candidates.
+- ALL user-facing text MUST be in natural Korean (해요체): summary, every keywords[].evidence, and privacy_notes. Never write these in English.
+- summary is one warm Korean sentence (max 60 chars) describing the taste you see in the photos.
 
 Examples:
 - Hanok cafe photo: keywords 한옥, 카페, 커피; more_signals 조용한 휴식, 골목 탐방.
@@ -1377,6 +1379,7 @@ Output:
 - excluded_keywords: UI keyword objects to avoid in future recommendations.
 - downweighted_keywords: UI keyword objects to reduce but not fully remove.
 - profile_update_summary: one concise Korean sentence.
+- ALL user-facing text MUST be in natural Korean (해요체): profile_update_summary and every reason field. Never write these in English, even when free_text_feedback is in English.
 ''';
 
 const Map<String, dynamic> _schema = {
