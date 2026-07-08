@@ -730,12 +730,13 @@ class _ReaderPageState extends State<ReaderPage> {
 
   /// [폴백] 매거진 문서 조회 실패/미로드, 또는 해당 매거진이 아직
   /// syncPublishers() 마이그레이션 매핑표에 없는 경우의 최후 폴백.
-  /// publisherId/emoji/color는 library_page._publishers의 'studio-log'
-  /// 항목과 동일하게 맞춰서, 폴백 상태에서도 팔로우 자체는 라이브러리와
-  /// 어긋나지 않게 한다 (발행사 아바타는 사진 대신 이모지+배경색으로 통일).
+  /// publisherId/imageUrl은 library_page._publishers의 'studio-log' 항목과
+  /// 동일하게 맞춰서, 폴백 상태에서도 팔로우 자체는 라이브러리와 어긋나지
+  /// 않게 한다.
   static const String _fallbackPublisherId = 'studio-log';
-  static const String _fallbackPublisherEmoji = '🛋️';
-  static const String _fallbackPublisherColorHex = '#D8B48C';
+  static const String _fallbackPublisherImageUrl =
+      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e'
+      '?auto=format&fit=crop&w=400&q=80';
 
   void _showPublisher() {
     // 매거진 문서에서 읽은 실제 발행사. 없으면(미로드/미매핑) _args.publisher
@@ -774,8 +775,7 @@ class _ReaderPageState extends State<ReaderPage> {
             _PublisherFollowButton(
               publisherId: publisherId,
               publisherName: publisherName,
-              emoji: _fallbackPublisherEmoji,
-              colorHex: _fallbackPublisherColorHex,
+              imageUrl: _fallbackPublisherImageUrl,
             ),
           ],
         ),
@@ -1128,14 +1128,12 @@ class _PublisherFollowButton extends StatefulWidget {
   const _PublisherFollowButton({
     required this.publisherId,
     required this.publisherName,
-    required this.emoji,
-    required this.colorHex,
+    required this.imageUrl,
   });
 
   final String publisherId;
   final String publisherName;
-  final String emoji;
-  final String colorHex;
+  final String imageUrl;
 
   @override
   State<_PublisherFollowButton> createState() =>
@@ -1165,8 +1163,7 @@ class _PublisherFollowButtonState extends State<_PublisherFollowButton> {
         await PublisherService().follow(
           publisherId: widget.publisherId,
           publisherName: widget.publisherName,
-          emoji: widget.emoji,
-          colorHex: widget.colorHex,
+          imageUrl: widget.imageUrl,
         );
       } else {
         await PublisherService().unfollow(widget.publisherId);

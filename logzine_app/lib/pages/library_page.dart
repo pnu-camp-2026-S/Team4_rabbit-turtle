@@ -23,8 +23,7 @@ enum _LibrarySummary { magazines, publishers, saved }
 typedef _PublisherItem = ({
   String id,
   String name,
-  String emoji,
-  Color color,
+  String imageUrl,
   String description,
 });
 typedef _SavedArticleItem = ({
@@ -39,22 +38,6 @@ typedef _RecentViewedItem = ({
   int progress,
   String imageUrl,
 });
-
-/// 발행사 아바타 색 → hex 문자열 (팔로우 문서 저장용, 하이라이트 마크 저장
-/// 패턴과 동일한 `#RRGGBB` 포맷).
-String _hexFromColor(Color c) =>
-    '#${c.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
-
-/// hex 문자열 → Color. 팔로우 목록 조회 시 저장된 colorHex를 복원한다.
-/// 파싱 실패/누락 시 중립 회색으로 대체.
-Color _colorFromHex(String? hex) {
-  if (hex == null || hex.length < 7) return AppColors.textMuted;
-  try {
-    return Color(int.parse(hex.substring(1, 7), radix: 16) | 0xFF000000);
-  } catch (_) {
-    return AppColors.textMuted;
-  }
-}
 
 /// 라이브러리 화면 데이터 묶음 — 매거진 목록 + 저장 글 + 이어 읽기 + 저장 개수.
 class _LibraryData {
@@ -78,63 +61,62 @@ class _LibraryData {
 class _LibraryPageState extends State<LibraryPage> {
   /// [폴백] publishers 컬렉션이 비기 전까지 쓰는 데모 발행사 목록.
   /// id는 실 컬렉션이 채워지기 전까지 팔로우 문서 ID로 쓰는 안정적인 슬러그.
-  /// 아바타는 실 로고 데이터가 없어 사진 대신 이모지+배경색으로 통일 —
-  /// 색상은 reader_page.dart의 하이라이트 팔레트와 동일하게, 디자인 시스템
-  /// 토큰(AppColors)이 아닌 콘텐츠별 장식 스와치로 화면-로컬에서 관리한다.
+  /// 아바타는 이모지 대신 Unsplash 사진(Flutter Web에서 이모지 폰트가 없어
+  /// 물음표로 깨지는 문제 회피)으로 되돌렸다.
   static const List<_PublisherItem> _publishers = [
     (
       id: 'studio-log',
       name: 'Studio Log',
-      emoji: '🛋️',
-      color: Color(0xFFD8B48C),
+      imageUrl:
+          'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=400&q=80',
       description:
           'Quiet interiors, lasting objects, and warm editorial photography.',
     ),
     (
       id: 'room-note',
       name: 'Room Note',
-      emoji: '🕯️',
-      color: Color(0xFFE7B75F),
+      imageUrl:
+          'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80',
       description:
           'A magazine about gentle rooms, slow mornings, and thoughtful living.',
     ),
     (
       id: 'oak-paper',
       name: 'Oak Paper',
-      emoji: '📖',
-      color: Color(0xFFB99B72),
+      imageUrl:
+          'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=400&q=80',
       description:
           'Independent print stories shaped around craft, paper, and tactile design.',
     ),
     (
       id: 'still-life',
       name: 'Still Life',
-      emoji: '🖼️',
-      color: Color(0xFF9FB4C7),
+      imageUrl:
+          'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
       description:
           'Minimal domestic scenes and essays on how objects settle into memory.',
     ),
     (
       id: 'the-pantry',
       name: 'The Pantry',
-      emoji: '🥐',
-      color: Color(0xFFE99B6B),
+      imageUrl:
+          'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=400&q=80',
       description:
           'Recipes, corner cafés, and the quiet ritual of a shared table.',
     ),
     (
       id: 'night-index',
       name: 'Night Index',
-      emoji: '🎷',
-      color: Color(0xFF5C5470),
+      imageUrl:
+          'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80',
       description:
           'Fashion, sound, and the city after dark.',
     ),
     (
       id: 'field-notes',
       name: 'Field Notes',
-      emoji: '🌿',
-      color: Color(0xFF8FA876),
+      imageUrl:
+          'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=400&q=80',
       description:
           'Movement, breath, and stories from the trail.',
     ),
@@ -269,8 +251,7 @@ class _LibraryPageState extends State<LibraryPage> {
     return (
       id: doc.id,
       name: data['publisherName'] as String? ?? '',
-      emoji: data['emoji'] as String? ?? '❓',
-      color: _colorFromHex(data['colorHex'] as String?),
+      imageUrl: data['imageUrl'] as String? ?? '',
       description: '',
     );
   }
@@ -794,11 +775,7 @@ class _PublisherBubble extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: AppColors.border),
               ),
-              child: _PublisherAvatar(
-                emoji: item.emoji,
-                color: item.color,
-                size: 64,
-              ),
+              child: _PublisherAvatar(imageUrl: item.imageUrl, size: 64),
             ),
             const SizedBox(height: 8),
             Text(
@@ -817,24 +794,19 @@ class _PublisherBubble extends StatelessWidget {
 /// publishers 컬렉션에 실 로고 데이터가 아직 없어(로드맵 #3) 이모지로
 /// 대체하고, 색은 발행사별 고정 스와치(_publishers)를 그대로 쓴다.
 class _PublisherAvatar extends StatelessWidget {
-  const _PublisherAvatar({
-    required this.emoji,
-    required this.color,
-    this.size = 64,
-  });
+  const _PublisherAvatar({required this.imageUrl, this.size = 64});
 
-  final String emoji;
-  final Color color;
+  final String imageUrl;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      alignment: Alignment.center,
-      child: Text(emoji, style: TextStyle(fontSize: size * 0.42)),
+    return ClipOval(
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: NetworkPhoto(url: imageUrl, radius: 0),
+      ),
     );
   }
 }
@@ -1025,11 +997,7 @@ class _PublisherPageState extends State<_PublisherPage> {
                   children: [
                     Row(
                       children: [
-                        _PublisherAvatar(
-                          emoji: item.emoji,
-                          color: item.color,
-                          size: 78,
-                        ),
+                        _PublisherAvatar(imageUrl: item.imageUrl, size: 78),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
@@ -1062,8 +1030,7 @@ class _PublisherPageState extends State<_PublisherPage> {
                     _FollowButton(
                       publisherId: item.id,
                       publisherName: item.name,
-                      emoji: item.emoji,
-                      colorHex: _hexFromColor(item.color),
+                      imageUrl: item.imageUrl,
                     ),
                     const SizedBox(height: 24),
                     const Text(
@@ -1127,14 +1094,12 @@ class _FollowButton extends StatefulWidget {
   const _FollowButton({
     required this.publisherId,
     required this.publisherName,
-    required this.emoji,
-    required this.colorHex,
+    required this.imageUrl,
   });
 
   final String publisherId;
   final String publisherName;
-  final String emoji;
-  final String colorHex;
+  final String imageUrl;
 
   @override
   State<_FollowButton> createState() => _FollowButtonState();
@@ -1163,8 +1128,7 @@ class _FollowButtonState extends State<_FollowButton> {
         await PublisherService().follow(
           publisherId: widget.publisherId,
           publisherName: widget.publisherName,
-          emoji: widget.emoji,
-          colorHex: widget.colorHex,
+          imageUrl: widget.imageUrl,
         );
       } else {
         await PublisherService().unfollow(widget.publisherId);
