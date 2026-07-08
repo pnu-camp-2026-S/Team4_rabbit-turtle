@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/article.dart';
 import '../models/magazine.dart';
+import '../models/publisher_seeds.dart';
 import '../models/reader_args.dart';
 import '../theme.dart';
 import '../widgets/logzine_logo.dart';
@@ -747,6 +748,11 @@ class _ReaderPageState extends State<ReaderPage> {
     final String publisherId = (_publisherId != null && _publisherId!.isNotEmpty)
         ? _publisherId!
         : _fallbackPublisherId;
+    // publisherId에 맞는 실제 발행사 사진 — library_page._publishers와 공유하는
+    // kPublisherImageUrlById에서 찾는다. 매핑에 없으면(신규/미등록 발행사)
+    // 기존 폴백 이미지를 그대로 쓴다.
+    final String publisherImageUrl =
+        kPublisherImageUrlById[publisherId] ?? _fallbackPublisherImageUrl;
 
     showModalBottomSheet<void>(
       context: context,
@@ -775,7 +781,7 @@ class _ReaderPageState extends State<ReaderPage> {
             _PublisherFollowButton(
               publisherId: publisherId,
               publisherName: publisherName,
-              imageUrl: _fallbackPublisherImageUrl,
+              imageUrl: publisherImageUrl,
             ),
           ],
         ),

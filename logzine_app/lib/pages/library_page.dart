@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/magazine.dart';
+import '../models/publisher_seeds.dart';
 import '../services/auth_service.dart';
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
@@ -63,60 +64,56 @@ class _LibraryPageState extends State<LibraryPage> {
   /// id는 실 컬렉션이 채워지기 전까지 팔로우 문서 ID로 쓰는 안정적인 슬러그.
   /// 아바타는 이모지 대신 Unsplash 사진(Flutter Web에서 이모지 폰트가 없어
   /// 물음표로 깨지는 문제 회피)으로 되돌렸다.
-  static const List<_PublisherItem> _publishers = [
+  /// [공유] URL은 kPublisherImageUrlById(lib/models/publisher_seeds.dart)가
+  /// 단일 소스 — reader_page.dart의 발행사 팔로우도 같은 맵을 참조한다.
+  /// 맵 조회는 상수식이 아니라서 이 목록은 const가 아닌 final.
+  static final List<_PublisherItem> _publishers = [
     (
       id: 'studio-log',
       name: 'Studio Log',
-      imageUrl:
-          'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=400&q=80',
+      imageUrl: kPublisherImageUrlById['studio-log']!,
       description:
           'Quiet interiors, lasting objects, and warm editorial photography.',
     ),
     (
       id: 'room-note',
       name: 'Room Note',
-      imageUrl:
-          'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80',
+      imageUrl: kPublisherImageUrlById['room-note']!,
       description:
           'A magazine about gentle rooms, slow mornings, and thoughtful living.',
     ),
     (
       id: 'oak-paper',
       name: 'Oak Paper',
-      imageUrl:
-          'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=400&q=80',
+      imageUrl: kPublisherImageUrlById['oak-paper']!,
       description:
           'Independent print stories shaped around craft, paper, and tactile design.',
     ),
     (
       id: 'still-life',
       name: 'Still Life',
-      imageUrl:
-          'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
+      imageUrl: kPublisherImageUrlById['still-life']!,
       description:
           'Minimal domestic scenes and essays on how objects settle into memory.',
     ),
     (
       id: 'the-pantry',
       name: 'The Pantry',
-      imageUrl:
-          'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=400&q=80',
+      imageUrl: kPublisherImageUrlById['the-pantry']!,
       description:
           'Recipes, corner cafés, and the quiet ritual of a shared table.',
     ),
     (
       id: 'night-index',
       name: 'Night Index',
-      imageUrl:
-          'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80',
+      imageUrl: kPublisherImageUrlById['night-index']!,
       description:
           'Fashion, sound, and the city after dark.',
     ),
     (
       id: 'field-notes',
       name: 'Field Notes',
-      imageUrl:
-          'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=400&q=80',
+      imageUrl: kPublisherImageUrlById['field-notes']!,
       description:
           'Movement, breath, and stories from the trail.',
     ),
@@ -790,9 +787,8 @@ class _PublisherBubble extends StatelessWidget {
   }
 }
 
-/// 발행사 아바타 — 사진(NetworkPhoto) 대신 원형 배경색 + 이모지로 통일.
-/// publishers 컬렉션에 실 로고 데이터가 아직 없어(로드맵 #3) 이모지로
-/// 대체하고, 색은 발행사별 고정 스와치(_publishers)를 그대로 쓴다.
+/// 발행사 아바타 — 원형 사진(NetworkPhoto). publishers 컬렉션에 실 로고
+/// 데이터가 아직 없어(로드맵 #3) _publishers 데모 목록의 고정 이미지를 쓴다.
 class _PublisherAvatar extends StatelessWidget {
   const _PublisherAvatar({required this.imageUrl, this.size = 64});
 

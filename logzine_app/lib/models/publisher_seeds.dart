@@ -50,3 +50,24 @@ const Map<String, PublisherMapping> kPublisherByMagazineTitle = {
   'Stadium Field': PublisherMapping(id: 'field-notes', name: 'Field Notes'),
   'Yoga Paper': PublisherMapping(id: 'field-notes', name: 'Field Notes'),
 };
+
+/// 발행사 아바타 이미지 — publisherId → Unsplash 사진 URL.
+/// library_page.dart의 _publishers 데모 목록과 reader_page.dart의 발행사
+/// 팔로우(_showPublisher)가 공유하는 단일 소스 — 어느 한쪽만 고쳐서 둘이
+/// 어긋나는 일이 없도록 여기서만 관리한다.
+const Map<String, String> kPublisherImageUrlById = {
+  'studio-log':
+      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=400&q=80',
+  'room-note':
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80',
+  'oak-paper':
+      'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=400&q=80',
+  'still-life':
+      'https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=400&q=80',
+  'the-pantry':
+      'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=400&q=80',
+  'night-index':
+      'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80',
+  'field-notes':
+      'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=400&q=80',
+};
