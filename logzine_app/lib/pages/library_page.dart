@@ -10,6 +10,7 @@ import '../services/publisher_service.dart';
 import '../services/saved_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/motion_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
 class LibraryPage extends StatefulWidget {
@@ -411,7 +412,7 @@ class _SummaryCardGroup extends StatelessWidget {
             Expanded(
               child: _SummaryItem(
                 label: 'Magazine subs',
-                value: '$magazineCount',
+                value: magazineCount,
                 icon: Icons.menu_book_outlined,
                 active: selected == _LibrarySummary.magazines,
                 onTap: () => onSelect(_LibrarySummary.magazines),
@@ -421,7 +422,7 @@ class _SummaryCardGroup extends StatelessWidget {
             Expanded(
               child: _SummaryItem(
                 label: 'Publisher follows',
-                value: '$followsCount',
+                value: followsCount,
                 icon: Icons.person_outline,
                 active: selected == _LibrarySummary.publishers,
                 onTap: () => onSelect(_LibrarySummary.publishers),
@@ -431,7 +432,7 @@ class _SummaryCardGroup extends StatelessWidget {
             Expanded(
               child: _SummaryItem(
                 label: 'Saved articles',
-                value: '$savedCount',
+                value: savedCount,
                 icon: Icons.bookmark_border,
                 active: selected == _LibrarySummary.saved,
                 onTap: () => onSelect(_LibrarySummary.saved),
@@ -454,7 +455,7 @@ class _SummaryItem extends StatelessWidget {
   });
 
   final String label;
-  final String value;
+  final int value;
   final IconData icon;
   final bool active;
   final VoidCallback onTap;
@@ -508,8 +509,8 @@ class _SummaryItem extends StatelessWidget {
             SizedBox(
               height: 30,
               child: Center(
-                child: Text(
-                  value,
+                child: CountUpText(
+                  value: value,
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,

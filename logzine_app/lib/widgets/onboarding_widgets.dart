@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import 'logzine_logo.dart';
+import 'motion_widgets.dart';
 
 /// 온보딩 공용 무드 사진 세트 (소파 / 원목 의자 / 머그 / 책).
 const List<String> kMoodPhotos = [
@@ -131,9 +132,9 @@ class NetworkPhoto extends StatelessWidget {
         height: double.infinity,
         errorBuilder: (context, error, stackTrace) =>
             const ColoredBox(color: AppColors.placeholder),
-        loadingBuilder: (context, child, progress) => progress == null
-            ? child
-            : const ColoredBox(color: AppColors.placeholder),
+        // 로딩 중에는 시머 자리표시자. 로드 완료 시 부드럽게 교체된다.
+        loadingBuilder: (context, child, progress) =>
+            progress == null ? child : const ShimmerBox(),
       ),
     );
   }

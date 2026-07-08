@@ -7,6 +7,7 @@ import '../models/publisher_seeds.dart';
 import '../models/reader_args.dart';
 import '../theme.dart';
 import '../widgets/logzine_logo.dart';
+import '../widgets/motion_widgets.dart';
 import '../widgets/onboarding_widgets.dart';
 
 import '../services/magazine_service.dart';
@@ -100,6 +101,18 @@ class _ReaderPageState extends State<ReaderPage> {
   double _page = 4;
   bool _draggingSlider = false;
   String _query = '';
+
+  // 본문 검색 상태.
+  final TextEditingController _bodySearchController = TextEditingController();
+  final Map<int, GlobalKey> _paragraphKeys = {};
+  bool _bodySearchMode = false;
+  String _bodyQuery = '';
+  int _matchIndex = 0;
+
+  /// 본문 검색 하이라이트 배경 (마크 팔레트와 구분되는 포레스트 틴트).
+  static final Color _searchHighlightBg = AppColors.forest.withValues(
+    alpha: 0.22,
+  );
 
   ReaderArgs _args = const ReaderArgs();
   bool _argsApplied = false;
@@ -367,6 +380,7 @@ class _ReaderPageState extends State<ReaderPage> {
     }
     _scroll.dispose();
     _searchController.dispose();
+    _bodySearchController.dispose();
     super.dispose();
   }
 
@@ -536,6 +550,7 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   Widget _buildTopBar() {
+    if (_bodySearchMode) return _buildBodySearchBar();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
@@ -550,9 +565,7 @@ class _ReaderPageState extends State<ReaderPage> {
           ),
           const Expanded(child: Center(child: LogzineLogo(height: 22))),
           IconButton(
-            onPressed: () => ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('본문 검색은 준비 중이에요'))),
+            onPressed: () => setState(() => _bodySearchMode = true),
             icon: const Icon(Icons.search, size: 22, color: AppColors.ink),
           ),
           IconButton(
@@ -569,17 +582,158 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
+  // ── 본문 검색 ─────────────────────────────────────────────
+
+  /// 검색어를 포함한 문단 인덱스 목록.
+  List<int> get _matchingParagraphs {
+    if (_bodyQuery.trim().isEmpty) return const [];
+    final String q = _bodyQuery.trim().toLowerCase();
+    return [
+      for (int p = 0; p < _paragraphs.length; p++)
+        if (_paragraphs[p].join(' ').toLowerCase().contains(q)) p,
+    ];
+  }
+
+  void _onBodyQueryChanged(String value) {
+    setState(() {
+      _bodyQuery = value;
+      _matchIndex = 0;
+    });
+    _scrollToCurrentMatch();
+  }
+
+  void _stepMatch(int delta) {
+    final List<int> matches = _matchingParagraphs;
+    if (matches.isEmpty) return;
+    setState(() {
+      _matchIndex = (_matchIndex + delta) % matches.length;
+      if (_matchIndex < 0) _matchIndex += matches.length;
+    });
+    _scrollToCurrentMatch();
+  }
+
+  void _scrollToCurrentMatch() {
+    final List<int> matches = _matchingParagraphs;
+    if (matches.isEmpty) return;
+    final int paragraph = matches[_matchIndex.clamp(0, matches.length - 1)];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final BuildContext? target = _paragraphKeys[paragraph]?.currentContext;
+      if (target == null || !mounted) return;
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 260),
+        alignment: 0.15,
+      );
+    });
+  }
+
+  void _closeBodySearch() {
+    _bodySearchController.clear();
+    setState(() {
+      _bodySearchMode = false;
+      _bodyQuery = '';
+      _matchIndex = 0;
+    });
+  }
+
+  Widget _buildBodySearchBar() {
+    final List<int> matches = _matchingParagraphs;
+    final bool hasQuery = _bodyQuery.trim().isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: _closeBodySearch,
+            icon: const Icon(
+              Icons.arrow_back_ios_new,
+              size: 19,
+              color: AppColors.ink,
+            ),
+          ),
+          Expanded(
+            child: SizedBox(
+              height: 38,
+              child: TextField(
+                controller: _bodySearchController,
+                autofocus: true,
+                onChanged: _onBodyQueryChanged,
+                textInputAction: TextInputAction.search,
+                style: const TextStyle(fontSize: 13.5),
+                decoration: InputDecoration(
+                  hintText: '본문에서 찾기',
+                  hintStyle: const TextStyle(
+                    fontSize: 13.5,
+                    color: AppColors.textMuted,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    size: 17,
+                    color: AppColors.textMuted,
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                  filled: true,
+                  fillColor: const Color(0xFFF4F2EC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(19),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(19),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(19),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          if (hasQuery)
+            Text(
+              matches.isEmpty ? '0건' : '${_matchIndex + 1}/${matches.length}',
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          IconButton(
+            onPressed: matches.isEmpty ? null : () => _stepMatch(-1),
+            icon: Icon(
+              Icons.keyboard_arrow_up,
+              size: 22,
+              color: matches.isEmpty ? AppColors.textMuted : AppColors.ink,
+            ),
+          ),
+          IconButton(
+            onPressed: matches.isEmpty ? null : () => _stepMatch(1),
+            icon: Icon(
+              Icons.keyboard_arrow_down,
+              size: 22,
+              color: matches.isEmpty ? AppColors.textMuted : AppColors.ink,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildArticle({required int textSizeStep}) {
     return SingleChildScrollView(
       controller: _scroll,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 히어로 이미지
+          // 히어로 이미지 — 아주 느린 켄번즈로 잡지 표지 같은 깊이감
           SizedBox(
             height: 230,
             width: double.infinity,
-            child: NetworkPhoto(url: _heroUrl, radius: 0),
+            child: const KenBurnsPhoto(
+              child: NetworkPhoto(url: _heroUrl, radius: 0),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
@@ -686,14 +840,11 @@ class _ReaderPageState extends State<ReaderPage> {
 
   Widget _buildParagraph(int p, int textSizeStep) {
     return Text.rich(
+      key: _paragraphKeys.putIfAbsent(p, () => GlobalKey()),
       TextSpan(
         children: [
           for (int s = 0; s < _paragraphs[p].length; s++) ...[
-            TextSpan(
-              text: _paragraphs[p][s],
-              recognizer: _recognizers[(p, s)],
-              style: _segmentStyle(p, s),
-            ),
+            ..._segmentSpans(p, s),
             if (s != _paragraphs[p].length - 1) const TextSpan(text: ' '),
           ],
         ],
@@ -704,6 +855,59 @@ class _ReaderPageState extends State<ReaderPage> {
         color: AppColors.ink,
       ),
     );
+  }
+
+  /// 조각 하나를 스팬 목록으로 — 본문 검색어와 일치하는 부분만 배경 강조.
+  List<TextSpan> _segmentSpans(int p, int s) {
+    final String text = _paragraphs[p][s];
+    final TextStyle base = _segmentStyle(p, s);
+    final TapGestureRecognizer? recognizer = _recognizers[(p, s)];
+    final String query = _bodyQuery.trim();
+    if (query.isEmpty) {
+      return [TextSpan(text: text, recognizer: recognizer, style: base)];
+    }
+
+    final String lowerText = text.toLowerCase();
+    final String lowerQuery = query.toLowerCase();
+    final List<TextSpan> spans = [];
+    int cursor = 0;
+    while (cursor < text.length) {
+      final int idx = lowerText.indexOf(lowerQuery, cursor);
+      if (idx < 0) {
+        spans.add(
+          TextSpan(
+            text: text.substring(cursor),
+            recognizer: recognizer,
+            style: base,
+          ),
+        );
+        break;
+      }
+      if (idx > cursor) {
+        spans.add(
+          TextSpan(
+            text: text.substring(cursor, idx),
+            recognizer: recognizer,
+            style: base,
+          ),
+        );
+      }
+      spans.add(
+        TextSpan(
+          text: text.substring(idx, idx + query.length),
+          recognizer: recognizer,
+          style: base.copyWith(
+            backgroundColor: _searchHighlightBg,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+      cursor = idx + query.length;
+    }
+    if (spans.isEmpty) {
+      spans.add(TextSpan(text: text, recognizer: recognizer, style: base));
+    }
+    return spans;
   }
 
   TextStyle _segmentStyle(int p, int s) {

@@ -75,6 +75,20 @@ class _MoodTagsPageState extends State<MoodTagsPage> {
       );
       try {
         await UserService().saveTasteTags(profile.displayTags);
+        // 여정 질문 + 태그별 근거 문장도 함께 저장 — Why 페이지 인용용.
+        final questions = <String>[];
+        for (final photo in profile.photos) {
+          if (photo.question.isNotEmpty && !questions.contains(photo.question)) {
+            questions.add(photo.question);
+          }
+        }
+        await UserService().saveTasteJourney(
+          questions: questions,
+          evidenceByTag: {
+            for (final keyword in profile.preferenceProfile)
+              if (keyword.evidence.isNotEmpty) keyword.label: keyword.evidence,
+          },
+        );
       } catch (_) {} // 비로그인·오프라인이어도 온보딩은 계속
       if (!mounted) return;
       Navigator.pushNamed(

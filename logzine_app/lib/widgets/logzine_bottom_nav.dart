@@ -49,45 +49,84 @@ class LogzineBottomNav extends StatelessWidget {
         top: false,
         child: SizedBox(
           height: 64,
-          child: Row(
+          child: Stack(
             children: [
-              for (int i = 0; i < items.length; i++)
-                Expanded(
-                  child: Semantics(
-                    label: items[i].$2,
-                    button: true,
-                    selected: i == currentIndex,
-                    child: InkWell(
-                      onTap: () => _onTap(context, i),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            items[i].$1,
-                            size: 21,
-                            color: i == currentIndex
-                                ? AppColors.forest
-                                : AppColors.textMuted,
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            items[i].$2,
-                            style: TextStyle(
-                              fontSize: 8.5,
-                              letterSpacing: 1.2,
-                              fontWeight: i == currentIndex
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: i == currentIndex
-                                  ? AppColors.forest
-                                  : AppColors.textMuted,
-                            ),
-                          ),
-                        ],
+              // 활성 탭 위로 미끄러지는 얇은 인디케이터 바
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final double tabWidth = constraints.maxWidth / items.length;
+                  return AnimatedPositioned(
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeOutCubic,
+                    top: 0,
+                    left: tabWidth * currentIndex + (tabWidth - 22) / 2,
+                    child: Container(
+                      width: 22,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: AppColors.forest,
+                        borderRadius: BorderRadius.circular(999),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
+              ),
+              Row(
+                children: [
+                  for (int i = 0; i < items.length; i++)
+                    Expanded(
+                      child: Semantics(
+                        label: items[i].$2,
+                        button: true,
+                        selected: i == currentIndex,
+                        child: InkWell(
+                          onTap: () => _onTap(context, i),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // 활성 아이콘은 색이 부드럽게 트윈되고 살짝 커진다.
+                              TweenAnimationBuilder<double>(
+                                tween: Tween<double>(
+                                  end: i == currentIndex ? 1.0 : 0.0,
+                                ),
+                                duration: const Duration(milliseconds: 260),
+                                curve: Curves.easeOut,
+                                builder: (context, t, _) => Transform.scale(
+                                  scale: 1.0 + 0.08 * t,
+                                  child: Icon(
+                                    items[i].$1,
+                                    size: 21,
+                                    color: Color.lerp(
+                                      AppColors.textMuted,
+                                      AppColors.forest,
+                                      t,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 260),
+                                curve: Curves.easeOut,
+                                style: TextStyle(
+                                  fontSize: 8.5,
+                                  letterSpacing: 1.2,
+                                  fontWeight: i == currentIndex
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: i == currentIndex
+                                      ? AppColors.forest
+                                      : AppColors.textMuted,
+                                ),
+                                child: Text(items[i].$2),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),

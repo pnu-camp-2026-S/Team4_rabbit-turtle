@@ -19,6 +19,7 @@ import 'pages/why_issue_page.dart';
 import 'pages/reader_page.dart';
 import 'pages/my_cover_page.dart';
 import 'pages/taste_picker_page.dart';
+import 'pages/weekly_issue_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,6 +55,7 @@ class MyApp extends StatelessWidget {
         '/reader': (context) => const ReaderPage(),
         '/taste': (context) => const TastePickerPage(),
         '/mycover': (context) => const MyCoverPage(),
+        '/weekly': (context) => const WeeklyIssuePage(),
       },
     );
   }
