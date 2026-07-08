@@ -12,7 +12,6 @@ import '../widgets/common_widgets.dart';
 import '../widgets/magazine_shelf.dart';
 import '../widgets/onboarding_widgets.dart';
 
-/// "최근 하이라이트" 카드에 표시할 문구.
 class _RecentMarkInfo {
   const _RecentMarkInfo({required this.title, required this.subtitle});
 
@@ -25,7 +24,6 @@ class _RecentMarkInfo {
   );
 }
 
-/// 홈 — 매거진 탐색 중심 랜딩 화면.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -33,17 +31,34 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-/// 홈에 필요한 데이터 묶음 — 추천순으로 배치된 선반 + 사용자 취향 태그.
 class _HomeData {
-  const _HomeData({required this.shelf, required this.taste});
+  const _HomeData({
+    required this.shelf,
+    required this.taste,
+    required this.catalog,
+  });
 
   final List<Magazine> shelf;
   final List<String> taste;
+  final List<Magazine> catalog;
 }
 
 class _HomePageState extends State<HomePage> {
+  static const List<String> _defaultTasteLabels = [
+    'Warm wood',
+    'Quiet rooms',
+    'Editorial mood',
+  ];
+
+  static const Map<String, List<String>> _defaultTasteQueries = {
+    'Warm wood': ['인테리어', '가구', '빈티지', '집밥'],
+    'Quiet rooms': ['인테리어', '산책', '전시 공간', '작업실'],
+    'Editorial mood': ['디자인', '전시', '현대미술', '바이닐', '재즈', '인디'],
+  };
+
   Future<_HomeData> _homeFuture = _loadHome();
   late final Future<_RecentMarkInfo> _recentMarkFuture = _loadRecentMark();
+  String? _selectedTasteLabel;
 
   /// AI 큐레이터 한 줄 — 홈 데이터가 준비되면 취향+오늘의 픽으로 생성.
   Future<String>? _curatorFuture;
@@ -57,7 +72,6 @@ class _HomePageState extends State<HomePage> {
   void _watchCurator(Future<_HomeData> future) {
     future.then((data) {
       if (!mounted) return;
-      // 선반 정중앙(Today's Pick)이 큐레이터가 소개할 매거진
       final int center = data.shelf.length > 2 ? 2 : 0;
       final String topPick =
           data.shelf.isEmpty ? '' : data.shelf[center].title;
@@ -68,8 +82,6 @@ class _HomePageState extends State<HomePage> {
     }).catchError((_) {});
   }
 
-  /// 매거진 + 사용자 취향을 불러와 추천순(취향∩태그 점수)으로 선반 배치.
-  /// 취향이 없으면(비로그인/온보딩 전) 원래 순서 그대로.
   static Future<_HomeData> _loadHome() async {
     List<Magazine> magazines;
     try {
@@ -83,10 +95,9 @@ class _HomePageState extends State<HomePage> {
     try {
       taste = await UserService().fetchTasteTags() ?? const [];
     } catch (_) {
-      // 비로그인 등 — 개인화 없이 진행
+      // Ignore and keep fallback chips.
     }
 
-    // "Not for me"로 제외한 매거진은 선반에서 뺀다
     final excluded = await UserService().fetchExcludedMagazineIds();
     if (excluded.isNotEmpty) {
       magazines = [
@@ -98,16 +109,16 @@ class _HomePageState extends State<HomePage> {
     final ranked = RecommendationService.rank(
       taste,
       magazines,
-      daySeed: RecommendationService.todaySeed(), // 동점은 매일 순환
+      daySeed: RecommendationService.todaySeed(),
     );
+
     return _HomeData(
       shelf: RecommendationService.arrangeForShelf(ranked),
       taste: taste,
+      catalog: magazines,
     );
   }
 
-  /// 사용자의 가장 최근 마크를 인용문으로 변환. 마크가 없거나, 좌표가 가리키는
-  /// 아티클/문장을 찾을 수 없으면 데모 문구로 대체.
   static Future<_RecentMarkInfo> _loadRecentMark() async {
     try {
       final marks = await MarkService().fetchRecentMarks(limit: 1);
@@ -138,12 +149,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   static String _relativeTime(DateTime? time) {
-    if (time == null) return '방금 전';
+    if (time == null) return 'Just now';
     final Duration diff = DateTime.now().difference(time);
-    if (diff.inMinutes < 1) return '방금 전';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
-    if (diff.inHours < 24) return '${diff.inHours}시간 전';
-    return '${diff.inDays}일 전';
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (diff.inHours < 24) return '${diff.inHours} hr ago';
+    return '${diff.inDays} d ago';
   }
 
   String get _greeting {
@@ -177,9 +188,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openMagazine(BuildContext context, Magazine magazine) async {
-    // 탭한 매거진을 Why 페이지로 전달 — 매거진별 상세/리더 연결
     await Navigator.pushNamed(context, '/discover/why', arguments: magazine);
-    // Not for me 제외 등 반영 — 돌아오면 선반 새로고침
     if (mounted) {
       final next = _loadHome();
       setState(() {
@@ -187,6 +196,50 @@ class _HomePageState extends State<HomePage> {
       });
       _watchCurator(next);
     }
+  }
+
+  List<String> _chipLabels(List<String> taste) {
+    if (taste.isEmpty) return _defaultTasteLabels;
+    return taste.take(6).toList();
+  }
+
+  String? _resolvedSelectedTaste(List<String> labels) {
+    if (labels.isEmpty) return null;
+    final String? selected = _selectedTasteLabel;
+    if (selected != null && labels.contains(selected)) {
+      return selected;
+    }
+    return labels.first;
+  }
+
+  List<String> _queryForSelectedTaste(
+    String? selectedTaste,
+    List<String> taste,
+  ) {
+    if (selectedTaste == null) return taste;
+    return _defaultTasteQueries[selectedTaste] ?? <String>[selectedTaste];
+  }
+
+  List<Magazine> _shelfForSelectedTaste(_HomeData data, String? selectedTaste) {
+    final ranked = RecommendationService.rank(
+      _queryForSelectedTaste(selectedTaste, data.taste),
+      data.catalog,
+      daySeed: RecommendationService.todaySeed(),
+    );
+    return RecommendationService.arrangeForShelf(ranked);
+  }
+
+  String _lineForSelectedTaste(
+    String? selectedTaste,
+    List<Magazine> magazines,
+  ) {
+    if (magazines.isEmpty) return 'Picked from your taste';
+    final int center = magazines.length > 2 ? 2 : 0;
+    final String topPick = magazines[center].title;
+    if (selectedTaste == null) {
+      return 'Picked from your taste, start with $topPick.';
+    }
+    return 'Picked for $selectedTaste, start with $topPick.';
   }
 
   @override
@@ -249,6 +302,38 @@ class _HomePageState extends State<HomePage> {
                       title: 'Today\'s stand',
                       onViewAll: () => Navigator.pushNamed(context, '/stand'),
                     ),
+                    const SizedBox(height: 6),
+                    // 선택한 취향 칩에 맞춰 바뀌는 선반 안내 (팀원 #90)
+                    FutureBuilder<_HomeData>(
+                      future: _homeFuture,
+                      builder: (context, snapshot) {
+                        final _HomeData? data = snapshot.data;
+                        final labels = _chipLabels(
+                          data?.taste ?? const <String>[],
+                        );
+                        final selectedTaste = _resolvedSelectedTaste(labels);
+                        final magazines = data == null
+                            ? const <Magazine>[]
+                            : _shelfForSelectedTaste(data, selectedTaste);
+                        final line = _lineForSelectedTaste(
+                          selectedTaste,
+                          magazines,
+                        );
+                        return AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: Text(
+                            line,
+                            key: ValueKey(line),
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              height: 1.45,
+                              fontStyle: FontStyle.italic,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -256,9 +341,13 @@ class _HomePageState extends State<HomePage> {
               FutureBuilder<_HomeData>(
                 future: _homeFuture,
                 builder: (context, snapshot) {
-                  final magazines = snapshot.data?.shelf ?? const <Magazine>[];
-                  // 데이터 도착 전에 PageView를 만들면 초기 페이지(가운데)가
-                  // 0으로 밀리므로, 로드 완료 후에 선반을 만든다.
+                  final _HomeData? data = snapshot.data;
+                  if (data == null) {
+                    return const SizedBox(height: 320);
+                  }
+                  final labels = _chipLabels(data.taste);
+                  final selectedTaste = _resolvedSelectedTaste(labels);
+                  final magazines = _shelfForSelectedTaste(data, selectedTaste);
                   if (magazines.isEmpty) {
                     return const SizedBox(height: 320);
                   }
@@ -286,7 +375,6 @@ class _HomePageState extends State<HomePage> {
                         const Spacer(),
                         InkWell(
                           onTap: () async {
-                            // 취향 픽커(편집 모드)로 — 저장 후 홈 새로고침
                             await Navigator.pushNamed(
                               context,
                               '/taste',
@@ -296,6 +384,7 @@ class _HomePageState extends State<HomePage> {
                               final next = _loadHome();
                               setState(() {
                                 _homeFuture = next;
+                                _selectedTasteLabel = null;
                               });
                               _watchCurator(next);
                             }
@@ -321,20 +410,27 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // 온보딩/Refine에서 저장한 실제 취향 — 없으면 기본 문구
                     FutureBuilder<_HomeData>(
                       future: _homeFuture,
                       builder: (context, snapshot) {
                         final taste = snapshot.data?.taste ?? const <String>[];
-                        final labels = taste.isEmpty
-                            ? const ['Warm wood', 'Quiet rooms', 'Editorial mood']
-                            : taste.take(6).toList();
+                        final labels = _chipLabels(taste);
+                        final selectedTaste = _resolvedSelectedTaste(labels);
                         return Wrap(
                           spacing: 10,
                           runSpacing: 10,
                           children: [
                             for (var i = 0; i < labels.length; i++)
-                              TasteChip(label: labels[i], selected: i == 0),
+                              TasteChip(
+                                label: labels[i],
+                                selected: labels[i] == selectedTaste,
+                                onTap: () {
+                                  if (labels[i] == selectedTaste) return;
+                                  setState(() {
+                                    _selectedTasteLabel = labels[i];
+                                  });
+                                },
+                              ),
                           ],
                         );
                       },
