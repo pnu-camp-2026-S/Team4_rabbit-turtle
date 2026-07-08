@@ -797,6 +797,10 @@ class PhotoTasteAnalyzer {
   static String? _normalizeFinalLabel(String value) {
     var label = value.trim();
     if (label.isEmpty) return null;
+    // LLM이 허용 어휘로 이미 매핑해 준 값은 그대로 신뢰한다.
+    // taxonomy 규칙은 허용 어휘의 일부만 커버하므로 여기서 거르면
+    // 모델의 의미 매핑 결과가 유실된다 (줄글 보정 무반응의 근본 원인).
+    if (_allowedUiKeywords.contains(label)) return label;
     // 주어 축약형(난·저는·전 등)을 먼저 벗겨야 raw 피드백 필터와
     // taxonomy 매핑이 문장 본론을 볼 수 있다 ("난 음악도 좋아해" → "음악도 좋아해").
     label = label
@@ -1307,7 +1311,7 @@ FASHION: 미니멀, 빈티지, 스트릿, 클래식, 디자이너 브랜드, 스
 SPACE: 인테리어, 가구, 한옥, 호텔, 전시 공간, 서점, 정원, 복합문화공간
 TRAVEL: 도시 여행, 해외 도시, 랜드마크, 골목 탐방, 자연, 숙소, 미식 여행, 스포츠 여행
 ART: 전시, 현대미술, 건축, 공예, 디자인, 일러스트, 사진, 아트페어
-MUSIC: 인디, 재즈, 라이브 공연, 페스티벌, 플레이리스트, 바이닐, 클래식, 사운드트랙
+MUSIC: 인디, 재즈, 라이브 공연, 페스티벌, 플레이리스트, 음악, 바이닐, 클래식, 사운드트랙
 SPORTS: 축구, 야구, 러닝, 요가, 클라이밍, 스포츠 관람, 경기장 투어, 스포츠 여행
 LIFESTYLE: 독서, 웰니스, 작업 루틴, 홈라이프, 반려생활, 취미 수집, 조용한 휴식, 로컬 탐방
 - Do not create free labels outside the vocabulary.
@@ -1337,7 +1341,7 @@ FASHION: 미니멀, 빈티지, 스트릿, 클래식, 디자이너 브랜드, 스
 SPACE: 인테리어, 가구, 한옥, 호텔, 전시 공간, 서점, 정원, 복합문화공간
 TRAVEL: 도시 여행, 해외 도시, 랜드마크, 골목 탐방, 자연, 숙소, 미식 여행, 스포츠 여행
 ART: 전시, 현대미술, 건축, 공예, 디자인, 일러스트, 사진, 아트페어
-MUSIC: 인디, 재즈, 라이브 공연, 페스티벌, 플레이리스트, 바이닐, 클래식, 사운드트랙
+MUSIC: 인디, 재즈, 라이브 공연, 페스티벌, 플레이리스트, 음악, 바이닐, 클래식, 사운드트랙
 SPORTS: 축구, 야구, 러닝, 요가, 클라이밍, 스포츠 관람, 경기장 투어, 스포츠 여행
 LIFESTYLE: 독서, 웰니스, 작업 루틴, 홈라이프, 반려생활, 취미 수집, 조용한 휴식, 로컬 탐방
 - Do semantic interpretation, not word matching. Understand whether a sentence means preference, dislike, fear/avoidance, correction, context, or explanation.
@@ -1367,6 +1371,11 @@ Wrong main_keywords: ["나 벌레를 무서워", "벌레", "자연"]
 Example:
 free_text_feedback: "I also like playing soccer."
 Correct main_keywords: ["축구"]
+
+Example:
+free_text_feedback: "난 음악도 좋아해"
+Correct main_keywords: ["음악"]
+Wrong main_keywords: ["난 음악도 좋아해", "노래"]
 
 Example:
 free_text_feedback: "문화생활은 좋은데 등산은 별로야."
