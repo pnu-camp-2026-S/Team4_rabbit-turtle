@@ -262,41 +262,6 @@ class _HomePageState extends State<HomePage> {
                           'YOUR TASTE',
                           style: eyebrowStyle(color: AppColors.ink),
                         ),
-                        const Spacer(),
-                        InkWell(
-                          onTap: () async {
-                            // 취향 픽커(편집 모드)로 — 저장 후 홈 새로고침
-                            await Navigator.pushNamed(
-                              context,
-                              '/taste',
-                              arguments: 'edit',
-                            );
-                            if (mounted) {
-                              final next = _loadHome();
-                              setState(() {
-                                _homeFuture = next;
-                              });
-                              _watchCurator(next);
-                            }
-                          },
-                          child: const Row(
-                            children: [
-                              Text(
-                                'Refine',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.forest,
-                                ),
-                              ),
-                              Icon(
-                                Icons.chevron_right,
-                                size: 16,
-                                color: AppColors.forest,
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 12),

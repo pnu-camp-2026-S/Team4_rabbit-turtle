@@ -5,6 +5,13 @@ import '../theme.dart';
 import '../widgets/onboarding_widgets.dart'
     show OnboardingHeader, OnboardingTopBar;
 
+class TasteProfilePageArgs {
+  const TasteProfilePageArgs({required this.profile, this.editMode = false});
+
+  final TasteProfileDraft profile;
+  final bool editMode;
+}
+
 /// 온보딩 3단계 — 분석된 취향 프로필.
 class TasteProfilePage extends StatefulWidget {
   const TasteProfilePage({super.key});
@@ -24,9 +31,13 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
     super.didChangeDependencies();
     if (!_argsApplied) {
       final args = ModalRoute.of(context)?.settings.arguments;
-      _editMode = args == 'edit';
-      if (args is TasteProfileDraft) {
+      if (args is TasteProfilePageArgs) {
+        _editMode = args.editMode;
+        _profile = args.profile;
+      } else if (args is TasteProfileDraft) {
         _profile = args;
+      } else {
+        _editMode = args == 'edit';
       }
       _argsApplied = true;
     }
@@ -67,30 +78,39 @@ class _TasteProfilePageState extends State<TasteProfilePage> {
                       _TasteCard(profile: profile),
                       const SizedBox(height: 24),
 
-                      if (!_editMode) ...[
-                        OutlinedButton(
-                          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                      OutlinedButton(
+                        onPressed: () {
+                          if (_editMode) {
+                            Navigator.popUntil(
+                              context,
+                              ModalRoute.withName('/main'),
+                            );
+                            return;
+                          }
+                          Navigator.pushNamedAndRemoveUntil(
                             context,
                             '/main',
                             (route) => false,
                             arguments: 1,
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.ink,
+                          backgroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(54),
+                          side: const BorderSide(color: AppColors.border),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.ink,
-                            backgroundColor: Colors.white,
-                            minimumSize: const Size.fromHeight(54),
-                            side: const BorderSide(color: AppColors.border),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          textStyle: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
                           ),
-                          child: const Text('Start recommendations'),
                         ),
-                      ],
+                        child: Text(
+                          _editMode ? '마이페이지로 돌아가기' : 'Start recommendations',
+                        ),
+                      ),
                       const SizedBox(height: 20),
                     ],
                   ),

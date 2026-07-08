@@ -121,6 +121,7 @@ class _TastePickerPageState extends State<TastePickerPage>
 
   /// 메인(마이페이지 Refine)에서 진입한 편집 모드 — 저장 후 이전 화면으로 복귀.
   bool _editMode = false;
+  bool _replaceMode = false;
   bool _argsApplied = false;
   bool _saving = false;
 
@@ -129,12 +130,15 @@ class _TastePickerPageState extends State<TastePickerPage>
     super.didChangeDependencies();
     if (_argsApplied) return;
     _argsApplied = true;
-    _editMode = ModalRoute.of(context)?.settings.arguments == 'edit';
+    final args = ModalRoute.of(context)?.settings.arguments;
+    _editMode = args == 'edit' || args == 'replace';
+    _replaceMode = args == 'replace';
     _preloadTags();
   }
 
-  /// 이미 저장된 취향이 있으면 미리 선택 상태로 불러온다.
+  /// 일반 편집은 기존 취향을 보여주고, 교체 모드는 빈 선택으로 시작한다.
   Future<void> _preloadTags() async {
+    if (_replaceMode) return;
     final tags = await UserService().fetchTasteTags();
     if (!mounted || tags == null || tags.isEmpty) return;
     setState(() => _selected.addAll(tags));
@@ -153,6 +157,10 @@ class _TastePickerPageState extends State<TastePickerPage>
     setState(() => _saving = false);
 
     if (_editMode) {
+      if (_replaceMode) {
+        Navigator.popUntil(context, ModalRoute.withName('/main'));
+        return;
+      }
       Navigator.pop(context); // 마이페이지로 복귀 → 갱신됨
     } else {
       // 온보딩 완료 → 디스커버 탭으로 (스택 초기화)

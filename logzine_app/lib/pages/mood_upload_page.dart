@@ -7,6 +7,7 @@ import '../models/taste_analysis.dart';
 import '../theme.dart';
 import '../widgets/onboarding_widgets.dart'
     show OnboardingHeader, OnboardingTopBar;
+import 'mood_tags_page.dart';
 
 /// 온보딩 1단계 — 무드 사진 업로드.
 class MoodUploadPage extends StatefulWidget {
@@ -21,9 +22,19 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
 
   final ImagePicker _picker = ImagePicker();
   final List<TastePhoto> _photos = <TastePhoto>[];
+  bool _editMode = false;
+  bool _argsApplied = false;
   bool _analyzing = false;
   double _analysisProgress = 0;
   Timer? _progressTimer;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_argsApplied) return;
+    _editMode = ModalRoute.of(context)?.settings.arguments == 'edit';
+    _argsApplied = true;
+  }
 
   Future<void> _addPhoto() async {
     if (_photos.length >= _maxPhotos) {
@@ -67,7 +78,11 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
       setState(() => _analysisProgress = 1);
       await Future<void>.delayed(const Duration(milliseconds: 180));
       if (!mounted) return;
-      Navigator.pushNamed(context, '/onboarding/tags', arguments: analysis);
+      Navigator.pushNamed(
+        context,
+        '/onboarding/tags',
+        arguments: MoodTagsPageArgs(analysis: analysis, editMode: _editMode),
+      );
     } on TasteAnalysisException {
       if (!mounted) return;
       await _showAnalyzeErrorDialog();
@@ -151,7 +166,7 @@ class _MoodUploadPageState extends State<MoodUploadPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 8),
-              const OnboardingTopBar(),
+              OnboardingTopBar(editMode: _editMode),
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
