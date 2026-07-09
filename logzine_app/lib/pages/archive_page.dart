@@ -1041,7 +1041,7 @@ class _SettingsPageState extends State<_SettingsPage> {
             publisherName: byId[id]!.publisherName,
           )
         else
-          (id: id, title: 'Unavailable magazine', issue: '', publisherName: ''),
+          (id: id, title: '불러올 수 없는 매거진', issue: '', publisherName: ''),
     ];
   }
 
@@ -1049,17 +1049,17 @@ class _SettingsPageState extends State<_SettingsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Show all hidden magazines again?'),
-        content: const Text('They may appear in your recommendations again.'),
+        title: const Text('숨긴 매거진을 모두 다시 표시할까요?'),
+        content: const Text('해당 매거진들이 추천 목록에 다시 나타날 수 있어요.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('취소'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.forest),
-            child: const Text('Show all again'),
+            child: const Text('모두 표시'),
           ),
         ],
       ),
@@ -1076,12 +1076,12 @@ class _SettingsPageState extends State<_SettingsPage> {
         _hiddenMagazinesFuture = _loadHiddenMagazines();
       });
       messenger.showSnackBar(
-        const SnackBar(content: Text('Hidden magazines are visible again.')),
+        const SnackBar(content: Text('숨긴 매거진을 다시 표시했어요.')),
       );
     } catch (_) {
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('Sign in to manage hidden magazines.')),
+        const SnackBar(content: Text('숨긴 매거진을 관리하려면 로그인해주세요.')),
       );
     } finally {
       if (mounted) setState(() => _resettingHiddenMagazines = false);
@@ -1098,12 +1098,12 @@ class _SettingsPageState extends State<_SettingsPage> {
         _hiddenMagazinesFuture = _loadHiddenMagazines();
       });
       messenger.showSnackBar(
-        SnackBar(content: Text('${item.title} is visible again.')),
+        SnackBar(content: Text('${item.title} 매거진을 다시 표시했어요.')),
       );
     } catch (_) {
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('Could not unhide this magazine.')),
+        const SnackBar(content: Text('이 매거진을 다시 표시하지 못했어요.')),
       );
     } finally {
       if (mounted) setState(() => _unhidingMagazineIds.remove(item.id));
@@ -1123,7 +1123,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 children: [
                   Text(
-                    'Settings',
+                    '설정',
                     style: logoStyle(
                       size: 32,
                       weight: FontWeight.w500,
@@ -1133,22 +1133,20 @@ class _SettingsPageState extends State<_SettingsPage> {
                   ),
                   const SizedBox(height: 18),
                   _SettingsSection(
-                    title: 'Reading',
+                    title: '읽기',
                     child: Column(
                       children: [
                         _SwitchTile(
-                          title: 'Push notifications',
-                          subtitle:
-                              'Get notified for new issues and saved reading reminders.',
+                          title: '푸시 알림',
+                          subtitle: '새 이슈와 저장한 읽기 알림을 받아요.',
                           value: _notifications,
                           onChanged: (value) =>
                               setState(() => _notifications = value),
                         ),
                         const Divider(color: AppColors.border, height: 1),
                         _SwitchTile(
-                          title: 'Reading reminders',
-                          subtitle:
-                              'Receive gentle nudges to continue where you left off.',
+                          title: '읽기 리마인더',
+                          subtitle: '마지막으로 읽던 지점부터 이어 읽도록 알려드려요.',
                           value: _readingReminder,
                           onChanged: (value) =>
                               setState(() => _readingReminder = value),
@@ -1163,22 +1161,20 @@ class _SettingsPageState extends State<_SettingsPage> {
                   ),
                   const SizedBox(height: 16),
                   _SettingsSection(
-                    title: 'Library & Archive',
+                    title: '라이브러리와 아카이브',
                     child: Column(
                       children: [
                         _SwitchTile(
-                          title: 'Auto-save marks to archive',
-                          subtitle:
-                              'Store highlighted lines and notes in your archive automatically.',
+                          title: '표시한 문장 자동 저장',
+                          subtitle: '하이라이트와 메모를 아카이브에 자동으로 저장해요.',
                           value: _autoSaveMarks,
                           onChanged: (value) =>
                               setState(() => _autoSaveMarks = value),
                         ),
                         const Divider(color: AppColors.border, height: 1),
                         _SwitchTile(
-                          title: 'Private highlights',
-                          subtitle:
-                              'Keep saved highlights visible only to you.',
+                          title: '비공개 하이라이트',
+                          subtitle: '저장한 하이라이트를 나에게만 보이게 해요.',
                           value: _privateHighlights,
                           onChanged: (value) =>
                               setState(() => _privateHighlights = value),
@@ -1208,11 +1204,10 @@ class _SettingsPageState extends State<_SettingsPage> {
                   ),
                   const SizedBox(height: 16),
                   _SettingsSection(
-                    title: 'Downloads',
+                    title: '다운로드',
                     child: _SwitchTile(
-                      title: 'Download on Wi-Fi only',
-                      subtitle:
-                          'Preserve mobile data when saving issues offline.',
+                      title: '와이파이에서만 다운로드',
+                      subtitle: '이슈를 오프라인 저장할 때 모바일 데이터를 아껴요.',
                       value: _downloadWifiOnly,
                       onChanged: (value) =>
                           setState(() => _downloadWifiOnly = value),
@@ -1340,7 +1335,7 @@ class _HiddenMagazinesTile extends StatelessWidget {
                 children: [
                   const Expanded(
                     child: Text(
-                      'Hidden magazines',
+                      '숨긴 매거진',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1350,13 +1345,13 @@ class _HiddenMagazinesTile extends StatelessWidget {
                   ),
                   IconButton(
                     visualDensity: VisualDensity.compact,
-                    tooltip: 'Refresh hidden list',
+                    tooltip: '숨긴 목록 새로고침',
                     onPressed: loading || resetting || busyIds.isNotEmpty
                         ? null
                         : onRefresh,
                     icon: const Icon(
                       Icons.refresh_rounded,
-                      semanticLabel: 'Refresh hidden list',
+                      semanticLabel: '숨긴 목록 새로고침',
                       size: 19,
                     ),
                     color: AppColors.forest,
@@ -1383,8 +1378,8 @@ class _HiddenMagazinesTile extends StatelessWidget {
                 const SizedBox(height: 14),
                 _HiddenListMessage(
                   icon: Icons.error_outline_rounded,
-                  title: 'Could not load hidden magazines',
-                  body: 'Check your connection or sign in again.',
+                  title: '숨긴 매거진을 불러오지 못했어요',
+                  body: '연결 상태를 확인하거나 다시 로그인해주세요.',
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -1395,10 +1390,10 @@ class _HiddenMagazinesTile extends StatelessWidget {
                         : onRefresh,
                     icon: const Icon(
                       Icons.refresh_rounded,
-                      semanticLabel: 'Try again',
+                      semanticLabel: '다시 시도',
                       size: 18,
                     ),
-                    label: const Text('Try again'),
+                    label: const Text('다시 시도'),
                     style: _hiddenActionButtonStyle(),
                   ),
                 ),
@@ -1421,14 +1416,10 @@ class _HiddenMagazinesTile extends StatelessWidget {
                       expanded
                           ? Icons.expand_less_rounded
                           : Icons.expand_more_rounded,
-                      semanticLabel: expanded
-                          ? 'Show fewer hidden magazines'
-                          : 'View more hidden magazines',
+                      semanticLabel: expanded ? '숨긴 매거진 접기' : '숨긴 매거진 더 보기',
                       size: 18,
                     ),
-                    label: Text(
-                      expanded ? 'Show fewer' : 'View $remaining more',
-                    ),
+                    label: Text(expanded ? '접기' : '$remaining개 더 보기'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.forest,
                       padding: EdgeInsets.zero,
@@ -1452,12 +1443,10 @@ class _HiddenMagazinesTile extends StatelessWidget {
                           )
                         : const Icon(
                             Icons.restore_rounded,
-                            semanticLabel: 'Unhide all magazines',
+                            semanticLabel: '모든 매거진 다시 표시',
                             size: 18,
                           ),
-                    label: Text(
-                      resetting ? 'Showing all...' : 'Unhide all magazines',
-                    ),
+                    label: Text(resetting ? '표시하는 중...' : '모든 매거진 다시 표시'),
                     style: _hiddenActionButtonStyle(),
                   ),
                 ),
@@ -1465,9 +1454,8 @@ class _HiddenMagazinesTile extends StatelessWidget {
                 const SizedBox(height: 14),
                 const _HiddenListMessage(
                   icon: Icons.visibility_outlined,
-                  title: 'No hidden magazines',
-                  body:
-                      'Magazines you hide from recommendations will appear here.',
+                  title: '숨긴 매거진이 없어요',
+                  body: '추천에서 제외한 매거진이 여기에 표시돼요.',
                 ),
               ],
             ],
@@ -1482,13 +1470,12 @@ class _HiddenMagazinesTile extends StatelessWidget {
     required bool hasError,
     required List<_HiddenMagazineItem> items,
   }) {
-    if (loading) return 'Checking magazines removed with Not for me.';
+    if (loading) return '추천에서 제외한 매거진을 확인하고 있어요.';
     if (hasError) {
-      return 'Hidden magazine settings are temporarily unavailable.';
+      return '숨긴 매거진 설정을 잠시 사용할 수 없어요.';
     }
-    if (items.isEmpty) return 'No magazines hidden from recommendations.';
-    final suffix = items.length == 1 ? '' : 's';
-    return '${items.length} magazine$suffix hidden from recommendations.';
+    if (items.isEmpty) return '추천에서 숨긴 매거진이 없어요.';
+    return '${items.length}개의 매거진이 추천에서 숨겨져 있어요.';
   }
 
   static ButtonStyle _hiddenActionButtonStyle() {
@@ -1571,9 +1558,10 @@ class _HiddenMagazineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final issue = _localizedIssue(item.issue);
     final meta = [
       if (item.publisherName.isNotEmpty) item.publisherName,
-      if (item.issue.isNotEmpty) item.issue,
+      if (issue.isNotEmpty) issue,
     ].join(' · ');
 
     return Padding(
@@ -1581,7 +1569,7 @@ class _HiddenMagazineRow extends StatelessWidget {
       child: Row(
         children: [
           Semantics(
-            label: 'Hidden magazine marker',
+            label: '숨긴 매거진 표시',
             child: Container(
               width: 4,
               height: 42,
@@ -1623,7 +1611,7 @@ class _HiddenMagazineRow extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Tooltip(
-            message: 'Unhide ${item.title}',
+            message: '${item.title} 다시 표시',
             child: TextButton(
               onPressed: disabled || busy ? null : onUnhide,
               style: TextButton.styleFrom(
@@ -1640,12 +1628,25 @@ class _HiddenMagazineRow extends StatelessWidget {
                         color: AppColors.forest,
                       ),
                     )
-                  : const Text('Unhide'),
+                  : const Text('표시'),
             ),
           ),
         ],
       ),
     );
+  }
+
+  static String _localizedIssue(String issue) {
+    if (issue.startsWith('Issue ')) {
+      return issue.replaceFirst('Issue ', '이슈 ');
+    }
+    if (issue.startsWith('Vol. ')) {
+      return issue.replaceFirst('Vol. ', '볼륨 ');
+    }
+    if (issue.startsWith('Vol ')) {
+      return issue.replaceFirst('Vol ', '볼륨 ');
+    }
+    return issue;
   }
 }
 
@@ -1663,7 +1664,7 @@ class _SliderTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Text size',
+            '글자 크기',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -1672,7 +1673,7 @@ class _SliderTile extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Adjust how comfortably you read long editorial pieces.',
+            '긴 아티클을 편하게 읽을 수 있도록 본문 크기를 조절해요.',
             style: TextStyle(
               fontSize: 12.5,
               height: 1.45,
