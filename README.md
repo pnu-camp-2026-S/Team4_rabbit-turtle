@@ -5,6 +5,9 @@ We are going to get 1st prize🏆
 🤝 **협업 규칙(브랜치·커밋·PR)**: [CONTRIBUTING.md](CONTRIBUTING.md) ← 작업 시작 전 필독!
 🚀 **앱 실행 방법**: [logzine_app/README.md](logzine_app/README.md)
 
+테스트용 계정
+ID : user@gmail.com
+비번 : 000000
 ---
 
 # LOGZINE
