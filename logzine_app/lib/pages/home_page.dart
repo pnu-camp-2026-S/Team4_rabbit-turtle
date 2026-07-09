@@ -3,25 +3,13 @@ import 'package:flutter/material.dart';
 import '../models/magazine.dart';
 import '../models/recommendation_route_args.dart';
 import '../services/magazine_service.dart';
-import '../services/mark_service.dart';
 import '../services/recommendation_service.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/magazine_shelf.dart';
 import '../widgets/onboarding_widgets.dart';
-
-class _RecentMarkInfo {
-  const _RecentMarkInfo({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  static const demo = _RecentMarkInfo(
-    title: 'Recommended based on your recent activity',
-    subtitle: 'Refined taste · 2 hours ago',
-  );
-}
+import '../widgets/stand_cue_card.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, this.refreshToken = 0});
@@ -58,7 +46,6 @@ class _HomePageState extends State<HomePage> {
   };
 
   Future<_HomeData> _homeFuture = _loadHome();
-  late final Future<_RecentMarkInfo> _recentMarkFuture = _loadRecentMark();
   final MagazineShelfController _shelfController = MagazineShelfController();
   String? _selectedTasteLabel;
 
@@ -104,44 +91,6 @@ class _HomePageState extends State<HomePage> {
     );
 
     return _HomeData(shelf: shelf, taste: taste, catalog: magazines);
-  }
-
-  static Future<_RecentMarkInfo> _loadRecentMark() async {
-    try {
-      final marks = await MarkService().fetchRecentMarks(limit: 1);
-      if (marks.isEmpty) return _RecentMarkInfo.demo;
-      final mark = marks.first;
-
-      final paragraphs = await MagazineService().fetchArticleParagraphs(
-        magazineId: mark.magazineId,
-        articleId: mark.articleId,
-      );
-      if (paragraphs == null ||
-          mark.paragraphIdx < 0 ||
-          mark.paragraphIdx >= paragraphs.length) {
-        return _RecentMarkInfo.demo;
-      }
-      final segments = paragraphs[mark.paragraphIdx];
-      if (mark.segmentIdx < 0 || mark.segmentIdx >= segments.length) {
-        return _RecentMarkInfo.demo;
-      }
-
-      return _RecentMarkInfo(
-        title: '"${segments[mark.segmentIdx]}"',
-        subtitle: _relativeTime(mark.createdAt),
-      );
-    } catch (_) {
-      return _RecentMarkInfo.demo;
-    }
-  }
-
-  static String _relativeTime(DateTime? time) {
-    if (time == null) return 'Just now';
-    final Duration diff = DateTime.now().difference(time);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-    if (diff.inHours < 24) return '${diff.inHours} hr ago';
-    return '${diff.inDays} d ago';
   }
 
   Future<void> _openMagazine(
@@ -333,11 +282,22 @@ class _HomePageState extends State<HomePage> {
                     // 나만의 취향 매거진 — 표지(MY COVER)와 주간 이슈를 한 입구로
                     const _MyMagazineBanner(),
                     const SizedBox(height: 14),
-                    FutureBuilder<_RecentMarkInfo>(
-                      future: _recentMarkFuture,
+                    FutureBuilder<_HomeData>(
+                      future: _homeFuture,
                       builder: (context, snapshot) {
-                        return _RecentMarkCard(
-                          info: snapshot.data ?? _RecentMarkInfo.demo,
+                        final data = snapshot.data;
+                        if (data == null) return const SizedBox.shrink();
+                        final cue = standCueForShelf(data.shelf);
+                        if (cue == null) return const SizedBox.shrink();
+                        final labels = _chipLabels(data.taste);
+                        final selectedTaste = _resolvedSelectedTaste(labels);
+                        return StandCueCard(
+                          info: cue,
+                          onTap: () => _openMagazine(
+                            context,
+                            cue.magazine,
+                            _queryForSelectedTaste(selectedTaste, data.taste),
+                          ),
                         );
                       },
                     ),
@@ -442,7 +402,11 @@ class _MyMagazineBanner extends StatelessWidget {
                             ),
                           ),
                           const Spacer(),
-                          Container(width: 14, height: 2, color: AppColors.wine),
+                          Container(
+                            width: 14,
+                            height: 2,
+                            color: AppColors.wine,
+                          ),
                         ],
                       ),
                     ),
@@ -474,71 +438,6 @@ class _MyMagazineBanner extends StatelessWidget {
                 Icons.chevron_right,
                 size: 20,
                 color: AppColors.forest,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RecentMarkCard extends StatelessWidget {
-  const _RecentMarkCard({required this.info});
-
-  final _RecentMarkInfo info;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: () => Navigator.pushNamed(context, '/discover/why'),
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.format_quote_rounded,
-                size: 22,
-                color: AppColors.ink,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      info.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      info.subtitle,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: AppColors.textSecondary,
               ),
             ],
           ),
