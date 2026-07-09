@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../models/article.dart';
 import '../models/magazine.dart';
-import '../models/publisher_seeds.dart';
 import '../models/reader_args.dart';
 import '../theme.dart';
 import '../widgets/logzine_logo.dart';
@@ -13,7 +12,6 @@ import '../widgets/onboarding_widgets.dart';
 import '../services/magazine_service.dart';
 import '../services/article_text_size_service.dart';
 import '../services/mark_service.dart';
-import '../services/publisher_service.dart';
 import '../services/reading_stats_service.dart';
 import '../services/saved_service.dart';
 
@@ -129,12 +127,6 @@ class _ReaderPageState extends State<ReaderPage> {
   bool get _canToggleSaved =>
       _articleId != null && _magazineId != null && !_savingSaved;
 
-  /// 현재 보고 있는 매거진의 실제 발행사 (magazines.publisherId/publisherName,
-  /// 스키마 v5). 매거진 문서 조회 전이거나 아직 매핑이 안 된 매거진이면 null —
-  /// 이 경우 _showPublisher()가 _args.publisher → 최후 폴백 순으로 대체한다.
-  String? _publisherId;
-  String? _publisherName;
-
   /// 리더 화면 진입~dispose 구간의 체류 시간. 탭 전환/백그라운드에도 계속
   /// 흐르며, dispose에서 경과 초를 한 번에 반영한다 (별도 lifecycle 처리 불필요).
   final Stopwatch _readStopwatch = Stopwatch();
@@ -242,13 +234,6 @@ class _ReaderPageState extends State<ReaderPage> {
       _loadedArticleTitle = article?.title ?? _args.title;
       _loadedMagazineTitle = magazine?.title ?? _args.publisher;
       _loadedCoverUrl = magazine?.coverUrl ?? _args.coverUrl ?? _heroUrl;
-      _publisherId = (magazine?.publisherId.isNotEmpty ?? false)
-          ? magazine!.publisherId
-          : null;
-      _publisherName = (magazine?.publisherName.isNotEmpty ?? false)
-          ? magazine!.publisherName
-          : null;
-
       setState(() {
         if (article != null && article.paragraphs.isNotEmpty) {
           _rebuildRecognizers(article.paragraphs);
@@ -954,81 +939,9 @@ class _ReaderPageState extends State<ReaderPage> {
                 label: 'Highlight',
                 onTap: () => setState(() => _highlightMode = true),
               ),
-              _ActionItem(
-                icon: Icons.apartment,
-                label: 'Publisher',
-                onTap: _showPublisher,
-              ),
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  /// [폴백] 매거진 문서 조회 실패/미로드, 또는 해당 매거진이 아직
-  /// syncPublishers() 마이그레이션 매핑표에 없는 경우의 최후 폴백.
-  /// publisherId/imageUrl은 library_page._publishers의 'studio-log' 항목과
-  /// 동일하게 맞춰서, 폴백 상태에서도 팔로우 자체는 라이브러리와 어긋나지
-  /// 않게 한다.
-  static const String _fallbackPublisherId = 'studio-log';
-  static const String _fallbackPublisherImageUrl =
-      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e'
-      '?auto=format&fit=crop&w=400&q=80';
-
-  void _showPublisher() {
-    // 매거진 문서에서 읽은 실제 발행사. 없으면(미로드/미매핑) _args.publisher
-    // (리더 진입 시 넘어온 표시용 매거진명) → 그래도 없으면 최후 폴백 순.
-    final String publisherName =
-        (_publisherName != null && _publisherName!.isNotEmpty)
-        ? _publisherName!
-        : _args.publisher;
-    final String publisherId =
-        (_publisherId != null && _publisherId!.isNotEmpty)
-        ? _publisherId!
-        : _fallbackPublisherId;
-    // publisherId에 맞는 실제 발행사 사진 — library_page._publishers와 공유하는
-    // kPublisherImageUrlById에서 찾는다. 매핑에 없으면(신규/미등록 발행사)
-    // 기존 폴백 이미지를 그대로 쓴다.
-    final String publisherImageUrl =
-        kPublisherImageUrlById[publisherId] ?? _fallbackPublisherImageUrl;
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              publisherName,
-              style: logoStyle(size: 22, letterSpacingEm: 0.04),
-            ),
-            const SizedBox(height: 8),
-            // publishers 컬렉션(로고/한 줄 소개)이 아직 시드되지 않아
-            // (DB_SCHEMA.md 다음 로드맵 #3) 발행사별 실제 태그라인은 없다.
-            // 지어내지 않고 발행사 공통의 안내 문구로 대체.
-            const Text(
-              '이 매거진을 만드는 발행사예요. 팔로우하면 새 소식을 놓치지 않아요.',
-              style: TextStyle(
-                fontSize: 13.5,
-                height: 1.6,
-                color: AppColors.body,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _PublisherFollowButton(
-              publisherId: publisherId,
-              publisherName: publisherName,
-              imageUrl: publisherImageUrl,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1398,97 +1311,7 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 }
 
-/// 발행사 팔로우 토글 버튼. library_page._FollowButton과 동일한 패턴
-/// (초기 상태 로드 → 탭 시 낙관적 갱신 + 실패 롤백/스낵바).
-class _PublisherFollowButton extends StatefulWidget {
-  const _PublisherFollowButton({
-    required this.publisherId,
-    required this.publisherName,
-    required this.imageUrl,
-  });
-
-  final String publisherId;
-  final String publisherName;
-  final String imageUrl;
-
-  @override
-  State<_PublisherFollowButton> createState() => _PublisherFollowButtonState();
-}
-
-class _PublisherFollowButtonState extends State<_PublisherFollowButton> {
-  bool _following = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadFollowing();
-  }
-
-  Future<void> _loadFollowing() async {
-    final following = await PublisherService().isFollowing(widget.publisherId);
-    if (!mounted) return;
-    setState(() => _following = following);
-  }
-
-  Future<void> _toggle() async {
-    final bool nowFollowing = !_following;
-    setState(() => _following = nowFollowing);
-    try {
-      if (nowFollowing) {
-        await PublisherService().follow(
-          publisherId: widget.publisherId,
-          publisherName: widget.publisherName,
-          imageUrl: widget.imageUrl,
-        );
-      } else {
-        await PublisherService().unfollow(widget.publisherId);
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _following = !nowFollowing);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('처리 중 문제가 발생했어요')));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_following) {
-      return SizedBox(
-        width: double.infinity,
-        child: OutlinedButton(
-          onPressed: _toggle,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.ink,
-            side: const BorderSide(color: AppColors.border),
-            minimumSize: const Size.fromHeight(46),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          child: const Text('팔로잉'),
-        ),
-      );
-    }
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: _toggle,
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.forest,
-          minimumSize: const Size.fromHeight(46),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        child: const Text('발행사 팔로우'),
-      ),
-    );
-  }
-}
-
-/// 하단 액션 (Save / Highlight / Publisher).
+/// 하단 액션 (Save / Highlight).
 class _ActionItem extends StatelessWidget {
   const _ActionItem({
     required this.icon,
