@@ -59,12 +59,12 @@ class _MainShellState extends State<MainShell> {
       body: IndexedStack(
         index: _index,
         // const를 쓰지 않는다 — 탭 전환(setState)마다 자식 위젯이 새로
-        // 만들어져 didUpdateWidget이 불리고, 마이페이지가 최신 데이터로 갱신된다.
-        // (State는 유지되므로 스크롤/선반 위치는 보존)
+        // 만들어져 didUpdateWidget이 불리고, 라이브러리/마이페이지가 최신
+        // 데이터로 갱신된다. (State는 유지되므로 스크롤/선반 위치는 보존)
         children: [
           HomePage(refreshToken: _homeRefreshToken),
           const DiscoverPage(),
-          const LibraryPage(),
+          LibraryPage(),
           ArchivePage(),
         ],
       ),

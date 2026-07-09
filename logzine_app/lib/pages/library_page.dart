@@ -119,6 +119,16 @@ class _LibraryPageState extends State<LibraryPage> {
 
   late Future<_LibraryData> _libraryFuture = _loadLibrary();
 
+  /// 메인 셸 탭 전환 등으로 다시 보일 때 최신 데이터로 갱신 (archive_page.dart와
+  /// 동일 패턴) — 리더에서의 첫 팔로우처럼 이 화면 밖에서 일어난 변경도
+  /// 반영하려면 아바타가 하나도 없는 상태에서도(=상세 페이지로 갈 방법이 없어도)
+  /// 탭 재진입만으로 새로고침되어야 한다.
+  @override
+  void didUpdateWidget(covariant LibraryPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _libraryFuture = _loadLibrary();
+  }
+
   static Future<_LibraryData> _loadLibrary() async {
     List<Magazine> magazines;
     try {
