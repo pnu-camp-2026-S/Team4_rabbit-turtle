@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/magazine_service.dart';
 import '../services/publisher_service.dart';
 import '../services/saved_service.dart';
+import '../services/subscription_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/motion_widgets.dart';
@@ -130,18 +131,31 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   static Future<_LibraryData> _loadLibrary() async {
-    List<Magazine> magazines;
-    try {
-      magazines = await MagazineService().fetchMagazines();
-      if (magazines.isEmpty) magazines = kMagazines;
-    } catch (_) {
-      magazines = kMagazines;
-    }
     // 폴백 정책: 비로그인 → 항상 데모(둘러보기 쇼케이스), 유지.
     // 로그인 → 항상 실데이터만. 조회가 성공해서 빈 값이면 빈 상태를,
     // 조회 자체가 실패(예외)해도 데모로 대체하지 않고 빈 상태로 —
     // 로그인 사용자에게 남의 데모 데이터를 보여주는 것이 가장 나쁨.
     final bool isLoggedIn = AuthService().currentUser != null;
+
+    List<Magazine> magazines;
+    if (isLoggedIn) {
+      try {
+        final subscriptionDocs = await SubscriptionService()
+            .fetchSubscriptions();
+        magazines = [
+          for (final doc in subscriptionDocs) _magazineFromSubscriptionDoc(doc),
+        ];
+      } catch (_) {
+        magazines = const [];
+      }
+    } else {
+      try {
+        magazines = await MagazineService().fetchMagazines();
+        if (magazines.isEmpty) magazines = kMagazines;
+      } catch (_) {
+        magazines = kMagazines;
+      }
+    }
 
     List<_SavedArticleItem> savedArticles = _emptySavedArticles;
     int savedCount = 0;
@@ -210,9 +224,32 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
+  static Magazine _magazineFromSubscriptionDoc(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    return Magazine(
+      id: doc.id,
+      title:
+          data['title'] as String? ??
+          data['magazineTitle'] as String? ??
+          '정보를 불러올 수 없는 매거진',
+      tagline: data['tagline'] as String? ?? '',
+      issue: data['issue'] as String? ?? '',
+      coverUrl: data['coverUrl'] as String? ?? '',
+      tags: List<String>.from(data['tags'] as List<dynamic>? ?? const []),
+      publisherId: data['publisherId'] as String? ?? '',
+      publisherName: data['publisherName'] as String? ?? '',
+    );
+  }
+
   static List<_SavedArticleItem> _savedItemsFromSnapshot(
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) => [for (final doc in snapshot.docs) _savedItemFromDoc(doc)];
+
+  static List<Magazine> _magazinesFromSubscriptionSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) => [for (final doc in snapshot.docs) _magazineFromSubscriptionDoc(doc)];
 
   static String _formatDate(DateTime date) =>
       '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
@@ -302,8 +339,10 @@ class _LibraryPageState extends State<LibraryPage> {
                       data?.followedPublishers ?? _publishers;
 
                   Widget buildContent({
+                    required List<Magazine> visibleMagazines,
                     required List<_SavedArticleItem> visibleSavedArticles,
                     required int visibleSavedCount,
+                    bool subscriptionsFailed = false,
                     bool savedFailed = false,
                   }) {
                     return SingleChildScrollView(
@@ -324,7 +363,7 @@ class _LibraryPageState extends State<LibraryPage> {
                           const SizedBox(height: 20),
                           _SummaryCardGroup(
                             selected: _selectedSummary,
-                            magazineCount: magazines.length,
+                            magazineCount: visibleMagazines.length,
                             savedCount: visibleSavedCount,
                             followsCount: followsCount,
                             onSelect: (summary) {
@@ -337,7 +376,8 @@ class _LibraryPageState extends State<LibraryPage> {
                             child: _LibraryDetailPanel(
                               key: ValueKey(_selectedSummary),
                               selected: _selectedSummary,
-                              magazines: magazines,
+                              magazines: visibleMagazines,
+                              subscriptionsFailed: subscriptionsFailed,
                               publishers: followedPublishers,
                               savedArticles: visibleSavedArticles,
                               savedFailed: savedFailed,
@@ -346,6 +386,9 @@ class _LibraryPageState extends State<LibraryPage> {
                               onSavedTap: (item) => _openSavedArticle(item),
                               onSavedUnsave: (item) => _unsaveArticle(item),
                               onRetrySaved: () => setState(
+                                () => _libraryFuture = _loadLibrary(),
+                              ),
+                              onRetrySubscriptions: () => setState(
                                 () => _libraryFuture = _loadLibrary(),
                               ),
                             ),
@@ -358,33 +401,52 @@ class _LibraryPageState extends State<LibraryPage> {
 
                   if (!isLoggedIn) {
                     return buildContent(
+                      visibleMagazines: magazines,
                       visibleSavedArticles: savedArticles,
                       visibleSavedCount: savedCount,
                     );
                   }
 
                   return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                    stream: SavedService().watchSaved(),
-                    builder: (context, savedSnapshot) {
-                      if (savedSnapshot.hasError) {
-                        return buildContent(
-                          visibleSavedArticles: const [],
-                          visibleSavedCount: 0,
-                          savedFailed: true,
-                        );
-                      }
-                      if (!savedSnapshot.hasData) {
-                        return buildContent(
-                          visibleSavedArticles: savedArticles,
-                          visibleSavedCount: savedCount,
-                        );
-                      }
-                      final liveSaved = _savedItemsFromSnapshot(
-                        savedSnapshot.data!,
-                      );
-                      return buildContent(
-                        visibleSavedArticles: liveSaved,
-                        visibleSavedCount: liveSaved.length,
+                    stream: SubscriptionService().watchSubscriptions(),
+                    builder: (context, subscriptionSnapshot) {
+                      final liveMagazines = subscriptionSnapshot.hasData
+                          ? _magazinesFromSubscriptionSnapshot(
+                              subscriptionSnapshot.data!,
+                            )
+                          : magazines;
+                      final subscriptionsFailed = subscriptionSnapshot.hasError;
+
+                      return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        stream: SavedService().watchSaved(),
+                        builder: (context, savedSnapshot) {
+                          if (savedSnapshot.hasError) {
+                            return buildContent(
+                              visibleMagazines: liveMagazines,
+                              visibleSavedArticles: const [],
+                              visibleSavedCount: 0,
+                              subscriptionsFailed: subscriptionsFailed,
+                              savedFailed: true,
+                            );
+                          }
+                          if (!savedSnapshot.hasData) {
+                            return buildContent(
+                              visibleMagazines: liveMagazines,
+                              visibleSavedArticles: savedArticles,
+                              visibleSavedCount: savedCount,
+                              subscriptionsFailed: subscriptionsFailed,
+                            );
+                          }
+                          final liveSaved = _savedItemsFromSnapshot(
+                            savedSnapshot.data!,
+                          );
+                          return buildContent(
+                            visibleMagazines: liveMagazines,
+                            visibleSavedArticles: liveSaved,
+                            visibleSavedCount: liveSaved.length,
+                            subscriptionsFailed: subscriptionsFailed,
+                          );
+                        },
                       );
                     },
                   );
@@ -550,6 +612,7 @@ class _LibraryDetailPanel extends StatelessWidget {
     super.key,
     required this.selected,
     required this.magazines,
+    required this.subscriptionsFailed,
     required this.publishers,
     required this.savedArticles,
     required this.savedFailed,
@@ -557,10 +620,12 @@ class _LibraryDetailPanel extends StatelessWidget {
     required this.onSavedTap,
     required this.onSavedUnsave,
     required this.onRetrySaved,
+    required this.onRetrySubscriptions,
   });
 
   final _LibrarySummary selected;
   final List<Magazine> magazines;
+  final bool subscriptionsFailed;
   final List<_PublisherItem> publishers;
   final List<_SavedArticleItem> savedArticles;
   final bool savedFailed;
@@ -568,11 +633,23 @@ class _LibraryDetailPanel extends StatelessWidget {
   final ValueChanged<_SavedArticleItem> onSavedTap;
   final ValueChanged<_SavedArticleItem> onSavedUnsave;
   final VoidCallback onRetrySaved;
+  final VoidCallback onRetrySubscriptions;
 
   @override
   Widget build(BuildContext context) {
     switch (selected) {
       case _LibrarySummary.magazines:
+        if (subscriptionsFailed) {
+          return _ErrorStateCard(
+            message: '구독한 매거진을 불러오지 못했어요.',
+            onRetry: onRetrySubscriptions,
+          );
+        }
+        if (magazines.isEmpty) {
+          return const _EmptyStateCard(
+            message: '아직 구독한 매거진이 없어요.\n추천 상세에서 Subscribe를 눌러보세요.',
+          );
+        }
         return _SurfaceCard(
           child: Column(
             children: [

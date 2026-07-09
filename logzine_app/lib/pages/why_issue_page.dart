@@ -9,6 +9,7 @@ import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
 import '../services/publisher_service.dart';
 import '../services/recommendation_service.dart';
+import '../services/subscription_service.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/common_widgets.dart';
@@ -469,6 +470,7 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
               ),
             ),
             _IssueBottomActionBar(
+              magazine: _magazine,
               publisherId: _publisherId,
               publisherName: _publisherName,
               imageUrl: _publisherImageUrl,
@@ -740,11 +742,13 @@ class _EditorialCueCard extends StatelessWidget {
 
 class _IssueBottomActionBar extends StatefulWidget {
   const _IssueBottomActionBar({
+    required this.magazine,
     required this.publisherId,
     required this.publisherName,
     required this.imageUrl,
   });
 
+  final Magazine magazine;
   final String publisherId;
   final String publisherName;
   final String imageUrl;
@@ -755,12 +759,15 @@ class _IssueBottomActionBar extends StatefulWidget {
 
 class _IssueBottomActionBarState extends State<_IssueBottomActionBar> {
   bool _following = false;
+  bool _subscribed = false;
   bool _busy = false;
+  bool _subscriptionBusy = false;
 
   @override
   void initState() {
     super.initState();
     _loadFollowing();
+    _loadSubscription();
   }
 
   @override
@@ -771,12 +778,26 @@ class _IssueBottomActionBarState extends State<_IssueBottomActionBar> {
       _busy = false;
       _loadFollowing();
     }
+    if (oldWidget.magazine.id != widget.magazine.id) {
+      _subscribed = false;
+      _subscriptionBusy = false;
+      _loadSubscription();
+    }
   }
 
   Future<void> _loadFollowing() async {
     final following = await PublisherService().isFollowing(widget.publisherId);
     if (!mounted) return;
     setState(() => _following = following);
+  }
+
+  Future<void> _loadSubscription() async {
+    if (widget.magazine.id.isEmpty) return;
+    final subscribed = await SubscriptionService().isSubscribed(
+      widget.magazine.id,
+    );
+    if (!mounted) return;
+    setState(() => _subscribed = subscribed);
   }
 
   Future<void> _toggle() async {
@@ -850,6 +871,181 @@ class _IssueBottomActionBarState extends State<_IssueBottomActionBar> {
     );
   }
 
+  Future<void> _showSubscribeFlow() async {
+    if (_subscriptionBusy) return;
+    if (widget.magazine.id.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('이 매거진은 아직 구독할 수 없어요')));
+      return;
+    }
+
+    final confirmed = await _showSubscriptionConfirmSheet();
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _subscriptionBusy = true);
+    try {
+      if (_subscribed) {
+        await SubscriptionService().unsubscribe(widget.magazine.id);
+        if (!mounted) return;
+        setState(() => _subscribed = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('매거진 구독을 해지했어요')));
+      } else {
+        await SubscriptionService().subscribeMagazine(widget.magazine);
+        if (!mounted) return;
+        setState(() => _subscribed = true);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('매거진을 구독했어요')));
+        await _askNotificationPreference();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('구독 처리 중 문제가 발생했어요')));
+    } finally {
+      if (mounted) setState(() => _subscriptionBusy = false);
+    }
+  }
+
+  Future<bool?> _showSubscriptionConfirmSheet() {
+    return showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _subscribed
+                      ? Icons.library_books_outlined
+                      : Icons.library_add_outlined,
+                  size: 20,
+                  color: _subscribed ? AppColors.forest : AppColors.ink,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    widget.magazine.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: logoStyle(size: 22, letterSpacingEm: 0.04),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _subscribed
+                  ? '${widget.magazine.title} 구독을 해지할까요?'
+                  : '${widget.magazine.title}를 구독할까요?',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _subscribed
+                  ? 'Library의 Magazine subs 목록에서 제거돼요.'
+                  : '구독한 매거진은 Library의 Magazine subs에서 다시 볼 수 있어요.',
+              style: const TextStyle(
+                fontSize: 13.5,
+                height: 1.6,
+                color: AppColors.body,
+              ),
+            ),
+            const SizedBox(height: 18),
+            _SubscriptionSheetActions(
+              secondaryLabel: _subscribed ? '유지하기' : '취소',
+              primaryLabel: _subscribed ? '구독 해지' : '구독하기',
+              primaryColor: _subscribed ? AppColors.wine : AppColors.forest,
+              onSecondary: () => Navigator.pop(context, false),
+              onPrimary: () => Navigator.pop(context, true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _askNotificationPreference() async {
+    final wantsNotification = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.notifications_none,
+                  size: 20,
+                  color: AppColors.ink,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '새 발행물 알림',
+                    style: logoStyle(size: 22, letterSpacingEm: 0.04),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              '새 발행물이 올라오면 알림을 받을까요?',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${widget.magazine.title}의 새 이슈 알림 설정을 저장해둘게요.',
+              style: const TextStyle(
+                fontSize: 13.5,
+                height: 1.6,
+                color: AppColors.body,
+              ),
+            ),
+            const SizedBox(height: 18),
+            _SubscriptionSheetActions(
+              secondaryLabel: '나중에',
+              primaryLabel: '알림 받기',
+              primaryColor: AppColors.forest,
+              onSecondary: () => Navigator.pop(context, false),
+              onPrimary: () => Navigator.pop(context, true),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (wantsNotification == null || !mounted) return;
+    await SubscriptionService().setNotifications(
+      magazineId: widget.magazine.id,
+      enabled: wantsNotification,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -859,35 +1055,134 @@ class _IssueBottomActionBarState extends State<_IssueBottomActionBar> {
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          InkWell(
+          _IssueActionItem(
+            icon: _subscribed
+                ? Icons.library_books_outlined
+                : Icons.library_add_outlined,
+            label: _subscribed ? 'Subscribed' : 'Subscribe',
+            active: _subscribed,
+            busy: _subscriptionBusy,
+            onTap: _showSubscribeFlow,
+          ),
+          _IssueActionItem(
+            icon: Icons.apartment_outlined,
+            label: 'Publisher',
+            active: _following,
+            busy: _busy,
             onTap: _showPublisher,
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.apartment_outlined,
-                    size: 21,
-                    color: _following ? AppColors.forest : AppColors.ink,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Publisher',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: _following ? AppColors.forest : AppColors.ink,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _IssueActionItem extends StatelessWidget {
+  const _IssueActionItem({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AppColors.forest : AppColors.ink;
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: busy ? null : onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (busy)
+                SizedBox(
+                  width: 21,
+                  height: 21,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: color,
+                  ),
+                )
+              else
+                Icon(icon, size: 21, color: color),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11.5, color: color),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SubscriptionSheetActions extends StatelessWidget {
+  const _SubscriptionSheetActions({
+    required this.secondaryLabel,
+    required this.primaryLabel,
+    required this.primaryColor,
+    required this.onSecondary,
+    required this.onPrimary,
+  });
+
+  final String secondaryLabel;
+  final String primaryLabel;
+  final Color primaryColor;
+  final VoidCallback onSecondary;
+  final VoidCallback onPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: onSecondary,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.ink,
+              side: const BorderSide(color: AppColors.border),
+              minimumSize: const Size.fromHeight(46),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(secondaryLabel),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: FilledButton(
+            onPressed: onPrimary,
+            style: FilledButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(46),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(primaryLabel),
+          ),
+        ),
+      ],
     );
   }
 }
