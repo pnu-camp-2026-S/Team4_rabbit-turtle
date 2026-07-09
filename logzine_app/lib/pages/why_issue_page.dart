@@ -277,45 +277,47 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                     const SizedBox(height: 24),
 
                     Text(
-                      'Why it fits you',
+                      '추천 기준 안내',
                       style: eyebrowStyle(
                         color: AppColors.ink,
                       ).copyWith(fontWeight: FontWeight.w700),
                     ),
-                    const SizedBox(height: 12),
-                    IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: _ReasonCard(
-                              icon: Icons.spa_outlined,
-                              title: 'Taste cue',
-                              // 실제 일치 태그 + 일치율 — 없으면 새로운 발견으로 안내
-                              subtitle: _matched.isEmpty
-                                  ? 'A quiet\nnew find'
-                                  : '${_matched.take(2).join(', ')}\n'
-                                        '${RecommendationService.matchPercent(_taste, _magazine)}% 일치',
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: _ReasonCard(
-                              icon: Icons.menu_book_outlined,
-                              title: 'Reading mood',
-                              subtitle: 'Visual essays\nshort-form pace',
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: _ReasonCard(
-                              icon: Icons.refresh,
-                              title: 'Recent signal',
-                              subtitle: 'Reflects your\nlatest activity',
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 6),
+                    const Text(
+                      '선택 항목이 아닌, 이 이슈가 추천된 이유를 요약한 정보입니다.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.45,
+                        color: AppColors.textSecondary,
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    _ReasonSummaryList(
+                      items: [
+                        _ReasonSummaryItem(
+                          icon: Icons.spa_outlined,
+                          title: '추천 키워드',
+                          // 실제 일치 태그 + 일치율 — 없으면 새로운 발견으로 안내
+                          value: _matched.isEmpty
+                              ? '새로운 취향 발견'
+                              : _matched.take(2).join(', '),
+                          description: _matched.isEmpty
+                              ? '조용히 살펴볼 만한 새로운 이슈'
+                              : '취향 일치 ${RecommendationService.matchPercent(_taste, _magazine)}%',
+                        ),
+                        const _ReasonSummaryItem(
+                          icon: Icons.menu_book_outlined,
+                          title: '읽기 분위기',
+                          value: '비주얼 에세이',
+                          description: '짧게 읽는 구성',
+                        ),
+                        const _ReasonSummaryItem(
+                          icon: Icons.history_rounded,
+                          title: '최근 활동 반영',
+                          value: '최근 읽기 흐름 기반',
+                          description: '둘러본 콘텐츠의 신호를 반영',
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
 
@@ -450,57 +452,103 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
   }
 }
 
-/// 추천 이유 카드 (아이콘 + 제목 + 설명).
-class _ReasonCard extends StatelessWidget {
-  const _ReasonCard({
+/// 추천 근거 요약 항목. 개별 항목은 선택/탭 영역이 아닌 읽기 전용 정보로 쓴다.
+class _ReasonSummaryItem {
+  const _ReasonSummaryItem({
     required this.icon,
     required this.title,
-    required this.subtitle,
+    required this.value,
+    required this.description,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String value;
+  final String description;
+}
+
+/// 추천 근거 요약 리스트. 카드/버튼처럼 보이지 않도록 평면 구분선 규칙을 유지한다.
+class _ReasonSummaryList extends StatelessWidget {
+  const _ReasonSummaryList({required this.items});
+
+  final List<_ReasonSummaryItem> items;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 132),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 13),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+    return Semantics(
+      container: true,
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(
+            top: BorderSide(color: AppColors.border),
+            bottom: BorderSide(color: AppColors.border),
+          ),
+        ),
+        child: Column(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              _ReasonSummaryRow(item: items[i]),
+              if (i != items.length - 1)
+                const Divider(height: 1, color: AppColors.border),
+            ],
+          ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+}
+
+class _ReasonSummaryRow extends StatelessWidget {
+  const _ReasonSummaryRow({required this.item});
+
+  final _ReasonSummaryItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: AppColors.sageSoft,
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Icon(icon, size: 18, color: AppColors.forest),
+          SizedBox(
+            width: 34,
+            child: Icon(item.icon, size: 17, color: AppColors.textSecondary),
           ),
-          const SizedBox(height: 14),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 11.5,
-              height: 1.38,
-              color: AppColors.body,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.value,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.description,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.4,
+                    color: AppColors.body,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
