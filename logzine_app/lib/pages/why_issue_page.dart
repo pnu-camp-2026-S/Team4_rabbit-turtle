@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../models/article.dart';
 import '../models/magazine.dart';
+import '../models/publisher_seeds.dart';
 import '../models/reader_args.dart';
 import '../models/recommendation_route_args.dart';
 import '../services/magazine_service.dart';
 import '../services/mark_service.dart';
+import '../services/publisher_service.dart';
 import '../services/recommendation_service.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
@@ -38,6 +40,27 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
   /// 이 매거진의 실제 아티클 목록 (In this issue 목차).
   List<Article> _articles = const [];
   bool _recentViewRecorded = false;
+
+  static const String _fallbackPublisherId = 'studio-log';
+  static const String _fallbackPublisherName = 'Studio Log';
+  static const String _fallbackPublisherImageUrl =
+      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e'
+      '?auto=format&fit=crop&w=400&q=80';
+
+  String get _publisherId {
+    if (_magazine.publisherId.isNotEmpty) return _magazine.publisherId;
+    return kPublisherByMagazineTitle[_magazine.title]?.id ??
+        _fallbackPublisherId;
+  }
+
+  String get _publisherName {
+    if (_magazine.publisherName.isNotEmpty) return _magazine.publisherName;
+    return kPublisherByMagazineTitle[_magazine.title]?.name ??
+        _fallbackPublisherName;
+  }
+
+  String get _publisherImageUrl =>
+      kPublisherImageUrlById[_publisherId] ?? _fallbackPublisherImageUrl;
 
   @override
   void didChangeDependencies() {
@@ -443,6 +466,11 @@ class _WhyIssuePageState extends State<WhyIssuePage> {
                 ),
               ),
             ),
+            _IssueBottomActionBar(
+              publisherId: _publisherId,
+              publisherName: _publisherName,
+              imageUrl: _publisherImageUrl,
+            ),
           ],
         ),
       ),
@@ -657,6 +685,208 @@ class _EditorialCueCard extends StatelessWidget {
             child: NetworkPhoto(url: kMoodPhotos[3], radius: 12),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _IssueBottomActionBar extends StatefulWidget {
+  const _IssueBottomActionBar({
+    required this.publisherId,
+    required this.publisherName,
+    required this.imageUrl,
+  });
+
+  final String publisherId;
+  final String publisherName;
+  final String imageUrl;
+
+  @override
+  State<_IssueBottomActionBar> createState() => _IssueBottomActionBarState();
+}
+
+class _IssueBottomActionBarState extends State<_IssueBottomActionBar> {
+  bool _following = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFollowing();
+  }
+
+  @override
+  void didUpdateWidget(covariant _IssueBottomActionBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.publisherId != widget.publisherId) {
+      _following = false;
+      _busy = false;
+      _loadFollowing();
+    }
+  }
+
+  Future<void> _loadFollowing() async {
+    final following = await PublisherService().isFollowing(widget.publisherId);
+    if (!mounted) return;
+    setState(() => _following = following);
+  }
+
+  Future<void> _toggle() async {
+    if (_busy) return;
+    final bool nowFollowing = !_following;
+    setState(() {
+      _busy = true;
+      _following = nowFollowing;
+    });
+    try {
+      if (nowFollowing) {
+        await PublisherService().follow(
+          publisherId: widget.publisherId,
+          publisherName: widget.publisherName,
+          imageUrl: widget.imageUrl,
+        );
+      } else {
+        await PublisherService().unfollow(widget.publisherId);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _following = !nowFollowing);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('처리 중 문제가 발생했어요')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _showPublisher() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.publisherName,
+                style: logoStyle(size: 22, letterSpacingEm: 0.04),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '이 매거진을 만드는 발행사예요. 팔로우하면 새 소식을 놓치지 않아요.',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.6,
+                  color: AppColors.body,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _PublisherFollowSheetButton(
+                following: _following,
+                busy: _busy,
+                onTap: () async {
+                  await _toggle();
+                  if (mounted) setSheetState(() {});
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 10),
+      decoration: const BoxDecoration(
+        color: AppColors.screen,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          InkWell(
+            onTap: _showPublisher,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.apartment_outlined,
+                    size: 21,
+                    color: _following ? AppColors.forest : AppColors.ink,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Publisher',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: _following ? AppColors.forest : AppColors.ink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PublisherFollowSheetButton extends StatelessWidget {
+  const _PublisherFollowSheetButton({
+    required this.following,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final bool following;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (following) {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton(
+          onPressed: busy ? null : onTap,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.ink,
+            side: const BorderSide(color: AppColors.border),
+            minimumSize: const Size.fromHeight(46),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: const Text('Following'),
+        ),
+      );
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: busy ? null : onTap,
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.forest,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(46),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: const Text('Follow publisher'),
       ),
     );
   }
