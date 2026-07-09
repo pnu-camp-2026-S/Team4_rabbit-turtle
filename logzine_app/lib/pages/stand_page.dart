@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/magazine_shelf.dart';
 import '../widgets/onboarding_widgets.dart';
+import '../widgets/stand_cue_card.dart';
 
 class _StandData {
   const _StandData({
@@ -273,6 +274,9 @@ class _StandShelfView extends StatelessWidget {
                 const SizedBox(height: 14),
                 _FallbackNotice(message: fallbackNotice!),
               ],
+              const SizedBox(height: 18),
+              if (standCueForShelf(data.shelf) case final cue?)
+                StandCueCard(info: cue, onTap: () => onOpen(cue.magazine)),
             ],
           ),
         ),
