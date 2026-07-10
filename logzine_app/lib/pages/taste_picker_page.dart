@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/taste_taxonomy.dart';
 import '../services/user_service.dart';
 import '../theme.dart';
 import '../widgets/onboarding_widgets.dart';
@@ -19,72 +20,47 @@ class _Facet {
   final List<String> tags; // 세부 태그
 }
 
-/// 취향 트리 — UI keyword vocabulary 기준 대분류와 세부 태그.
-const List<_Facet> _kFacets = [
-  _Facet(
-    name: '음식',
-    caption: 'FOOD',
-    photo:
-        'https://images.unsplash.com/photo-1504754524776-8f4f37790ca0'
-        '?auto=format&fit=crop&w=600&q=80',
-    tags: ['카페', '커피', '디저트', '베이커리', '브런치', '전통차', '와인', '로컬 맛집'],
-  ),
-  _Facet(
-    name: '패션',
-    caption: 'FASHION',
-    photo:
-        'https://images.unsplash.com/photo-1483985988355-763728e1935b'
-        '?auto=format&fit=crop&w=600&q=80',
-    tags: ['미니멀', '빈티지', '스트릿', '클래식', '디자이너 브랜드', '스포츠웨어', '액세서리', '데일리룩'],
-  ),
-  _Facet(
-    name: '공간',
-    caption: 'SPACE',
-    photo:
-        'https://images.unsplash.com/photo-1503602642458-232111445657'
-        '?auto=format&fit=crop&w=600&q=80',
-    tags: ['인테리어', '가구', '한옥', '호텔', '전시 공간', '서점', '정원', '복합문화공간'],
-  ),
-  _Facet(
-    name: '여행',
-    caption: 'TRAVEL',
-    photo:
-        'https://images.unsplash.com/photo-1488646953014-85cb44e25828'
-        '?auto=format&fit=crop&w=600&q=80',
-    tags: ['도시 여행', '해외 도시', '랜드마크', '골목 탐방', '자연', '숙소', '미식 여행', '스포츠 여행'],
-  ),
-  _Facet(
-    name: '예술',
-    caption: 'ART',
-    photo:
-        'https://images.unsplash.com/photo-1531913764164-f85c52e6e654'
-        '?auto=format&fit=crop&w=600&q=80',
-    tags: ['전시', '현대미술', '건축', '공예', '디자인', '일러스트', '사진', '아트페어'],
-  ),
-  _Facet(
-    name: '음악',
-    caption: 'MUSIC',
-    photo:
-        'https://images.unsplash.com/photo-1470225620780-dba8ba36b745'
-        '?auto=format&fit=crop&w=600&q=80',
-    tags: ['인디', '재즈', '라이브 공연', '페스티벌', '플레이리스트', '바이닐', '클래식', '사운드트랙'],
-  ),
-  _Facet(
-    name: '스포츠',
-    caption: 'SPORTS',
-    photo:
-        'https://images.unsplash.com/photo-1461896836934-ffe607ba8211'
-        '?auto=format&fit=crop&w=600&q=80',
-    tags: ['축구', '야구', '러닝', '요가', '클라이밍', '스포츠 관람', '경기장 투어', '스포츠 여행'],
-  ),
-  _Facet(
-    name: '라이프',
-    caption: 'LIFESTYLE',
-    photo:
-        'https://images.unsplash.com/photo-1499750310107-5fef28a66643'
-        '?auto=format&fit=crop&w=600&q=80',
-    tags: ['독서', '웰니스', '작업 루틴', '홈라이프', '반려생활', '취미 수집', '조용한 휴식', '로컬 탐방'],
-  ),
+/// 카테고리별 표지 사진 (모두 실제 존재하는 Unsplash 이미지).
+const Map<String, String> _facetPhotos = {
+  'FOOD':
+      'https://images.unsplash.com/photo-1504754524776-8f4f37790ca0'
+      '?auto=format&fit=crop&w=600&q=80',
+  'FASHION':
+      'https://images.unsplash.com/photo-1483985988355-763728e1935b'
+      '?auto=format&fit=crop&w=600&q=80',
+  'SPACE':
+      'https://images.unsplash.com/photo-1503602642458-232111445657'
+      '?auto=format&fit=crop&w=600&q=80',
+  'TRAVEL':
+      'https://images.unsplash.com/photo-1488646953014-85cb44e25828'
+      '?auto=format&fit=crop&w=600&q=80',
+  'ART':
+      'https://images.unsplash.com/photo-1531913764164-f85c52e6e654'
+      '?auto=format&fit=crop&w=600&q=80',
+  'MUSIC':
+      'https://images.unsplash.com/photo-1470225620780-dba8ba36b745'
+      '?auto=format&fit=crop&w=600&q=80',
+  'SPORTS':
+      'https://images.unsplash.com/photo-1461896836934-ffe607ba8211'
+      '?auto=format&fit=crop&w=600&q=80',
+  'PET':
+      'https://images.unsplash.com/photo-1503256207526-0d5d80fa2f47'
+      '?auto=format&fit=crop&w=600&q=80',
+  'LIFESTYLE':
+      'https://images.unsplash.com/photo-1499750310107-5fef28a66643'
+      '?auto=format&fit=crop&w=600&q=80',
+};
+
+/// 취향 트리 — taste_taxonomy 단일 출처에서 파생한다.
+/// 어휘를 늘리려면 taxonomy만 고치면 되고, 이 화면은 자동으로 따라온다.
+final List<_Facet> _kFacets = [
+  for (final category in kTasteTaxonomy)
+    _Facet(
+      name: category.label,
+      caption: category.id,
+      photo: _facetPhotos[category.id]!,
+      tags: category.keywords,
+    ),
 ];
 
 /// 취향 직접 고르기 — 매거진 가판대 캐러셀로 대분류를 넘겨보고,

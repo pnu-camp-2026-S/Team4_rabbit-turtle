@@ -1,5 +1,49 @@
 # UI 노출 키워드 Vocabulary
 
+> ⚠️ **이 문서는 설명서일 뿐, 어휘의 실제 출처가 아니다.**
+> 코드상의 단일 출처(single source of truth)는 **`logzine_app/lib/models/taste_taxonomy.dart`** 이다.
+> AI 프롬프트의 허용 어휘 · 취향 픽커 칩 · 추천 엔진 표준 어휘 · 매거진 태그 검증이
+> 전부 그 파일에서 파생되므로, 어휘를 바꾸려면 그 파일만 고치면 된다.
+
+## 어휘를 바꿀 때 (체크리스트)
+
+1. `taste_taxonomy.dart`의 카테고리/키워드를 수정한다.
+   - 키워드는 **전체에서 유일**해야 한다 (같은 단어가 두 카테고리에 있으면 계층 폴백이 모호해짐).
+     예: 패션의 `클래식`과 음악의 `클래식 음악`처럼 구분.
+   - 옛 키워드를 없앴다면 `kLegacyTasteAliases`에 매핑을 남겨 기존 사용자 프로필을 보호한다.
+2. `models/magazine.dart`의 매거진 태그를 새 어휘로 맞춘다.
+   - **모든 키워드에 최소 1개의 매거진**이 있어야 한다. `flutter test`가 이를 강제한다
+     (`test/taste_taxonomy_test.dart`).
+3. `flutter analyze && flutter test` 통과 확인.
+4. **Firestore 재시드** (아래) — 코드만 바꾸면 앱에는 반영되지 않는다.
+
+## 세분화와 계층 폴백
+
+취향을 잘게 쪼개면(`스포츠 관람` → `축구`/`농구`) 직접 일치 확률이 오히려 **줄어든다**.
+그래서 추천 엔진은 직접 매칭이 없을 때 **같은 카테고리의 형제 키워드**로 폴백한다.
+(농구 매거진이 없으면 같은 `SPORTS`의 축구·스포츠 관람 매거진으로 착지)
+
+- 1차 폴백: `siblingsOf(keyword)` — 계층에서 자동 도출
+- 2차 폴백: `kCrossCategoryNeighbors` — 카테고리를 넘는 최소 보정표
+- 동의어(예: `호텔` ↔ `숙소`)는 폴백이 아니라 `kLegacyTasteAliases`에 넣어 **직접 매칭**으로 취급한다.
+
+## Firestore 재시드 (필수 · 콘솔 권한 필요)
+
+매거진은 앱이 읽는 실데이터가 Firestore에 있고, 기본 규칙은 쓰기를 막는다
+(`firestore.rules`: `magazines … allow write: if false`).
+어휘/태그를 바꾼 뒤에는 **한 번** 아래를 수행해야 앱에 반영된다.
+
+1. Firebase 콘솔 → Firestore → 규칙에서 `magazines` 쓰기를 임시로 허용
+   (`allow write: if true`)
+2. 앱을 한 번 실행 → 시작 시 `MagazineService.syncCatalog()`가 태그가 달라진 문서를 갱신하고
+   없는 매거진을 추가한다. 로그에 `syncCatalog: N개 문서 갱신/추가`가 찍히면 성공.
+3. 규칙을 **원래대로 되돌린다** (`allow write: if false`)
+
+> `syncCatalog`는 멱등하다 — 이미 맞으면 쓰기 0회.
+> 태그가 **다르면** 갱신하므로, 어휘 개편 시 옛 태그가 남지 않는다.
+
+---
+
 사진 분석, 매거진 분석, 줄글 보정 결과가 앱 화면에 노출될 때 사용할 수 있는 유일한 키워드 목록이다. `main_keywords`와 `more_signals`에는 아래 `UI 키워드`만 들어갈 수 있다.
 
 ## 핵심 원칙
