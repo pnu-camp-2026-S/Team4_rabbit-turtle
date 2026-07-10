@@ -140,4 +140,96 @@ void main() {
       expect(result.kind, RecommendationMatchKind.direct);
     });
   });
+
+  group('선반은 취향 칩마다 실제로 맞는 매거진을 보장한다', () {
+    // '등산'의 유일 매거진. 점수가 낮아 동점 정렬에서 밀리기 쉽다.
+    const hiking = Magazine(
+      title: 'HOLD',
+      tagline: '',
+      issue: '',
+      coverUrl: '',
+      tags: ['클라이밍', '등산', '스포츠웨어'],
+    );
+    const baseball = Magazine(
+      title: 'EXTRA INNING',
+      tagline: '',
+      issue: '',
+      coverUrl: '',
+      tags: ['야구', '스포츠 관람', '스포츠 여행'],
+    );
+    // 취향 여러 개를 동시에 만족해 점수가 높은 매거진들
+    const bakery = Magazine(
+      title: 'Bakery Letters',
+      tagline: '',
+      issue: '',
+      coverUrl: '',
+      tags: ['베이커리', '디저트', '카페'],
+    );
+    const coffee = Magazine(
+      title: 'Drift',
+      tagline: '',
+      issue: '',
+      coverUrl: '',
+      tags: ['카페', '커피', '도시 여행'],
+    );
+    const dessert = Magazine(
+      title: 'The Gourmand',
+      tagline: '',
+      issue: '',
+      coverUrl: '',
+      tags: ['디저트', '브런치', '현대미술'],
+    );
+    const wine = Magazine(
+      title: 'CELLAR',
+      tagline: '',
+      issue: '',
+      coverUrl: '',
+      tags: ['와인', '파인다이닝', '미식 여행'],
+    );
+    final catalog = [bakery, coffee, dessert, wine, hiking, baseball];
+    const taste = ['커피', '베이커리', '와인', '등산'];
+
+    test('점수가 낮아도 취향 태그의 유일 매거진은 선반에 오른다', () {
+      final shelf = RecommendationService.buildInitialShelf(
+        taste,
+        catalog,
+        daySeed: 1,
+      );
+      expect(
+        shelf.map((m) => m.title),
+        containsAll(['HOLD', 'CELLAR']),
+        reason: '등산·와인 칩을 눌렀을 때 갈 곳이 선반에 있어야 함',
+      );
+    });
+
+    test("'등산' 칩은 야구가 아니라 등산 매거진을 가리킨다", () {
+      final shelf = RecommendationService.buildInitialShelf(
+        taste,
+        catalog,
+        daySeed: 1,
+      );
+      final index = RecommendationService.focusIndexForTaste(shelf, '등산');
+      expect(index, isNotNull);
+      expect(shelf[index!].title, 'HOLD');
+    });
+
+    test('선반에 그 취향의 매거진이 없으면 엉뚱한 곳으로 튀지 않는다 (null)', () {
+      final index = RecommendationService.focusIndexForTaste([baseball], '등산');
+      expect(index, isNull);
+    });
+
+    test('폴백은 큐레이트된 이웃(자연·산책)을 형제(야구)보다 우선한다', () {
+      const nature = Magazine(
+        title: 'Run Log',
+        tagline: '',
+        issue: '',
+        coverUrl: '',
+        tags: ['러닝', '웰니스', '자연'],
+      );
+      expect(
+        RecommendationService.fallbackScore(['등산'], nature),
+        greaterThan(RecommendationService.fallbackScore(['등산'], baseball)),
+      );
+    });
+  });
 }
