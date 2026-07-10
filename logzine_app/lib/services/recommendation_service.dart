@@ -1,4 +1,5 @@
 import '../models/magazine.dart';
+import '../models/taste_taxonomy.dart';
 
 enum RecommendationMatchKind { direct, fallback, empty }
 
@@ -18,86 +19,37 @@ class RecommendationListResult {
 /// Firestore 의존이 없는 순수 함수 — 단위 테스트로 검증한다.
 ///
 /// 어휘 브리지: 사용자 tasteTags는 출처가 여러 갈래다
-/// (취향 픽커 한국어 태그 / AI 사진 분석 taxonomy 라벨 / 과거 온보딩 라벨).
-/// [expandTasteTags]가 어떤 어휘든 매거진 태그(픽커 어휘)로 변환해 비교한다.
+/// (취향 픽커 한국어 태그 / AI 사진 분석 라벨 / 과거 온보딩 라벨).
+/// [expandTasteTags]가 어떤 어휘든 표준 어휘(taste_taxonomy)로 변환해 비교한다.
+///
+/// 어휘·계층은 전부 `models/taste_taxonomy.dart`에서 온다 — 여기서 다시
+/// 정의하지 않으므로 어휘가 어긋날 수 없다.
 class RecommendationService {
-  /// 매거진 tags에 쓰이는 표준 어휘 = 취향 픽커(taste_picker_page)의 태그.
-  /// ⚠️ 픽커 태그를 바꾸면 여기도 함께 갱신할 것.
-  static const List<String> kPickerTags = [
-    // 음식
-    '카페', '디저트', '와인', '집밥', '파인다이닝', '로컬 맛집',
-    // 패션
-    '미니멀', '빈티지', '스트릿', '디자이너 브랜드', '액세서리', '데일리룩',
-    // 공간
-    '인테리어', '가구', '호텔', '전시 공간', '동네 가게', '작업실',
-    // 여행
-    '도시 여행', '로컬', '숙소', '산책', '자연', '주말 여행',
-    // 예술
-    '전시', '현대미술', '공예', '디자인', '일러스트', '사진',
-    // 음악
-    '인디', '재즈', '플레이리스트', '공연', '바이닐', '사운드트랙',
+  /// 매거진 tags·사용자 tasteTags에 쓰이는 표준 어휘 (taxonomy 단일 출처).
+  static final List<String> kPickerTags = kAllTasteKeywords;
+
+  /// 과거 어휘 → 현재 키워드 (taxonomy 단일 출처).
+  static const Map<String, List<String>> _aliases = kLegacyTasteAliases;
+
+  /// 세부 취향이 직접 일치하지 않을 때의 폴백 후보.
+  ///
+  /// 세분화(축구/농구, 강아지/고양이…)를 해도 매칭이 끊기지 않는 이유가
+  /// 바로 이 폴백이다. 단, 두 종류의 이웃은 **가까움이 다르다**:
+  ///
+  /// - 큐레이트된 인접 관계(`kCrossCategoryNeighbors`)는 의미가 실제로 가깝다.
+  ///   예: 등산 → 자연 · 산책
+  /// - 같은 카테고리의 형제는 "같은 대분류"일 뿐 의미가 멀 수 있다.
+  ///   예: 등산 → 야구 (둘 다 SPORTS지만 결이 다름)
+  ///
+  /// 그래서 [fallbackScore]는 큐레이트 이웃에 더 높은 가중치를 준다.
+  static const int _curatedWeight = 3;
+  static const int _siblingWeight = 1;
+
+  /// 폴백 후보 전체 (가중치 없이 나열 — 후보 존재 여부 판단용).
+  static List<String> neighborsOf(String tag) => [
+    ...?kCrossCategoryNeighbors[tag],
+    ...siblingsOf(tag),
   ];
-
-  /// 토큰 일치로 못 잡는 라벨 → 픽커 어휘 별칭.
-  /// (AI 분석 taxonomy·과거 온보딩 라벨의 의미 매핑)
-  static const Map<String, List<String>> _aliases = {
-    '커피': ['카페'],
-    '베이커리': ['디저트'],
-    '독서': ['서점'], // 픽커에 없어 매칭 안 되지만 의미 기록용
-    '갤러리': ['전시'],
-    '예술': ['전시', '현대미술'],
-    '문화생활': ['전시', '공연'],
-    '문화/건축': ['디자인', '전시'],
-    '건축/디자인': ['디자인', '인테리어'],
-    '아웃도어': ['자연', '산책'],
-    '여행': ['도시 여행', '주말 여행'],
-    '슬로우 라이프': ['집밥', '산책'],
-    '공부/작업': ['작업실'],
-    '음악': ['플레이리스트'],
-    '시장': ['동네 가게'],
-    '동네': ['동네 가게'],
-    '호텔': ['숙소'],
-    '숙소': ['호텔'],
-  };
-
-  static const Map<String, List<String>> _nearbyTags = {
-    '와인': ['파인다이닝', '로컬 맛집', '디저트', '카페', '호텔'],
-    '집밥': ['로컬 맛집', '브런치', '카페', '동네 가게'],
-    '파인다이닝': ['와인', '로컬 맛집', '디저트', '호텔'],
-    '로컬 맛집': ['카페', '디저트', '파인다이닝', '도시 여행'],
-    '카페': ['디저트', '로컬 맛집', '도시 여행', '동네 가게'],
-    '디저트': ['카페', '로컬 맛집', '파인다이닝'],
-    '미니멀': ['디자인', '인테리어', '데일리룩'],
-    '빈티지': ['가구', '인테리어', '바이닐', '데일리룩'],
-    '스트릿': ['데일리룩', '디자이너 브랜드', '도시 여행'],
-    '디자이너 브랜드': ['데일리룩', '미니멀', '디자인'],
-    '액세서리': ['데일리룩', '디자이너 브랜드'],
-    '데일리룩': ['미니멀', '빈티지', '디자이너 브랜드'],
-    '인테리어': ['가구', '전시 공간', '작업실', '디자인'],
-    '가구': ['인테리어', '작업실', '공예'],
-    '호텔': ['숙소', '도시 여행', '파인다이닝'],
-    '전시 공간': ['전시', '인테리어', '디자인'],
-    '동네 가게': ['로컬', '로컬 맛집', '카페', '작업실'],
-    '작업실': ['공예', '디자인', '전시 공간'],
-    '도시 여행': ['로컬', '숙소', '로컬 맛집', '사진'],
-    '로컬': ['도시 여행', '동네 가게', '로컬 맛집'],
-    '숙소': ['호텔', '주말 여행', '도시 여행'],
-    '산책': ['자연', '사진', '동네 가게'],
-    '자연': ['산책', '주말 여행', '사진'],
-    '주말 여행': ['도시 여행', '숙소', '자연'],
-    '전시': ['현대미술', '디자인', '전시 공간'],
-    '현대미술': ['전시', '디자인', '일러스트'],
-    '공예': ['가구', '작업실', '디자인'],
-    '디자인': ['전시', '현대미술', '인테리어', '미니멀'],
-    '일러스트': ['디자인', '사진', '현대미술'],
-    '사진': ['도시 여행', '전시', '자연'],
-    '인디': ['바이닐', '재즈', '공연', '플레이리스트'],
-    '재즈': ['바이닐', '인디', '공연'],
-    '플레이리스트': ['인디', '재즈', '사운드트랙'],
-    '공연': ['인디', '재즈', '전시'],
-    '바이닐': ['재즈', '인디', '플레이리스트'],
-    '사운드트랙': ['플레이리스트', '인디', '재즈'],
-  };
 
   /// 사용자 취향 태그를 픽커 어휘로 확장한다.
   /// 원본 태그 + 별칭 + 토큰/부분일치로 잡히는 픽커 태그를 모두 포함.
@@ -127,19 +79,36 @@ class RecommendationService {
   static String _keyOf(Magazine magazine) =>
       magazine.id.isNotEmpty ? magazine.id : magazine.title;
 
-  static Set<String> _expandedNearbyTags(List<String> userTags) {
+  /// 폴백 이웃 태그 → 가중치. 큐레이트된 인접 관계가 형제보다 훨씬 가깝다.
+  /// (등산 → 자연/산책은 3점, 등산 → 야구는 1점)
+  static Map<String, int> _weightedNearbyTags(List<String> userTags) {
     final expanded = expandTasteTags(userTags);
-    final out = <String>{};
-    for (final tag in expanded) {
-      out.addAll(_nearbyTags[tag] ?? const []);
+    final weights = <String, int>{};
+    void bump(String tag, int weight) {
+      if (expanded.contains(tag)) return; // 직접 매칭은 폴백이 아님
+      final current = weights[tag] ?? 0;
+      if (weight > current) weights[tag] = weight;
     }
-    return out.difference(expanded);
+
+    for (final tag in expanded) {
+      for (final n in kCrossCategoryNeighbors[tag] ?? const <String>[]) {
+        bump(n, _curatedWeight);
+      }
+      for (final n in siblingsOf(tag)) {
+        bump(n, _siblingWeight);
+      }
+    }
+    return weights;
   }
 
   static int fallbackScore(List<String> userTags, Magazine magazine) {
-    final nearby = _expandedNearbyTags(userTags);
-    if (nearby.isEmpty) return 0;
-    return magazine.tags.where(nearby.contains).length;
+    final weights = _weightedNearbyTags(userTags);
+    if (weights.isEmpty) return 0;
+    var total = 0;
+    for (final tag in magazine.tags) {
+      total += weights[tag] ?? 0;
+    }
+    return total;
   }
 
   static List<Magazine> _rankBy(
@@ -214,6 +183,11 @@ class RecommendationService {
     return [for (final e in indexed) e.value];
   }
 
+  /// 첫 선반 구성.
+  ///
+  /// ⚠️ 취향 칩 하나하나가 **선반 위에 실제로 맞는 매거진**을 갖도록 보장한다.
+  /// 그러지 않으면 사용자가 '등산' 칩을 눌렀을 때 선반에 등산 매거진이 없어
+  /// 엉뚱한 매거진(같은 SPORTS의 야구 등)으로 포커스가 튄다.
   static List<Magazine> buildInitialShelf(
     List<String> userTags,
     List<Magazine> magazines, {
@@ -222,40 +196,77 @@ class RecommendationService {
     int? daySeed,
   }) {
     if (magazines.isEmpty) return const [];
+
+    final selected = <Magazine>[];
+    final used = <String>{};
+    void take(Magazine m) {
+      selected.add(m);
+      used.add(_keyOf(m));
+    }
+
+    bool unused(Magazine m) => !used.contains(_keyOf(m));
+
+    // ① 취향 태그마다 직접 매칭 매거진을 한 종씩 확보 (칩 → 매거진 보장).
+    for (final tag in userTags) {
+      if (selected.length >= maxItems) break;
+      final candidates = _rankBy(
+        magazines.where((m) => unused(m) && score([tag], m) > 0).toList(),
+        (m) => score(userTags, m),
+        daySeed: daySeed,
+      );
+      if (candidates.isNotEmpty) take(candidates.first);
+    }
+
+    // ② 남은 직접 매칭을 점수순으로 채움.
     final direct = _rankBy(
-      magazines.where((m) => score(userTags, m) > 0).toList(),
+      magazines.where((m) => unused(m) && score(userTags, m) > 0).toList(),
       (m) => score(userTags, m),
       daySeed: daySeed,
     );
-    final directKeys = direct.map(_keyOf).toSet();
+    for (final m in direct) {
+      if (selected.length >= directTarget) break;
+      take(m);
+    }
+
+    // ③ 의미가 가까운 폴백.
     final fallback = _rankBy(
       magazines
-          .where((m) => !directKeys.contains(_keyOf(m)))
-          .where((m) => fallbackScore(userTags, m) > 0)
+          .where((m) => unused(m) && fallbackScore(userTags, m) > 0)
           .toList(),
       (m) => fallbackScore(userTags, m),
       daySeed: daySeed,
     );
+    for (final m in fallback) {
+      if (selected.length >= maxItems) break;
+      take(m);
+    }
 
-    final selected = <Magazine>[];
-    selected.addAll(direct.take(directTarget));
-    selected.addAll(fallback.take(maxItems - selected.length));
-
+    // ④ 발견 후보로 나머지 칸 채움.
     if (selected.length < maxItems) {
-      final used = selected.map(_keyOf).toSet();
       final discovery = _rankBy(
-        magazines.where((m) => !used.contains(_keyOf(m))).toList(),
+        magazines.where(unused).toList(),
         (m) => score(userTags, m),
         daySeed: daySeed,
       );
-      selected.addAll(discovery.take(maxItems - selected.length));
+      for (final m in discovery) {
+        if (selected.length >= maxItems) break;
+        take(m);
+      }
     }
 
     return arrangeForShelf(selected.take(maxItems).toList());
   }
 
+  /// 취향 칩을 눌렀을 때 포커스할 선반 인덱스.
+  ///
+  /// 1) 직접 매칭이 있으면 그 매거진 ([buildInitialShelf]가 보통 보장한다)
+  /// 2) 없으면 **의미가 가장 가까운** 매거진 (가중치 폴백 — 등산이면 야구보다
+  ///    자연·산책 쪽). 이때 화면에는 "가까운 취향의 매거진을 보여드릴게요"
+  ///    안내가 함께 뜬다.
+  /// 3) 그마저 없으면 null (포커스 유지)
   static int? focusIndexForTaste(List<Magazine> shelf, String selectedTaste) {
     if (shelf.isEmpty) return null;
+
     final direct = _rankBy(
       shelf.where((m) => score([selectedTaste], m) > 0).toList(),
       (m) => score([selectedTaste], m),

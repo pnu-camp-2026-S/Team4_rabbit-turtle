@@ -97,9 +97,15 @@ class MagazineService {
   }
 
   /// [시드] kMagazines 카탈로그를 Firestore에 동기화 (멱등).
-  /// - 제목이 같은 기존 문서: tags가 비어 있으면 태그/순서만 채움
+  /// - 제목이 같은 기존 문서: 태그가 **다르면** 태그/순서를 갱신
   /// - 없는 매거진: 새로 추가
   /// 이미 맞춰져 있으면 쓰기 0회. rules상 쓰기 금지면 조용히 건너뜀.
+  ///
+  /// ⚠️ 어휘(taste_taxonomy)를 바꾸면 매거진 태그도 함께 바뀐다. 그 변경이
+  /// 실제 앱에 반영되려면 이 동기화가 **1회 성공해야 한다.**
+  /// 기본 rules는 magazines 쓰기를 막으므로, 카탈로그를 갱신할 때는
+  /// Firebase 콘솔에서 규칙을 잠시 열고 앱을 한 번 실행한 뒤 되돌린다.
+  /// (자세한 절차: docs/ui_keyword_vocabulary.md)
   Future<void> syncCatalog() async {
     try {
       final snapshot = await _db.collection('magazines').get();
@@ -124,21 +130,42 @@ class MagazineService {
           });
           writes++;
         } else {
-          final tags =
-              List<String>.from(existing.data()['tags'] as List<dynamic>? ?? const []);
-          if (tags.isEmpty) {
-            batch.update(existing.reference, {'tags': m.tags, 'order': i});
+          // 달라진 필드만 골라 갱신한다. `order`는 손대지 않는다 —
+          // 이미 시드된 매거진의 선반 순서를 흔들지 않기 위해서.
+          final data = existing.data();
+          final tags = List<String>.from(
+            data['tags'] as List<dynamic>? ?? const [],
+          );
+          final changed = <String, Object?>{
+            if (!_sameTags(tags, m.tags)) 'tags': m.tags,
+            if ((data['coverUrl'] as String? ?? '') != m.coverUrl)
+              'coverUrl': m.coverUrl,
+            if ((data['tagline'] as String? ?? '') != m.tagline)
+              'tagline': m.tagline,
+            if ((data['issue'] as String? ?? '') != m.issue) 'issue': m.issue,
+          };
+          if (changed.isNotEmpty) {
+            batch.update(existing.reference, changed);
             writes++;
           }
         }
       }
-      if (writes == 0) return;
+      if (writes == 0) {
+        debugPrint('MagazineService.syncCatalog: 변경 없음 (이미 최신)');
+        return;
+      }
       await batch.commit();
       debugPrint('MagazineService.syncCatalog: $writes개 문서 갱신/추가');
     } catch (e) {
       // 오프라인/권한 거부 등 — 카탈로그 동기화 실패해도 앱은 계속
       debugPrint('MagazineService.syncCatalog 실패: $e');
     }
+  }
+
+  /// 순서 무관 태그 동일성 비교.
+  static bool _sameTags(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    return a.toSet().containsAll(b);
   }
 
   /// [시드] 매거진별 아티클(1·2호)을 제목 단위로 멱등 시드.

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
 import '../models/taste_analysis.dart';
+import '../models/taste_taxonomy.dart';
 import 'gemini_proxy_service.dart';
 
 class PhotoTasteAnalyzer {
@@ -1162,70 +1163,8 @@ class TasteAnalysisException implements Exception {
   String toString() => message;
 }
 
-const Map<String, String> _uiKeywordCategories = {
-  '카페': 'FOOD',
-  '커피': 'FOOD',
-  '디저트': 'FOOD',
-  '베이커리': 'FOOD',
-  '브런치': 'FOOD',
-  '전통차': 'FOOD',
-  '와인': 'FOOD',
-  '로컬 맛집': 'FOOD',
-  '미니멀': 'FASHION',
-  '빈티지': 'FASHION',
-  '스트릿': 'FASHION',
-  '클래식': 'FASHION',
-  '디자이너 브랜드': 'FASHION',
-  '스포츠웨어': 'FASHION',
-  '액세서리': 'FASHION',
-  '데일리룩': 'FASHION',
-  '인테리어': 'SPACE',
-  '가구': 'SPACE',
-  '한옥': 'SPACE',
-  '호텔': 'SPACE',
-  '전시 공간': 'SPACE',
-  '서점': 'SPACE',
-  '정원': 'SPACE',
-  '복합문화공간': 'SPACE',
-  '도시 여행': 'TRAVEL',
-  '해외 도시': 'TRAVEL',
-  '랜드마크': 'TRAVEL',
-  '골목 탐방': 'TRAVEL',
-  '자연': 'TRAVEL',
-  '숙소': 'TRAVEL',
-  '미식 여행': 'TRAVEL',
-  '스포츠 여행': 'TRAVEL',
-  '전시': 'ART',
-  '현대미술': 'ART',
-  '건축': 'ART',
-  '공예': 'ART',
-  '디자인': 'ART',
-  '일러스트': 'ART',
-  '사진': 'ART',
-  '아트페어': 'ART',
-  '인디': 'MUSIC',
-  '재즈': 'MUSIC',
-  '라이브 공연': 'MUSIC',
-  '페스티벌': 'MUSIC',
-  '플레이리스트': 'MUSIC',
-  '바이닐': 'MUSIC',
-  '사운드트랙': 'MUSIC',
-  '축구': 'SPORTS',
-  '야구': 'SPORTS',
-  '러닝': 'SPORTS',
-  '요가': 'SPORTS',
-  '클라이밍': 'SPORTS',
-  '스포츠 관람': 'SPORTS',
-  '경기장 투어': 'SPORTS',
-  '독서': 'LIFESTYLE',
-  '웰니스': 'LIFESTYLE',
-  '작업 루틴': 'LIFESTYLE',
-  '홈라이프': 'LIFESTYLE',
-  '반려생활': 'LIFESTYLE',
-  '취미 수집': 'LIFESTYLE',
-  '조용한 휴식': 'LIFESTYLE',
-  '로컬 탐방': 'LIFESTYLE',
-};
+/// 키워드 → 카테고리 ID. taste_taxonomy 단일 출처에서 파생.
+final Map<String, String> _uiKeywordCategories = kCategoryIdOfKeyword;
 
 const Map<String, List<String>> _uiKeywordConcepts = {
   '카페': ['food_drink.cafe'],
@@ -1292,21 +1231,15 @@ const Map<String, List<String>> _uiKeywordConcepts = {
   '로컬 탐방': ['lifestyle.local_exploration'],
 };
 
-final Set<String> _allowedUiKeywords = _uiKeywordCategories.keys.toSet();
+/// 허용 어휘 (AI 출력 검증). taste_taxonomy 단일 출처에서 파생.
+final Set<String> _allowedUiKeywords = kAllTasteKeywordSet;
 
-const String _prompt = '''
+final String _prompt = '''
 Use the Photo Taste Analyzer skill to analyze user photos for LOGZINE, an editorial magazine recommendation app.
 
 Rules:
 - Output ONLY UI keywords from this allowed vocabulary:
-FOOD: 카페, 커피, 디저트, 베이커리, 브런치, 전통차, 와인, 로컬 맛집
-FASHION: 미니멀, 빈티지, 스트릿, 클래식, 디자이너 브랜드, 스포츠웨어, 액세서리, 데일리룩
-SPACE: 인테리어, 가구, 한옥, 호텔, 전시 공간, 서점, 정원, 복합문화공간
-TRAVEL: 도시 여행, 해외 도시, 랜드마크, 골목 탐방, 자연, 숙소, 미식 여행, 스포츠 여행
-ART: 전시, 현대미술, 건축, 공예, 디자인, 일러스트, 사진, 아트페어
-MUSIC: 인디, 재즈, 라이브 공연, 페스티벌, 플레이리스트, 바이닐, 클래식, 사운드트랙
-SPORTS: 축구, 야구, 러닝, 요가, 클라이밍, 스포츠 관람, 경기장 투어, 스포츠 여행
-LIFESTYLE: 독서, 웰니스, 작업 루틴, 홈라이프, 반려생활, 취미 수집, 조용한 휴식, 로컬 탐방
+${buildTaxonomyPromptBlock()}
 - Do not create free labels outside the vocabulary.
 - Do not list every visible object. Keep only recommendation-relevant taste signals.
 - Ignore accidental background noise, passersby, small clutter, and sensitive personal attributes.
@@ -1325,20 +1258,13 @@ Examples:
 - Jazz bar performance photo: keywords 재즈, 라이브 공연; more_signals 바이닐, 와인.
 ''';
 
-const String _refinerPrompt = '''
+final String _refinerPrompt = '''
 Use the Taste Keyword Refiner skill to merge photo keywords, selected chips, deselected chips, and free-text feedback into final recommendation keywords for LOGZINE.
 
 Rules:
 - You are the only component that decides final user taste keywords from free_text_feedback. The app will render and save only main_keywords.
 - Output ONLY UI keywords from this allowed vocabulary:
-FOOD: 카페, 커피, 디저트, 베이커리, 브런치, 전통차, 와인, 로컬 맛집
-FASHION: 미니멀, 빈티지, 스트릿, 클래식, 디자이너 브랜드, 스포츠웨어, 액세서리, 데일리룩
-SPACE: 인테리어, 가구, 한옥, 호텔, 전시 공간, 서점, 정원, 복합문화공간
-TRAVEL: 도시 여행, 해외 도시, 랜드마크, 골목 탐방, 자연, 숙소, 미식 여행, 스포츠 여행
-ART: 전시, 현대미술, 건축, 공예, 디자인, 일러스트, 사진, 아트페어
-MUSIC: 인디, 재즈, 라이브 공연, 페스티벌, 플레이리스트, 바이닐, 클래식, 사운드트랙
-SPORTS: 축구, 야구, 러닝, 요가, 클라이밍, 스포츠 관람, 경기장 투어, 스포츠 여행
-LIFESTYLE: 독서, 웰니스, 작업 루틴, 홈라이프, 반려생활, 취미 수집, 조용한 휴식, 로컬 탐방
+${buildTaxonomyPromptBlock()}
 - Do semantic interpretation, not word matching. Understand whether a sentence means preference, dislike, fear/avoidance, correction, context, or explanation.
 - User free-text feedback always has higher priority than AI guesses and chip state.
 - If the user explicitly dislikes, negates, fears, or avoids a meaning, do not make that phrase a keyword. Put the closest UI keyword in excluded_keywords or downweighted_keywords.
