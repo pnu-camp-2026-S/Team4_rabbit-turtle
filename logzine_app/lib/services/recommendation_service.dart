@@ -259,18 +259,32 @@ class RecommendationService {
 
   /// 취향 칩을 눌렀을 때 포커스할 선반 인덱스.
   ///
-  /// **직접 매칭만** 인정한다. 선반에 그 취향의 매거진이 없으면 null을 돌려
-  /// 포커스를 옮기지 않는다 — 의미가 먼 매거진(등산 → 야구)으로 튀느니
-  /// 가만히 있는 편이 낫다. ([buildInitialShelf]가 보통 이 상황을 막아준다)
+  /// 1) 직접 매칭이 있으면 그 매거진 ([buildInitialShelf]가 보통 보장한다)
+  /// 2) 없으면 **의미가 가장 가까운** 매거진 (가중치 폴백 — 등산이면 야구보다
+  ///    자연·산책 쪽). 이때 화면에는 "가까운 취향의 매거진을 보여드릴게요"
+  ///    안내가 함께 뜬다.
+  /// 3) 그마저 없으면 null (포커스 유지)
   static int? focusIndexForTaste(List<Magazine> shelf, String selectedTaste) {
     if (shelf.isEmpty) return null;
+
     final direct = _rankBy(
       shelf.where((m) => score([selectedTaste], m) > 0).toList(),
       (m) => score([selectedTaste], m),
     );
-    if (direct.isEmpty) return null;
-    final key = _keyOf(direct.first);
-    return shelf.indexWhere((m) => _keyOf(m) == key);
+    if (direct.isNotEmpty) {
+      final key = _keyOf(direct.first);
+      return shelf.indexWhere((m) => _keyOf(m) == key);
+    }
+
+    final fallback = _rankBy(
+      shelf.where((m) => fallbackScore([selectedTaste], m) > 0).toList(),
+      (m) => fallbackScore([selectedTaste], m),
+    );
+    if (fallback.isNotEmpty) {
+      final key = _keyOf(fallback.first);
+      return shelf.indexWhere((m) => _keyOf(m) == key);
+    }
+    return null;
   }
 
   static RecommendationListResult listForTaste(

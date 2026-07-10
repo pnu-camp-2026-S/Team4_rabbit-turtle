@@ -213,23 +213,91 @@ void main() {
       expect(shelf[index!].title, 'HOLD');
     });
 
-    test('선반에 그 취향의 매거진이 없으면 엉뚱한 곳으로 튀지 않는다 (null)', () {
-      final index = RecommendationService.focusIndexForTaste([baseball], '등산');
-      expect(index, isNull);
+    const nature = Magazine(
+      title: 'Run Log',
+      tagline: '',
+      issue: '',
+      coverUrl: '',
+      tags: ['러닝', '웰니스', '자연'],
+    );
+
+    test('직접 매칭이 없으면 의미가 가까운 매거진으로 간다 (야구가 아니라 자연)', () {
+      final index = RecommendationService.focusIndexForTaste([
+        baseball,
+        nature,
+      ], '등산');
+      expect(index, isNotNull);
+      expect(shelfTitle([baseball, nature], index!), 'Run Log');
     });
 
     test('폴백은 큐레이트된 이웃(자연·산책)을 형제(야구)보다 우선한다', () {
-      const nature = Magazine(
-        title: 'Run Log',
-        tagline: '',
-        issue: '',
-        coverUrl: '',
-        tags: ['러닝', '웰니스', '자연'],
-      );
       expect(
         RecommendationService.fallbackScore(['등산'], nature),
         greaterThan(RecommendationService.fallbackScore(['등산'], baseball)),
       );
     });
   });
+
+  group('선반은 언제나 채워진다 (빈 선반 방지)', () {
+    List<Magazine> catalogOf(int n) => [
+      for (var i = 0; i < n; i++)
+        Magazine(
+          title: 'MAG$i',
+          tagline: '',
+          issue: '',
+          coverUrl: '',
+          tags: const ['인테리어'],
+        ),
+    ];
+
+    test('취향이 하나도 안 맞아도 6칸을 채운다', () {
+      final shelf = RecommendationService.buildInitialShelf(
+        ['축구', '고양이', '힙합'], // 어떤 매거진과도 안 맞는 취향
+        catalogOf(10),
+        daySeed: 1,
+      );
+      expect(shelf.length, 6);
+    });
+
+    test('취향이 비어 있어도 6칸을 채운다', () {
+      final shelf = RecommendationService.buildInitialShelf(
+        const [],
+        catalogOf(10),
+        daySeed: 1,
+      );
+      expect(shelf.length, 6);
+    });
+
+    test('카탈로그가 6종보다 적으면 있는 만큼만 채운다', () {
+      final shelf = RecommendationService.buildInitialShelf(
+        ['축구'],
+        catalogOf(3),
+        daySeed: 1,
+      );
+      expect(shelf.length, 3);
+    });
+
+    test('카탈로그가 비면 빈 선반 (앱은 폴백 문구를 보여준다)', () {
+      final shelf = RecommendationService.buildInitialShelf(['축구'], const []);
+      expect(shelf, isEmpty);
+    });
+
+    test('실제 카탈로그로도 항상 6칸이 찬다', () {
+      for (final taste in [
+        <String>[],
+        ['등산'],
+        ['커피', '베이커리', '와인', '등산'],
+        ['힙합', '고양이', '배구', '와인', '건축', '독서'],
+      ]) {
+        final shelf = RecommendationService.buildInitialShelf(
+          taste,
+          kMagazines,
+          daySeed: 1,
+        );
+        expect(shelf.length, 6, reason: '취향 $taste 에서 선반이 덜 참');
+      }
+    });
+  });
 }
+
+String shelfTitle(List<Magazine> shelf, int index) => shelf[index].title;
