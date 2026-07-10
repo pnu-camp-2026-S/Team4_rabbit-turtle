@@ -130,18 +130,30 @@ class MagazineService {
           });
           writes++;
         } else {
+          // 달라진 필드만 골라 갱신한다. `order`는 손대지 않는다 —
+          // 이미 시드된 매거진의 선반 순서를 흔들지 않기 위해서.
+          final data = existing.data();
           final tags = List<String>.from(
-            existing.data()['tags'] as List<dynamic>? ?? const [],
+            data['tags'] as List<dynamic>? ?? const [],
           );
-          // 태그가 비었거나 카탈로그와 달라졌으면 갱신 —
-          // 어휘 개편(취향 세분화) 시 옛 태그가 남지 않게 한다.
-          if (!_sameTags(tags, m.tags)) {
-            batch.update(existing.reference, {'tags': m.tags, 'order': i});
+          final changed = <String, Object?>{
+            if (!_sameTags(tags, m.tags)) 'tags': m.tags,
+            if ((data['coverUrl'] as String? ?? '') != m.coverUrl)
+              'coverUrl': m.coverUrl,
+            if ((data['tagline'] as String? ?? '') != m.tagline)
+              'tagline': m.tagline,
+            if ((data['issue'] as String? ?? '') != m.issue) 'issue': m.issue,
+          };
+          if (changed.isNotEmpty) {
+            batch.update(existing.reference, changed);
             writes++;
           }
         }
       }
-      if (writes == 0) return;
+      if (writes == 0) {
+        debugPrint('MagazineService.syncCatalog: 변경 없음 (이미 최신)');
+        return;
+      }
       await batch.commit();
       debugPrint('MagazineService.syncCatalog: $writes개 문서 갱신/추가');
     } catch (e) {
